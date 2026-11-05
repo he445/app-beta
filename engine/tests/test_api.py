@@ -100,6 +100,12 @@ def test_full_review_flow(client: TestClient, small_batch: Path) -> None:
     )
     assert img.status_code == 200 and img.headers["content-type"] == "image/png"
 
+    undo = client.delete(f"/findings/{skew['id']}/decision", headers=AUTH)
+    assert undo.status_code == 200
+    assert "decision" not in undo.json()["finding"]
+    again = client.delete(f"/findings/{skew['id']}/decision", headers=AUTH)
+    assert again.status_code == 409
+
     blur = next(f for f in report["findings"] if f["rule"] == "blur")
     r = client.post(
         f"/findings/{blur['id']}/decision",
@@ -124,8 +130,20 @@ def test_full_review_flow(client: TestClient, small_batch: Path) -> None:
     assert client.post(f"/batches/{batch_id}/exports", headers=AUTH).status_code == 201
     csv = client.get(f"/batches/{batch_id}/exports/rework_order.csv", headers=AUTH)
     assert csv.status_code == 200 and csv.text.startswith("station,box,document")
-    meta = client.get(f"/documents/{report['documents'][0]['id']}/metadata", headers=AUTH)
+    doc_id = report["documents"][0]["id"]
+    meta = client.get(f"/documents/{doc_id}/metadata", headers=AUTH)
     assert meta.status_code == 200
+    put = client.put(
+        f"/documents/{doc_id}/metadata/title",
+        headers=AUTH,
+        json={"value": "Contrato de locação", "reviewer": "g1"},
+    )
+    assert put.status_code == 200, put.text
+    title = next(f for f in put.json() if f["name"] == "title")
+    assert title["source"] == "reviewer"
+    assert title["confirmed"] is True
+    again_meta = client.get(f"/documents/{doc_id}/metadata", headers=AUTH).json()
+    assert next(f for f in again_meta if f["name"] == "title")["value"] == "Contrato de locação"
     events = client.get(f"/batches/{batch_id}/events", headers=AUTH)
     assert "event: done" in events.text
 
@@ -160,3 +178,16 @@ def test_profiles(client: TestClient) -> None:
     assert client.put("/profiles/outro", json=new, headers=AUTH).status_code == 200
     bad = {**new, "detectors": {"blur": {"params": {"inexistente": 1}}}}
     assert client.put("/profiles/outro", json=bad, headers=AUTH).status_code == 422
+
+
+def test_repository_is_thread_safe(tmp_path: Path) -> None:
+    """Regressão: leituras simultâneas da API quebravam com InterfaceError."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    from qa_engine.adapters.sqlite import SqliteRepository
+
+    repo = SqliteRepository(tmp_path / "x.sqlite3")
+    repo.create_batch("b", "lote", "demo", tmp_path, "2026-11-05T00:00:00Z")
+    with ThreadPoolExecutor(16) as pool:
+        results = list(pool.map(lambda _: repo.get_batch("b"), range(2000)))
+    assert all(r is not None and r.name == "lote" for r in results)

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QA Automático de Digitalização — API do motor
-  version: 0.1.0
+  version: 0.2.0
   summary: Contrato entre a interface web, a linha de comando e o motor de análise.
   description: |
     Fonte da verdade do sistema (ADR-0002). Modelos de cada linguagem são gerados a partir
@@ -220,6 +220,27 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
+    delete:
+      tags: [review]
+      operationId: undoDecision
+      summary: Desfazer a última decisão (Ctrl+Z)
+      description: |
+        Remove a decisão vigente da sinalização e registra "undo" no histórico. Uma cópia
+        corrigida já gerada é mantida (o log de correções é só de inserção).
+      responses:
+        "200":
+          description: Sinalização sem decisão e painel recalculado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [finding, summary]
+                properties:
+                  finding: { $ref: "schemas/finding.schema.json" }
+                  summary: { $ref: "schemas/batch-summary.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
   /pages/{page_id}/image:
     parameters:
       - $ref: "#/components/parameters/PageId"
@@ -284,6 +305,36 @@ paths:
       responses:
         "200":
           description: Metadados do documento
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "schemas/metadata-field.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /documents/{document_id}/metadata/{name}:
+    parameters:
+      - name: document_id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+      - name: name
+        in: path
+        required: true
+        schema: { type: string, pattern: "^[a-z0-9_]+$" }
+    put:
+      tags: [batches]
+      operationId: putMetadataField
+      summary: Confirmar ou corrigir um metadado (tela 7)
+      description: O valor passa a ter fonte `reviewer`, confiança 1 e `confirmed = true`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "schemas/metadata-update.schema.json" }
+      responses:
+        "200":
+          description: Metadados do documento atualizados
           content:
             application/json:
               schema:

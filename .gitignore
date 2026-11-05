@@ -27,3 +27,6 @@ site/
 .idea/
 .vscode/
 .DS_Store
+
+# TypeScript
+*.tsbuildinfo

@@ -60,6 +60,16 @@ class SqliteRepository:
         """Fecha a conexão."""
         self._conn.close()
 
+    def _one(self, sql: str, params: tuple[Any, ...] = ()) -> sqlite3.Row | None:
+        # A conexão é compartilhada entre as threads da API: toda leitura passa pelo lock.
+        with self._lock:
+            row: sqlite3.Row | None = self._conn.execute(sql, params).fetchone()
+            return row
+
+    def _all(self, sql: str, params: tuple[Any, ...] = ()) -> list[sqlite3.Row]:
+        with self._lock:
+            return list(self._conn.execute(sql, params).fetchall())
+
     @contextmanager
     def _tx(self) -> Iterator[sqlite3.Connection]:
         with self._lock:
@@ -178,19 +188,17 @@ class SqliteRepository:
 
     def get_batch(self, batch_id: str) -> BatchRow | None:
         """Lote pelo identificador."""
-        row = self._conn.execute("SELECT * FROM batches WHERE id = ?", (batch_id,)).fetchone()
+        row = self._one("SELECT * FROM batches WHERE id = ?", (batch_id,))
         return _batch(row) if row else None
 
     def list_batches(self) -> list[BatchRow]:
         """Todos os lotes, do mais recente ao mais antigo."""
-        rows = self._conn.execute("SELECT * FROM batches ORDER BY created_at DESC, id").fetchall()
+        rows = self._all("SELECT * FROM batches ORDER BY created_at DESC, id")
         return [_batch(r) for r in rows]
 
     def get_report(self, batch_id: str) -> dict[str, Any] | None:
         """Relatório com as sinalizações e decisões vigentes."""
-        row = self._conn.execute(
-            "SELECT report_json, summary_json FROM batches WHERE id = ?", (batch_id,)
-        ).fetchone()
+        row = self._one("SELECT report_json, summary_json FROM batches WHERE id = ?", (batch_id,))
         if row is None or row["report_json"] is None:
             return None
         report: dict[str, Any] = json.loads(row["report_json"])
@@ -200,16 +208,14 @@ class SqliteRepository:
 
     def findings(self, batch_id: str) -> list[dict[str, Any]]:
         """Sinalizações do lote, na ordem do relatório."""
-        rows = self._conn.execute(
+        rows = self._all(
             "SELECT finding_json FROM findings WHERE batch_id = ? ORDER BY ord", (batch_id,)
-        ).fetchall()
+        )
         return [json.loads(r[0]) for r in rows]
 
     def get_finding(self, finding_id: str) -> tuple[str, dict[str, Any]] | None:
         """``(batch_id, finding)`` pelo identificador."""
-        row = self._conn.execute(
-            "SELECT batch_id, finding_json FROM findings WHERE id = ?", (finding_id,)
-        ).fetchone()
+        row = self._one("SELECT batch_id, finding_json FROM findings WHERE id = ?", (finding_id,))
         return (row[0], json.loads(row[1])) if row else None
 
     def record_decision(
@@ -240,10 +246,45 @@ class SqliteRepository:
                 (json.dumps(summary), batch_id),
             )
 
+    def undo_decision(
+        self,
+        batch_id: str,
+        finding: Mapping[str, Any],
+        reviewer: str,
+        at: str,
+        summary: Mapping[str, Any],
+    ) -> None:
+        """Grava a sinalização sem decisão e registra ``undo`` no histórico."""
+        with self._tx() as c:
+            c.execute(
+                "UPDATE findings SET finding_json = ? WHERE id = ?",
+                (json.dumps(finding, ensure_ascii=False), finding["id"]),
+            )
+            c.execute(
+                "INSERT INTO decisions (finding_id, batch_id, rule, action, reviewer, decided_at)"
+                " VALUES (?, ?, ?, 'undo', ?, ?)",
+                (finding["id"], batch_id, finding["rule"], reviewer, at),
+            )
+            c.execute(
+                "UPDATE batches SET summary_json = ? WHERE id = ?",
+                (json.dumps(summary), batch_id),
+            )
+
+    def update_metadata(self, batch_id: str, document_id: str, fields: list[Any]) -> None:
+        """Substitui os metadados de um documento no relatório."""
+        with self._tx() as c:
+            row = c.execute("SELECT report_json FROM batches WHERE id = ?", (batch_id,)).fetchone()
+            body = json.loads(row[0])
+            body["metadata"][document_id] = fields
+            c.execute(
+                "UPDATE batches SET report_json = ? WHERE id = ?",
+                (json.dumps(body, ensure_ascii=False), batch_id),
+            )
+
     def decision_stats(self) -> dict[str, dict[str, int]]:
         """Contagem de decisões por regra e ação (precisão real de cada detector)."""
         stats: dict[str, dict[str, int]] = {}
-        for rule, action, count in self._conn.execute(
+        for rule, action, count in self._all(
             "SELECT rule, action, COUNT(*) FROM decisions GROUP BY rule, action ORDER BY rule"
         ):
             stats.setdefault(rule, {})[action] = count
@@ -253,14 +294,12 @@ class SqliteRepository:
 
     def get_page(self, page_id: str) -> dict[str, Any] | None:
         """Página pelo identificador."""
-        row = self._conn.execute("SELECT * FROM pages WHERE id = ?", (page_id,)).fetchone()
+        row = self._one("SELECT * FROM pages WHERE id = ?", (page_id,))
         return dict(row) if row else None
 
     def document_batch(self, document_id: str) -> str | None:
         """Lote de um documento."""
-        row = self._conn.execute(
-            "SELECT batch_id FROM pages WHERE document_id = ? LIMIT 1", (document_id,)
-        ).fetchone()
+        row = self._one("SELECT batch_id FROM pages WHERE document_id = ? LIMIT 1", (document_id,))
         return str(row[0]) if row else None
 
     def set_numbering(
@@ -277,9 +316,9 @@ class SqliteRepository:
 
     def numbering_overrides(self, batch_id: str) -> dict[str, str]:
         """Numerações digitadas pelo revisor, por página."""
-        rows = self._conn.execute(
+        rows = self._all(
             "SELECT page_id, value FROM numbering_overrides WHERE batch_id = ?", (batch_id,)
-        ).fetchall()
+        )
         return {r[0]: r[1] for r in rows}
 
     # Retenção ---------------------------------------------------------------

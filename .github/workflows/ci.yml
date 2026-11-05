@@ -32,6 +32,26 @@ jobs:
       - name: Suíte de conformidade
         run: uv run pytest -m conformance
 
+  ui:
+    name: Interface (tipos do contrato, typecheck, testes, build)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: npm ci
+      - name: Tipos gerados em dia com o contrato
+        run: npm run gen && git diff --exit-code src/api/schema.d.ts
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
   contract:
     name: Contrato (Spectral + oasdiff)
     runs-on: ubuntu-24.04

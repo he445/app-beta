@@ -152,7 +152,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.add_middleware(
             CORSMiddleware,
             allow_origins=list(settings.cors_origins),
-            allow_methods=["GET", "POST", "PUT"],
+            allow_methods=["GET", "POST", "PUT", "DELETE"],
             allow_headers=["Authorization", "Content-Type"],
         )
 
@@ -333,6 +333,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             response["applied"] = applied
         return response
 
+    @app.delete("/findings/{finding_id}/decision")
+    def undo_decision(finding_id: str, reviewer: str = "revisor") -> dict[str, Any]:
+        found = engine.repo.get_finding(finding_id)
+        if found is None:
+            raise HTTPException(404, "sinalização não encontrada")
+        batch_id, finding = found
+        if not finding.get("decision"):
+            raise HTTPException(409, "a sinalização não tem decisão para desfazer")
+        row = batch_or_404(batch_id)
+        profile = engine.profile(row.profile_id)
+        updated = {k: v for k, v in finding.items() if k != "decision"}
+        report = engine.repo.get_report(batch_id)
+        assert report is not None
+        report["findings"] = [updated if f["id"] == finding_id else f for f in report["findings"]]
+        summary = recompute_summary(report, profile)
+        engine.repo.undo_decision(batch_id, updated, reviewer, iso(engine.now()), summary)
+        return {"finding": updated, "summary": summary}
+
     @app.put("/pages/{page_id}/numbering")
     def put_numbering(page_id: str, body: Annotated[dict[str, Any], Body()]) -> dict[str, Any]:
         validate(body, "numbering-update.schema.json")
@@ -393,6 +411,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if batch_id is None:
             raise HTTPException(404, "documento não encontrado")
         fields: list[dict[str, Any]] = report_or_409(batch_id)["metadata"][document_id]
+        return fields
+
+    @app.put("/documents/{document_id}/metadata/{name}")
+    def put_metadata(
+        document_id: str, name: str, body: Annotated[dict[str, Any], Body()]
+    ) -> list[dict[str, Any]]:
+        validate(body, "metadata-update.schema.json")
+        batch_id = engine.repo.document_batch(document_id)
+        if batch_id is None:
+            raise HTTPException(404, "documento não encontrado")
+        fields: list[dict[str, Any]] = report_or_409(batch_id)["metadata"][document_id]
+        field = next((f for f in fields if f["name"] == name), None)
+        if field is None:
+            raise HTTPException(404, f"metadado {name!r} não existe neste documento")
+        if "value" in body:
+            field["value"] = body["value"]
+            field["source"] = "reviewer"
+            field["confidence"] = 1.0
+        field["confirmed"] = True
+        field["note"] = f"Confirmado por {body['reviewer']} em {iso(engine.now())}."
+        validate(field, "metadata-field.schema.json")
+        engine.repo.update_metadata(batch_id, document_id, fields)
         return fields
 
     @app.post("/batches/{batch_id}/exports", status_code=201)

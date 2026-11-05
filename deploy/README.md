@@ -12,5 +12,8 @@ docker run -p 8000:8000 -v qa-data:/data \
   qa-engine
 ```
 
+A interface é um site estático: `cd ui && VITE_API_URL=https://motor.exemplo npm run build`
+e publique `ui/dist/` (Vercel, Netlify, GitHub Pages ou qualquer servidor de arquivos).
+
 Variáveis em [docs/guides/instalar.md](../docs/guides/instalar.md). Em produção, defina
 sempre `QA_API_TOKEN` e `QA_CORS_ORIGINS` e sirva atrás de HTTPS.

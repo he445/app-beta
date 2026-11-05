@@ -1,17 +1,62 @@
-# Interface web (próximo incremento)
+# Interface web
 
-Ainda não implementada. Escopo, na ordem de prioridade para a demonstração:
+Site estático (React + TypeScript + Vite) que fala com o motor só pela API de
+[`contracts/openapi.yaml`](../contracts/openapi.yaml). Nada é instalado nos computadores:
+basta o navegador (ADR-0001).
 
-1. Enviar lote (pasta ou `.zip`, perfil, manifesto) com o aviso de que documento de cliente
-   é proibido.
-2. Processamento ao vivo (`GET /batches/{id}/events`).
-3. Painel do lote: veredito, contagens, % que dispensa revisão, defeitos por estação.
-4. Fila de revisão por teclado (A, C, R, O, setas, espaço, Ctrl+Z, 1–4, N), meta de uma
-   decisão por segundo.
-5. Detalhe da página com a região destacada, medida, limiar e antes/depois.
-6. Sequência do documento com a numeração lida e a reordenação proposta.
-7. Metadados editáveis, relatório e ordem de retrabalho, perfis.
+## Rodar
 
-Pilha (seção 14 do ADD): React + TypeScript + Vite, TanStack Query, OpenSeadragon, tipos
-gerados de `contracts/openapi.yaml` com openapi-typescript. Site estático; fala com o
-motor só pela API.
+```bash
+# 1. motor
+cd engine && QA_API_TOKEN=demo-token uv run python -m qa_engine.entrypoints.http
+# 2. interface (outra aba); /api é encaminhado para localhost:8000
+cd ui && npm ci && npm run dev        # http://localhost:5173
+```
+
+Entre com seu nome (gravado em cada decisão) e o token. Para publicar como site estático:
+
+```bash
+VITE_API_URL=https://motor.exemplo npm run build   # gera dist/
+```
+
+e configure `QA_CORS_ORIGINS` no motor com o domínio do site.
+
+## Telas (seção 12 do ADD)
+
+| # | Tela | Rota |
+| --- | --- | --- |
+| 1 | Enviar lote (pasta arrastada ou `.zip`, perfil, manifesto, numeração) | `#/` |
+| 2 | Processamento ao vivo (SSE) | `#/batches/<id>` |
+| 3 | Painel do lote | `#/batches/<id>` |
+| 4–5 | Fila de revisão e detalhe da página, pelo teclado | `#/batches/<id>/review` |
+| 6 | Sequência do documento | `#/batches/<id>/sequence/<doc>` |
+| 7 | Metadados editáveis | `#/batches/<id>/metadata/<doc>` |
+| 8 | Relatório e ordem de retrabalho | `#/batches/<id>/reports` |
+| 9 | Perfis | `#/profiles` |
+
+Atalhos da revisão: **A** aprovar, **C** corrigir, **R** retrabalho, **O** defeito de
+origem, **← →** navegar, **Espaço** ampliar, **Ctrl+Z** desfazer, **1–4** filtrar por
+severidade, **N** digitar a numeração.
+
+## Estrutura
+
+```text
+src/api/schema.d.ts   tipos gerados do contrato (npm run gen; não editar)
+src/api/              cliente HTTP, SSE via fetch, hooks do TanStack Query
+src/lib/              lógica pura e testada: fila, atalhos, CSV, arquivos arrastados
+src/components/       visualizador OpenSeadragon, miniaturas, emblemas
+src/screens/          uma tela por arquivo
+e2e/                  fluxo completo no navegador (Playwright)
+```
+
+## Verificações
+
+```bash
+npm run gen && git diff --exit-code src/api/schema.d.ts   # tipos em dia com o contrato
+npm run typecheck && npm test && npm run build
+node e2e/fluxo-completo.cjs ../lote-demo.zip /tmp/capturas  # com motor e vite no ar
+```
+
+O fluxo completo envia um `.zip`, espera o painel, decide pelo teclado, desfaz, aplica
+uma correção automática e confere o "depois", abre sequência, edita um metadado, baixa a
+ordem de retrabalho e confere que não há erro de console nem rolagem horizontal no celular.

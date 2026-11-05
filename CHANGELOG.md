@@ -8,6 +8,19 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Interface web (`ui/`): envio de pasta ou `.zip`, progresso ao vivo, painel do lote, fila
+  de revisão pelo teclado (A, C, R, O, setas, espaço, Ctrl+Z, 1–4, N) com zoom
+  OpenSeadragon e área do defeito destacada, antes e depois da correção, sequência do
+  documento com canto da numeração ampliado e reordenação, metadados editáveis, relatório
+  e ordem de retrabalho por estação, perfis. Tipos gerados do contrato (ADR-0008).
+- Contrato 0.2.0: `DELETE /findings/{id}/decision` e
+  `PUT /documents/{id}/metadata/{name}`, com o esquema `metadata-update`.
+
+### Corrigido
+
+- Leituras simultâneas na API compartilhavam a conexão SQLite sem lock e falhavam com
+  `InterfaceError` sob carga (miniaturas da interface); teste de regressão incluído.
+
 - Contrato OpenAPI 3.1 e 17 JSON Schemas 2020-12 (`contracts/`).
 - Especificação independente de linguagem: layout do lote, 8 detectores de página,
   sequência e completude, pontuação e veredito, metadados (`spec/`).

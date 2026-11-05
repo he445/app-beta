@@ -27,6 +27,7 @@ nav:
   - ADD: add.md
   - Guias:
       - Instalar: guides/instalar.md
+      - Interface de revisão: guides/interface.md
       - Demonstração: guides/demonstracao.md
       - Criar um detector: guides/criar-detector.md
       - Portar para outra linguagem: guides/portar-linguagem.md
@@ -40,6 +41,7 @@ nav:
           - "0005 SQLite com SQL puro": adr/0005-sqlite-sql-puro.md
           - "0006 Código em inglês": adr/0006-codigo-em-ingles-documentacao-em-portugues.md
           - "0007 Conformidade gerada": adr/0007-fixtures-de-conformidade-gerados.md
+          - "0008 Interface web": adr/0008-interface-web.md
           - Modelo: adr/0000-template.md
   - Referência:
       - API: reference/api.md

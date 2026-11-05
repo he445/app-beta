@@ -29,6 +29,9 @@ uv run ruff check . && uv run ruff format --check . && uv run mypy
 uv run pytest
 ```
 
+Na interface (`ui/`): `npm run gen` depois de mudar o contrato, `npm run typecheck`,
+`npm test` e o fluxo completo de `ui/e2e/` antes de mudanças visíveis.
+
 - Commits em português, no formato Conventional Commits (`feat(detectors): ...`).
 - Código e contrato em inglês; documentação e mensagens em português (ADR-0006).
 - Nunca versione lotes de clientes. `.gitignore` já exclui `lote*/`, `saida/` e `data/`.

@@ -18,6 +18,13 @@ uv run --project engine qa analyze lote-demo --profile profiles/demo.yaml --out 
 uv run --project engine python tools/synth/evaluate.py saida/report.json lote-demo/gabarito.json
 ```
 
+Para revisar pela interface web (detalhes em [ui/README.md](ui/README.md)):
+
+```bash
+(cd engine && QA_API_TOKEN=demo-token uv run python -m qa_engine.entrypoints.http) &
+cd ui && npm ci && npm run dev    # http://localhost:5173, token demo-token
+```
+
 Na base sintética de referência (199 páginas A4 a 300 dpi, 4 núcleos, sem GPU): 100% dos
 defeitos críticos encontrados, precisão de 88,7%, 67% das páginas dispensam revisão,
 cerca de 7 páginas por segundo. Detalhes e ressalvas em
@@ -31,6 +38,7 @@ spec/           especificação independente de linguagem (detectores, sequênci
 conformance/    gabarito, tolerâncias e executor que qualquer implementação precisa passar
 engine/         implementação de referência em Python (domain, detectors, application,
                 ports, adapters, entrypoints/http e cli)
+ui/             interface web (React + TypeScript + Vite), tipos gerados do contrato
 profiles/       perfis de cliente (limiares e regras como configuração)
 tools/synth/    gerador da base sintética e medidor de taxa de acerto
 deploy/         Dockerfile do motor

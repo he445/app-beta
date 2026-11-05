@@ -24,3 +24,4 @@ Domínio em português, código em inglês (ADR-0006).
 | Amostragem dos verdes | `green_sample` | Documentos sem sinalização sorteados para revisão humana |
 | Estação | `Station` | Scanner ou posto de captura, ligado a um local no perfil |
 | Gabarito | `gabarito.json` | Lista dos defeitos inseridos na base sintética |
+| Fila de revisão | `buildQueue` (ui) | Sinalizações ordenadas por severidade para decisão pelo teclado |

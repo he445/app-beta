@@ -107,6 +107,7 @@ def test_relative_markdown_links_resolve(repo: Path) -> None:
         *repo.glob("conformance/*.md"),
         *repo.glob("tools/**/*.md"),
         *repo.glob("deploy/*.md"),
+        *repo.glob("ui/*.md"),
     ]
     broken = []
     for path in files:

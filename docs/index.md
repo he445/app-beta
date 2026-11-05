@@ -9,6 +9,7 @@ arquitetura completo está em [ADD](add.md).
 | Para | Leia |
 | --- | --- |
 | Instalar, rodar a CLI, a API e o Docker | [Instalar](guides/instalar.md) |
+| Usar a interface de revisão | [Interface](guides/interface.md) |
 | Repetir a demonstração e medir a taxa de acerto | [Demonstração](guides/demonstracao.md) |
 | Entender a arquitetura | [C4](architecture/c4.md) e [ADRs](adr/0001-web-app-e-motor-em-servidor.md) |
 | Saber exatamente o que cada regra faz | [Especificação](https://github.com/he445/prova-de-conceito/tree/main/spec) |
@@ -19,9 +20,10 @@ arquitetura completo está em [ADD](add.md).
 
 ## Estado do incremento atual
 
-Feito: motor de referência (12 regras), API HTTP, linha de comando, contrato, especificação,
-suíte de conformidade, base sintética com medição de acerto, Docker e CI.
+Feito: motor de referência (12 regras), API HTTP, linha de comando, interface web com as
+9 telas da seção 12 e os atalhos de teclado, contrato, especificação, suíte de
+conformidade, base sintética com medição de acerto, Docker e CI.
 
-Próximo: interface web (React + TypeScript, telas da seção 12), leitor de numeração
+Próximo: leitor de numeração
 manuscrita (TrOCR ou PaddleOCR-VL atrás da porta `NumberingReader`), OCR (orientação,
 espelhamento, legibilidade, índice), validação PDF/A com veraPDF e gravação de XMP.

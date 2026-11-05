@@ -13,9 +13,11 @@ validado pelo Spectral na CI. Com o motor no ar, a interface interativa fica em
 | `GET /batches/{id}/report` | Resultado completo com as decisões |
 | `GET /batches/{id}/findings` | Sinalizações filtradas por severidade, regra e pendência |
 | `POST /findings/{id}/decision` | Aprovar, corrigir (aplica na cópia), reprovar ou defeito de origem |
+| `DELETE /findings/{id}/decision` | Desfazer a decisão (Ctrl+Z) |
 | `GET /pages/{id}/image` | Imagem original ou corrigida |
 | `PUT /pages/{id}/numbering` | Corrigir a numeração (tecla N) e ressolver a sequência |
 | `GET /documents/{id}/metadata` | Metadados com fonte e confiança |
+| `PUT /documents/{id}/metadata/{nome}` | Confirmar ou corrigir um metadado |
 | `POST /batches/{id}/exports` | Gerar relatório, CSVs e ordem de retrabalho |
 | `GET /batches/{id}/exports/{nome}` | Baixar um arquivo exportado |
 | `GET /profiles`, `GET`/`PUT /profiles/{id}` | Perfis validados contra o esquema |
