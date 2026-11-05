@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "numbering-sidecar.schema.json",
+  "title": "NumberingSidecar",
+  "description": "numbering.json: marcas de numeração por página (chave caminho/relativo#n).",
+  "type": "object",
+  "required": [
+    "pages"
+  ],
+  "properties": {
+    "pages": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "readings"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "struck": {
+              "type": "boolean",
+              "default": false
+            },
+            "readings": {
+              "type": "array",
+              "maxItems": 3,
+              "items": {
+                "type": "object",
+                "required": [
+                  "text",
+                  "confidence"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "text": {
+                    "type": "string"
+                  },
+                  "confidence": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

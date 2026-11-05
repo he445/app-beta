@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  engine:
+    name: Motor (lint, tipos, testes, conformidade)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.11.32"
+          enable-cache: true
+      - name: Fontes da base sintética
+        run: sudo apt-get update && sudo apt-get install -y fonts-dejavu-core
+      - run: uv sync --frozen
+      - run: uv run ruff check . ../tools ../conformance
+      - run: uv run ruff format --check . ../tools ../conformance
+      - run: uv run mypy
+      - name: Testes (inclui documentação obrigatória e arquitetura)
+        run: uv run pytest -m "not conformance"
+      - name: Suíte de conformidade
+        run: uv run pytest -m conformance
+
+  contract:
+    name: Contrato (Spectral + oasdiff)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Spectral
+        run: npx -y @stoplight/spectral-cli@6.14.2 lint contracts/openapi.yaml --ruleset .spectral.yaml --fail-severity error
+      - name: oasdiff (quebra exige versão maior)
+        if: github.event_name == 'pull_request'
+        run: |
+          if git cat-file -e "origin/${{ github.base_ref }}:contracts/openapi.yaml" 2>/dev/null; then
+            git worktree add /tmp/base "origin/${{ github.base_ref }}"
+            docker run --rm -v /tmp/base:/base -v "$PWD":/head tufin/oasdiff:v1.10.25 \
+              breaking /base/contracts/openapi.yaml /head/contracts/openapi.yaml --fail-on ERR \
+              || python3 contracts/check_major_bump.py /tmp/base/contracts/openapi.yaml contracts/openapi.yaml
+          else
+            echo "Sem contrato na base: nada a comparar."
+          fi
+
+  docs:
+    name: Documentação (mkdocs --strict)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.11.32"
+      - run: uvx --with mkdocs-material==9.5.44 --with "mkdocstrings[python]==0.27.0" --with pymdown-extensions==10.12 mkdocs==1.6.1 build --strict
+
+  docker:
+    name: Imagem do motor
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f deploy/Dockerfile -t qa-engine:ci .
+      - name: Fumaça
+        run: |
+          docker run -d --name qa -p 8000:8000 qa-engine:ci
+          for i in $(seq 1 30); do curl -fsS localhost:8000/health && exit 0; sleep 1; done
+          docker logs qa; exit 1

@@ -1,0 +1,10 @@
+id: low_resolution
+version: 1.0.0
+title: Resolução abaixo do exigido
+spec: spec/detectors/low_resolution.md
+input: file
+target: page
+severity: high
+params:
+  min_dpi: { type: number, default: 300, minimum: 1, description: "Resolução mínima exigida pelo perfil (Anexo I do Decreto 10.278/2020)" }
+output: finding

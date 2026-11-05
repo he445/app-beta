@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "analysis.schema.json",
+  "title": "Analysis",
+  "description": "Resultado completo de um lote (report.json).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "batch",
+    "documents",
+    "pages",
+    "findings",
+    "metadata"
+  ],
+  "properties": {
+    "batch": {
+      "$ref": "batch.schema.json"
+    },
+    "documents": {
+      "type": "array",
+      "items": {
+        "$ref": "document.schema.json"
+      }
+    },
+    "pages": {
+      "type": "array",
+      "items": {
+        "$ref": "page.schema.json"
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "finding.schema.json"
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "$ref": "metadata-field.schema.json"
+        }
+      }
+    }
+  }
+}

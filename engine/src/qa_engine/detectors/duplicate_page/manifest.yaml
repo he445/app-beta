@@ -1,0 +1,12 @@
+id: duplicate_page
+version: 1.0.0
+title: Página duplicada
+spec: spec/detectors/duplicate_page.md
+input: batch_pages
+target: page
+severity: medium
+params:
+  max_hash_distance: { type: integer, default: 48, minimum: 0, maximum: 256, description: "Distância de Hamming máxima entre dHash de 256 bits para virar candidato" }
+  min_similarity: { type: number, default: 0.95, minimum: 0, maximum: 1, description: "Correlação mínima das miniaturas para confirmar a duplicata" }
+  min_ink_coverage: { type: number, default: 0.005, minimum: 0, maximum: 1, description: "Páginas com menos tinta (brancas) não são comparadas" }
+output: finding

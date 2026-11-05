@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "numbering-update.schema.json",
+  "title": "NumberingUpdate",
+  "type": "object",
+  "required": [
+    "value",
+    "reviewer"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "value": {
+      "type": "string",
+      "description": "Numeração correta digitada pelo revisor (tecla N)."
+    },
+    "reviewer": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

@@ -1,0 +1,9 @@
+id: numbering_review
+version: 1.0.0
+title: Revisar numeração
+spec: spec/sequencing.md
+input: document_numbering
+target: page
+severity: high
+params: {}
+output: finding

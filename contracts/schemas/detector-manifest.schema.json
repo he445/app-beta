@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "detector-manifest.schema.json",
+  "title": "DetectorManifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "version",
+    "title",
+    "spec",
+    "input",
+    "target",
+    "severity",
+    "params",
+    "output"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+$",
+      "description": "Identificador da regra (blur, skew, missing_page...)."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "title": {
+      "type": "string"
+    },
+    "spec": {
+      "type": "string",
+      "pattern": "^spec/.+\\.md$"
+    },
+    "input": {
+      "enum": [
+        "page_gray_150dpi",
+        "file",
+        "batch_pages",
+        "document_numbering"
+      ]
+    },
+    "target": {
+      "enum": [
+        "page",
+        "document",
+        "batch"
+      ]
+    },
+    "severity": {
+      "enum": [
+        "critical",
+        "high",
+        "medium",
+        "low"
+      ]
+    },
+    "params": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "type",
+          "default",
+          "description"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "enum": [
+              "number",
+              "integer",
+              "boolean",
+              "string"
+            ]
+          },
+          "default": {},
+          "minimum": {
+            "type": "number"
+          },
+          "maximum": {
+            "type": "number"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "output": {
+      "const": "finding"
+    }
+  }
+}

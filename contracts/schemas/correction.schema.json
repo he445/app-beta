@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "correction.schema.json",
+  "title": "Correction",
+  "description": "Correção proposta. Nunca aplicada sem decisão do revisor.",
+  "type": "object",
+  "required": [
+    "kind",
+    "action",
+    "description",
+    "params"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "enum": [
+        "automatic",
+        "physical",
+        "escalate"
+      ]
+    },
+    "action": {
+      "enum": [
+        "deskew",
+        "rotate",
+        "mirror",
+        "autocrop",
+        "despeckle",
+        "auto_levels",
+        "remove_page",
+        "reorder",
+        "split",
+        "merge",
+        "to_grayscale",
+        "rescan",
+        "rescan_back",
+        "locate_sheet",
+        "clean_glass",
+        "regenerate",
+        "human_review"
+      ]
+    },
+    "description": {
+      "type": "string"
+    },
+    "params": {
+      "type": "object",
+      "description": "Parâmetros da ação, com unidades explícitas no nome (skew_deg, crop_fraction, dpi)."
+    }
+  }
+}

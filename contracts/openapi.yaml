@@ -1,0 +1,418 @@
+openapi: 3.1.0
+info:
+  title: QA Automático de Digitalização — API do motor
+  version: 0.1.0
+  summary: Contrato entre a interface web, a linha de comando e o motor de análise.
+  description: |
+    Fonte da verdade do sistema (ADR-0002). Modelos de cada linguagem são gerados a partir
+    deste arquivo e dos esquemas em `schemas/`, ou validados contra eles.
+
+    Unidades: pixels com origem no canto superior esquerdo, ângulos em graus (positivo =
+    horário), resolução em dpi, datas ISO 8601 UTC.
+
+    Na PoC o motor só recebe lotes sintéticos ou públicos e apaga cada lote 24 horas após
+    o envio.
+  license:
+    name: Proprietária
+    identifier: LicenseRef-Proprietary
+servers:
+  - url: http://localhost:8000
+    description: Desenvolvimento local
+security:
+  - bearer: []
+tags:
+  - name: batches
+    description: Envio, progresso e resultado de lotes
+  - name: review
+    description: Decisões do revisor
+  - name: pages
+    description: Imagens e numeração
+  - name: profiles
+    description: Perfis de cliente
+  - name: system
+    description: Saúde do serviço
+paths:
+  /health:
+    get:
+      tags: [system]
+      operationId: getHealth
+      summary: Saúde do serviço
+      security: []
+      responses:
+        "200":
+          description: Serviço no ar
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, version]
+                properties:
+                  status: { const: ok }
+                  version: { type: string }
+  /batches:
+    get:
+      tags: [batches]
+      operationId: listBatches
+      summary: Listar lotes
+      responses:
+        "200":
+          description: Lotes, do mais recente ao mais antigo
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "schemas/batch-status.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [batches]
+      operationId: createBatch
+      summary: Enviar um lote
+      description: |
+        Envia as imagens do lote (pasta arrastada para o navegador: o nome de cada parte é o
+        caminho relativo) ou um único `.zip`. A análise roda em segundo plano; acompanhe por
+        `GET /batches/{id}` ou `GET /batches/{id}/events`.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [files]
+              properties:
+                files:
+                  type: array
+                  items: { type: string, format: binary }
+                profile_id: { type: string, default: demo }
+                name: { type: string }
+                manifest:
+                  type: string
+                  format: binary
+                  description: CSV com colunas `document,pages` (contagem declarada)
+                numbering:
+                  type: string
+                  format: binary
+                  description: numbering.json (schemas/numbering-sidecar.schema.json)
+      responses:
+        "202":
+          description: Lote recebido e na fila
+          content:
+            application/json:
+              schema: { $ref: "schemas/batch-status.schema.json" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "413": { $ref: "#/components/responses/Problem" }
+  /batches/{batch_id}:
+    parameters: [{ $ref: "#/components/parameters/BatchId" }]
+    get:
+      tags: [batches]
+      operationId: getBatch
+      summary: Estado, progresso e veredito
+      responses:
+        "200":
+          description: Estado do lote
+          content:
+            application/json:
+              schema: { $ref: "schemas/batch-status.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /batches/{batch_id}/events:
+    parameters: [{ $ref: "#/components/parameters/BatchId" }]
+    get:
+      tags: [batches]
+      operationId: streamBatchEvents
+      summary: Progresso em tempo real (Server-Sent Events)
+      description: Cada evento `progress` traz um BatchStatus em JSON; o fluxo termina com `done`.
+      responses:
+        "200":
+          description: Fluxo de eventos
+          content:
+            text/event-stream:
+              schema: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /batches/{batch_id}/report:
+    parameters: [{ $ref: "#/components/parameters/BatchId" }]
+    get:
+      tags: [batches]
+      operationId: getBatchReport
+      summary: Resultado completo, com as decisões registradas
+      responses:
+        "200":
+          description: Relatório
+          content:
+            application/json:
+              schema: { $ref: "schemas/analysis.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /batches/{batch_id}/findings:
+    parameters: [{ $ref: "#/components/parameters/BatchId" }]
+    get:
+      tags: [review]
+      operationId: listFindings
+      summary: Sinalizações filtradas por severidade, regra e pendência
+      parameters:
+        - name: severity
+          in: query
+          schema:
+            type: array
+            items: { enum: [critical, high, medium, low] }
+          style: form
+          explode: true
+        - name: rule
+          in: query
+          schema:
+            type: array
+            items: { type: string, pattern: "^[a-z0-9_]+$" }
+          style: form
+          explode: true
+        - name: pending
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Sinalizações, da mais grave à menos grave
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "schemas/finding.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /findings/{finding_id}/decision:
+    parameters:
+      - name: finding_id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [review]
+      operationId: decideFinding
+      summary: Aprovar, corrigir, reprovar ou marcar defeito de origem
+      description: |
+        `correct` numa correção automática de imagem gera uma cópia corrigida (o original
+        nunca é alterado), reanalisa a cópia e registra a aplicação no log do lote.
+        Toda decisão também entra no histórico usado para calibrar os detectores.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "schemas/decision-request.schema.json" }
+      responses:
+        "200":
+          description: Sinalização com a decisão registrada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [finding, summary]
+                properties:
+                  finding: { $ref: "schemas/finding.schema.json" }
+                  summary: { $ref: "schemas/batch-summary.schema.json" }
+                  applied:
+                    type: object
+                    description: Presente quando a correção foi aplicada numa cópia
+                    required: [output, output_sha256, remaining_rules]
+                    properties:
+                      output: { type: string }
+                      output_sha256: { type: string }
+                      remaining_rules: { type: array, items: { type: string } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /pages/{page_id}/image:
+    parameters:
+      - $ref: "#/components/parameters/PageId"
+      - name: variant
+        in: query
+        schema: { enum: [original, corrected], default: original }
+      - name: max_width
+        in: query
+        description: Largura máxima em pixels (miniaturas e telas); omitido = resolução original
+        schema: { type: integer, minimum: 16, maximum: 10000 }
+    get:
+      tags: [pages]
+      operationId: getPageImage
+      summary: Imagem da página, original ou corrigida
+      description: Tiles para zoom profundo (OpenSeadragon) entram numa versão menor seguinte.
+      responses:
+        "200":
+          description: PNG
+          content:
+            image/png:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /pages/{page_id}/numbering:
+    parameters: [{ $ref: "#/components/parameters/PageId" }]
+    put:
+      tags: [pages]
+      operationId: putPageNumbering
+      summary: Confirmar ou corrigir a numeração lida (tecla N)
+      description: Ressolve a sequência do documento com o valor digitado e recalcula as sinalizações de sequência.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "schemas/numbering-update.schema.json" }
+      responses:
+        "200":
+          description: Numeração do documento depois da correção
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [pages, summary]
+                properties:
+                  pages:
+                    type: object
+                    additionalProperties: { $ref: "schemas/numbering.schema.json" }
+                  summary: { $ref: "schemas/batch-summary.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /documents/{document_id}/metadata:
+    parameters:
+      - name: document_id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [batches]
+      operationId: getDocumentMetadata
+      summary: Metadados com fonte e confiança
+      responses:
+        "200":
+          description: Metadados do documento
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "schemas/metadata-field.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /batches/{batch_id}/exports:
+    parameters: [{ $ref: "#/components/parameters/BatchId" }]
+    post:
+      tags: [batches]
+      operationId: createExports
+      summary: Gerar relatório, CSVs, JSON de metadados e ordem de retrabalho
+      responses:
+        "201":
+          description: Arquivos gerados
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [files]
+                properties:
+                  files: { type: array, items: { type: string } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /batches/{batch_id}/exports/{name}:
+    parameters:
+      - $ref: "#/components/parameters/BatchId"
+      - name: name
+        in: path
+        required: true
+        schema: { enum: [report.json, findings.csv, metadata.csv, rework_order.csv] }
+    get:
+      tags: [batches]
+      operationId: getExport
+      summary: Baixar um arquivo exportado
+      responses:
+        "200":
+          description: Arquivo
+          content:
+            application/json: { schema: { type: object } }
+            text/csv: { schema: { type: string } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /profiles:
+    get:
+      tags: [profiles]
+      operationId: listProfiles
+      summary: Listar perfis
+      responses:
+        "200":
+          description: Perfis disponíveis
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "schemas/profile.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /profiles/{profile_id}:
+    parameters:
+      - name: profile_id
+        in: path
+        required: true
+        schema: { type: string, pattern: "^[a-z0-9_-]+$" }
+    get:
+      tags: [profiles]
+      operationId: getProfile
+      summary: Ler um perfil
+      responses:
+        "200":
+          description: Perfil
+          content:
+            application/json:
+              schema: { $ref: "schemas/profile.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+    put:
+      tags: [profiles]
+      operationId: putProfile
+      summary: Criar ou atualizar um perfil (validado contra o esquema)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "schemas/profile.schema.json" }
+      responses:
+        "200":
+          description: Perfil salvo
+          content:
+            application/json:
+              schema: { $ref: "schemas/profile.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/Problem" }
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      description: Token de acesso da PoC (variável QA_API_TOKEN no servidor)
+  parameters:
+    BatchId:
+      name: batch_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    PageId:
+      name: page_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  schemas:
+    Problem:
+      type: object
+      description: RFC 9457 (Problem Details)
+      required: [title, status]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+  responses:
+    Problem:
+      description: Erro
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Unauthorized:
+      description: Token ausente ou inválido
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }

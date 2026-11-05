@@ -1,0 +1,9 @@
+id: missing_page
+version: 1.0.0
+title: Página faltando
+spec: spec/sequencing.md
+input: document_numbering
+target: document
+severity: critical
+params: {}
+output: finding

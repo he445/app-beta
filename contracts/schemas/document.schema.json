@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "document.schema.json",
+  "title": "Document",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "batch_id",
+    "name",
+    "page_ids",
+    "state",
+    "proposed_order"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "batch_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "name": {
+      "type": "string"
+    },
+    "page_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "state": {
+      "enum": [
+        "green",
+        "yellow",
+        "red"
+      ]
+    },
+    "proposed_order": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "description": "Vazio quando não há reordenação proposta."
+    }
+  }
+}

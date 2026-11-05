@@ -1,0 +1,108 @@
+{
+  "description": "Casos do resolvedor de numeração (spec/sequencing.md). Entrada: marcas por página; saída: estado e valor por página, ordem, lacunas e regras.",
+  "cases": [
+    {
+      "id": "leitura-errada-isolada",
+      "mode": "simple",
+      "pages": [
+        [{"readings": [["11", 0.95]]}],
+        [{"readings": [["17", 0.6]]}],
+        [{"readings": [["13", 0.95]]}]
+      ],
+      "expected": {"states": ["read", "inferred", "read"], "values": ["11", "12", "13"], "reordered": false, "gaps": [], "rules": ["numbering_review"]}
+    },
+    {
+      "id": "folha-faltando-confirmada",
+      "mode": "simple",
+      "pages": [
+        [{"readings": [["1", 0.95]]}],
+        [{"readings": [["2", 0.95]]}],
+        [{"readings": [["4", 0.95]]}],
+        [{"readings": [["5", 0.95]]}]
+      ],
+      "expected": {"states": ["read", "read", "read", "read"], "values": ["1", "2", "4", "5"], "reordered": false, "gaps": [["3"]], "rules": ["missing_page"]}
+    },
+    {
+      "id": "lacuna-com-leitura-duvidosa",
+      "mode": "simple",
+      "pages": [
+        [{"readings": [["1", 0.95]]}],
+        [{"readings": [["2", 0.95]]}],
+        [{"readings": [["4", 0.7]]}],
+        [{"readings": [["5", 0.95]]}]
+      ],
+      "expected": {"states": ["read", "read", "read", "read"], "values": ["1", "2", "4", "5"], "reordered": false, "gaps": [["3"]], "rules": ["numbering_review"]}
+    },
+    {
+      "id": "fora-de-ordem",
+      "mode": "simple",
+      "pages": [
+        [{"readings": [["1", 0.95]]}],
+        [{"readings": [["3", 0.95]]}],
+        [{"readings": [["2", 0.95]]}],
+        [{"readings": [["4", 0.95]]}]
+      ],
+      "expected": {"order": [0, 2, 1, 3], "states": ["read", "read", "read", "read"], "values": ["1", "2", "3", "4"], "reordered": true, "gaps": [], "rules": ["out_of_order"]}
+    },
+    {
+      "id": "renumeracao",
+      "mode": "simple",
+      "pages": [
+        [{"readings": [["16", 0.95]]}],
+        [{"readings": [["17", 0.93]]}, {"struck": true, "readings": [["15", 0.9]]}],
+        [{"readings": [["18", 0.95]]}]
+      ],
+      "expected": {"states": ["read", "renumbered", "read"], "values": ["16", "17", "18"], "reordered": false, "gaps": [], "rules": [], "previous": [[], ["15"], []]}
+    },
+    {
+      "id": "frente-e-verso-sem-marca-no-verso",
+      "mode": "recto_verso",
+      "pages": [
+        [{"readings": [["1", 0.95]]}],
+        [],
+        [{"readings": [["2", 0.95]]}],
+        [],
+        [{"readings": [["4", 0.95]]}],
+        []
+      ],
+      "expected": {"states": ["read", "absent", "read", "absent", "read", "absent"], "values": ["1", "1v", "2", "2v", "4", "4v"], "reordered": false, "gaps": [["3", "3v"]], "rules": ["missing_page"]}
+    },
+    {
+      "id": "intercalada",
+      "mode": "simple",
+      "pages": [
+        [{"readings": [["12", 0.95]]}],
+        [{"readings": [["12-A", 0.95]]}],
+        [{"readings": [["13", 0.95]]}]
+      ],
+      "expected": {"states": ["read", "read", "read"], "values": ["12", "12-A", "13"], "reordered": false, "gaps": [], "rules": []}
+    },
+    {
+      "id": "dois-numeros-sem-risco",
+      "mode": "simple",
+      "pages": [
+        [{"readings": [["1", 0.95]]}],
+        [{"readings": [["2", 0.9]]}, {"readings": [["7", 0.9]]}],
+        [{"readings": [["3", 0.95]]}]
+      ],
+      "expected": {"states": ["read", "ambiguous", "read"], "values": ["1", "2", "3"], "reordered": false, "gaps": [], "rules": ["numbering_review"]}
+    },
+    {
+      "id": "sem-numeracao",
+      "mode": "simple",
+      "pages": [[], [], []],
+      "expected": {"states": ["absent", "absent", "absent"], "values": [null, null, null], "reordered": false, "gaps": [], "rules": ["completeness_unverifiable"]}
+    },
+    {
+      "id": "numeracao-repetida",
+      "mode": "simple",
+      "pages": [
+        [{"readings": [["14", 0.95]]}],
+        [{"readings": [["15", 0.95]]}],
+        [{"readings": [["15", 0.95]]}],
+        [{"readings": [["16", 0.95]]}]
+      ],
+      "expected": {"states": ["read", "read", "read", "read"], "values": ["14", "15", "15", "16"], "reordered": false, "gaps": [], "rules": ["numbering_review"]}
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+site_name: QA Automático de Digitalização
+site_description: Documentação da prova de conceito
+repo_url: https://github.com/he445/prova-de-conceito
+docs_dir: docs
+theme:
+  name: material
+  language: pt-BR
+  features: [navigation.sections, content.code.copy, search.suggest]
+markdown_extensions:
+  - admonition
+  - tables
+  - toc: { permalink: true }
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [engine/src]
+          options: { docstring_style: google, show_source: false }
+nav:
+  - Início: index.md
+  - ADD: add.md
+  - Guias:
+      - Instalar: guides/instalar.md
+      - Demonstração: guides/demonstracao.md
+      - Criar um detector: guides/criar-detector.md
+      - Portar para outra linguagem: guides/portar-linguagem.md
+  - Arquitetura:
+      - C4: architecture/c4.md
+      - ADRs:
+          - "0001 Web app e motor em servidor": adr/0001-web-app-e-motor-em-servidor.md
+          - "0002 Contrato OpenAPI + JSON Schema": adr/0002-contrato-openapi-json-schema.md
+          - "0003 Arquitetura hexagonal": adr/0003-arquitetura-hexagonal.md
+          - "0004 Política de licenças": adr/0004-politica-de-licencas.md
+          - "0005 SQLite com SQL puro": adr/0005-sqlite-sql-puro.md
+          - "0006 Código em inglês": adr/0006-codigo-em-ingles-documentacao-em-portugues.md
+          - "0007 Conformidade gerada": adr/0007-fixtures-de-conformidade-gerados.md
+          - Modelo: adr/0000-template.md
+  - Referência:
+      - API: reference/api.md
+      - Código: reference/codigo.md
+  - Glossário: glossary.md

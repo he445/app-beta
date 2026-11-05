@@ -1,0 +1,12 @@
+id: black_borders
+version: 1.0.0
+title: Bordas pretas
+spec: spec/detectors/black_borders.md
+input: page_gray_150dpi
+target: page
+severity: low
+params:
+  min_fraction: { type: number, default: 0.01, minimum: 0, maximum: 1, description: "Largura mínima da faixa, como fração da dimensão da página" }
+  dark_level: { type: integer, default: 70, minimum: 0, maximum: 255, description: "Nível de cinza abaixo do qual o pixel é escuro" }
+  dark_fraction: { type: number, default: 0.9, minimum: 0, maximum: 1, description: "Fração de pixels escuros para a linha ou coluna contar como faixa" }
+output: finding

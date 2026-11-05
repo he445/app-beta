@@ -1,0 +1,13 @@
+id: blank_page
+version: 1.0.0
+title: Página em branco
+spec: spec/detectors/blank_page.md
+input: page_gray_150dpi
+target: page
+severity: low
+params:
+  blank_threshold: { type: number, default: 0.003, minimum: 0, maximum: 1, description: "Cobertura abaixo da qual a página é branca" }
+  near_blank_threshold: { type: number, default: 0.01, minimum: 0, maximum: 1, description: "Cobertura abaixo da qual a página é quase branca" }
+  mark_min_area: { type: integer, default: 400, minimum: 0, description: "Área em pixels a 150 dpi de uma marca isolada (carimbo, rubrica) que impede classificar como branca" }
+  remove_blank_pages: { type: boolean, default: true, description: "Se a correção proposta para página branca é removê-la" }
+output: finding

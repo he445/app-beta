@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "batch-status.schema.json",
+  "title": "BatchStatus",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "status",
+    "progress",
+    "created_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "name": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "queued",
+        "processing",
+        "analyzed",
+        "failed"
+      ]
+    },
+    "progress": {
+      "type": "object",
+      "required": [
+        "done",
+        "total"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "error": {
+      "type": "string"
+    },
+    "summary": {
+      "$ref": "batch-summary.schema.json"
+    }
+  }
+}

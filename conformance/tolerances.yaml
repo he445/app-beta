@@ -1,0 +1,20 @@
+# Tolerâncias da suíte de conformidade (seção 16 do ADD). Valem para qualquer implementação.
+version: 1
+measures:
+  skew:
+    # A medida de skew é |ângulo| em graus; o sinal fica em correction.params.skew_deg.
+    field: correction.params.skew_deg
+    expected: params.angle_deg
+    abs: 0.1
+  low_resolution:
+    field: measure
+    expected: params.dpi
+    abs: 0.5
+  black_borders:
+    field: measure
+    expected: params.fraction
+    rel: 0.02
+# Regras extras aceitas no mesmo alvo de um defeito esperado, com a justificativa.
+co_occurrence:
+  blur: [exposure]            # desfoque reduz o contraste papel-tinta medido
+  low_resolution: [exposure]  # reamostragem para 150-200 dpi suaviza os traços

@@ -1,0 +1,9 @@
+id: corrupted_file
+version: 1.0.0
+title: Arquivo corrompido
+spec: spec/detectors/corrupted_file.md
+input: file
+target: page
+severity: critical
+params: {}
+output: finding

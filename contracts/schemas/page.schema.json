@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "page.schema.json",
+  "title": "Page",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "document_id",
+    "index",
+    "source_file",
+    "page_in_file",
+    "width_px",
+    "height_px",
+    "dpi",
+    "color_mode",
+    "sha256",
+    "loaded",
+    "station"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "document_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "index": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "source_file": {
+      "type": "string"
+    },
+    "page_in_file": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "width_px": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "height_px": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "dpi": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "color_mode": {
+      "enum": [
+        "bilevel",
+        "gray",
+        "rgb",
+        null
+      ]
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "loaded": {
+      "type": "boolean"
+    },
+    "station": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "numbering": {
+      "$ref": "numbering.schema.json"
+    }
+  }
+}

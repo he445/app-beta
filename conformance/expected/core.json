@@ -1,0 +1,100 @@
+{
+ "seed": 20261105,
+ "pages": 29,
+ "defects": [
+  {
+   "rule": "blur",
+   "file": "CX001/DOC0001/0002.tif",
+   "page_in_file": 0,
+   "params": {
+    "sigma": 2.78
+   }
+  },
+  {
+   "rule": "skew",
+   "file": "CX001/DOC0001/0004.tif",
+   "page_in_file": 0,
+   "params": {
+    "angle_deg": 2.0
+   }
+  },
+  {
+   "rule": "skew",
+   "file": "CX001/DOC0002/0002.tif",
+   "page_in_file": 0,
+   "params": {
+    "angle_deg": -4.0
+   }
+  },
+  {
+   "rule": "black_borders",
+   "file": "CX001/DOC0002/0003.tif",
+   "page_in_file": 0,
+   "params": {
+    "side": "left",
+    "fraction": 0.027
+   }
+  },
+  {
+   "rule": "blank_page",
+   "file": "CX001/DOC0002/0005.tif",
+   "page_in_file": 0
+  },
+  {
+   "rule": "exposure",
+   "file": "CX001/DOC0003/0002.tif",
+   "page_in_file": 0,
+   "params": {
+    "factor": 0.58
+   }
+  },
+  {
+   "rule": "exposure",
+   "file": "CX001/DOC0003/0003.tif",
+   "page_in_file": 0,
+   "params": {
+    "ink_factor": 0.24
+   }
+  },
+  {
+   "rule": "low_resolution",
+   "file": "CX001/DOC0003/0005.tif",
+   "page_in_file": 0,
+   "params": {
+    "dpi": 200
+   }
+  },
+  {
+   "rule": "missing_page",
+   "document": "CX001/DOC0004",
+   "folio": 3
+  },
+  {
+   "rule": "duplicate_page",
+   "file": "CX001/DOC0005/0005.tif",
+   "page_in_file": 0,
+   "alternatives": [
+    "CX001/DOC0005/0001.tif"
+   ]
+  },
+  {
+   "rule": "out_of_order",
+   "document": "CX001/DOC0005"
+  },
+  {
+   "rule": "numbering_review",
+   "file": "CX001/DOC0006/0002.tif",
+   "page_in_file": 0
+  },
+  {
+   "rule": "corrupted_file",
+   "file": "CX001/DOC0006/0004.tif",
+   "page_in_file": 0
+  },
+  {
+   "rule": "corrupted_file",
+   "file": "CX001/DOC0006/0005.tif",
+   "page_in_file": 0
+  }
+ ]
+}

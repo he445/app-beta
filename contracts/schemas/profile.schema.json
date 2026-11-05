@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "profile.schema.json",
+  "title": "Profile",
+  "description": "Perfil do cliente: limiares e regras são configuração, não código.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "organization"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]+$"
+    },
+    "name": {
+      "type": "string"
+    },
+    "organization": {
+      "type": "string",
+      "description": "Pessoa jurídica responsável pela digitalização."
+    },
+    "resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min_dpi": {
+          "type": "number",
+          "minimum": 1
+        }
+      }
+    },
+    "verdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_yellow_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "green_sample_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "numbering": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "mode": {
+          "enum": [
+            "simple",
+            "recto_verso"
+          ]
+        },
+        "min_confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "high_confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "identifier_pattern": {
+      "type": "string",
+      "description": "Campos: {batch}, {document}, {seq}."
+    },
+    "stations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "location"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "location": {
+            "type": "string"
+          },
+          "make": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "serial": {
+            "type": "string"
+          },
+          "folder": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "detectors": {
+      "type": "object",
+      "propertyNames": {
+        "enum": [
+          "corrupted_file",
+          "low_resolution",
+          "blank_page",
+          "black_borders",
+          "blur",
+          "skew",
+          "exposure",
+          "duplicate_page",
+          "missing_page",
+          "out_of_order",
+          "numbering_review",
+          "completeness_unverifiable"
+        ]
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "severity": {
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "params": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+id: skew
+version: 1.0.0
+title: Inclinação
+spec: spec/detectors/skew.md
+input: page_gray_150dpi
+target: page
+severity: medium
+params:
+  flag_threshold: { type: number, default: 0.5, minimum: 0, description: "Ângulo absoluto, em graus, acima do qual a página é sinalizada" }
+  reject_threshold: { type: number, default: 3.0, minimum: 0, description: "Ângulo absoluto acima do qual a severidade sobe para alto" }
+  max_angle: { type: number, default: 10.0, minimum: 1, maximum: 45, description: "Faixa de busca, em graus, para cada lado" }
+  min_ink_coverage: { type: number, default: 0.005, minimum: 0, maximum: 1, description: "Cobertura mínima para estimar o ângulo" }
+output: finding

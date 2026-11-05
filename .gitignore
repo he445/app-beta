@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.hypothesis/
+*.egg-info/
+dist/
+build/
+
+# Dados gerados (nunca versionar lotes: princípio 1)
+conformance/fixtures/core/
+data/
+saida/
+lote*/
+*.sqlite3*
+
+# Node
+node_modules/
+
+# Documentação gerada
+site/
+
+# Editores
+.idea/
+.vscode/
+.DS_Store

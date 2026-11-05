@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "batch-summary.schema.json",
+  "title": "BatchSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "verdict",
+    "pages_total",
+    "pages_without_review",
+    "no_review_ratio",
+    "documents_total",
+    "document_states",
+    "by_severity",
+    "by_rule",
+    "by_station",
+    "green_sample",
+    "review_pages",
+    "lossy_files"
+  ],
+  "properties": {
+    "verdict": {
+      "enum": [
+        "approved",
+        "approved_with_reservations",
+        "rejected"
+      ]
+    },
+    "pages_total": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "pages_without_review": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "no_review_ratio": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "documents_total": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "document_states": {
+      "type": "object",
+      "additionalProperties": {
+        "enum": [
+          "green",
+          "yellow",
+          "red"
+        ]
+      }
+    },
+    "by_severity": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "by_rule": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "by_station": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "green_sample": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "review_pages": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "lossy_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+id: completeness_unverifiable
+version: 1.0.0
+title: Completude não verificável
+spec: spec/sequencing.md
+input: document_numbering
+target: document
+severity: low
+params: {}
+output: finding

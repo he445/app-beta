@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "finding.schema.json",
+  "title": "Finding",
+  "description": "Sinalização: toda detecção explica a si mesma (princípio 4).",
+  "type": "object",
+  "required": [
+    "id",
+    "target",
+    "rule",
+    "rule_version",
+    "severity",
+    "measure",
+    "threshold",
+    "confidence",
+    "correction",
+    "message"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "target": {
+      "type": "object",
+      "required": [
+        "kind",
+        "id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "page",
+            "document",
+            "batch"
+          ]
+        },
+        "id": {
+          "type": "string"
+        }
+      }
+    },
+    "rule": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+$",
+      "description": "Identificador da regra (blur, skew, missing_page...)."
+    },
+    "rule_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "severity": {
+      "enum": [
+        "critical",
+        "high",
+        "medium",
+        "low"
+      ]
+    },
+    "measure": {
+      "type": "number",
+      "description": "Medida obtida, na unidade da especificação do detector."
+    },
+    "threshold": {
+      "type": "number",
+      "description": "Limiar usado na decisão."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "message": {
+      "type": "string"
+    },
+    "region": {
+      "$ref": "region.schema.json"
+    },
+    "correction": {
+      "$ref": "correction.schema.json"
+    },
+    "decision": {
+      "$ref": "decision.schema.json"
+    }
+  }
+}

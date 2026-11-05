@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "decision-request.schema.json",
+  "title": "DecisionRequest",
+  "type": "object",
+  "required": [
+    "action",
+    "reviewer"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "enum": [
+        "approve",
+        "correct",
+        "reject",
+        "source_defect"
+      ]
+    },
+    "reviewer": {
+      "type": "string",
+      "minLength": 1
+    },
+    "note": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,21 @@
+# Perfil da demonstração (base sintética). Validado contra contracts/schemas/profile.schema.json.
+id: demo
+name: Demonstração — base sintética
+organization: SOS DOCS
+resolution:
+  min_dpi: 300
+verdict:
+  max_yellow_ratio: 0.02
+  green_sample_ratio: 0.05
+numbering:
+  enabled: true
+  mode: simple
+  min_confidence: 0.5
+  high_confidence: 0.85
+identifier_pattern: "{batch}-{document}"
+stations:
+  - { make: Kodak, model: i4250, location: "Unidade Campo Grande, Estação 3" }
+  - { make: Kodak, model: S2085f, location: "Unidade Centro, Estação 1" }
+detectors:
+  blank_page:
+    params: { remove_blank_pages: true }

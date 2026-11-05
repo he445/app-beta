@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "decision.schema.json",
+  "title": "Decision",
+  "description": "Decisão do revisor, registrada com data e hora.",
+  "type": "object",
+  "required": [
+    "action",
+    "decided_at",
+    "reviewer"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "enum": [
+        "approve",
+        "correct",
+        "reject",
+        "source_defect"
+      ],
+      "description": "approve = falso positivo (A); correct = aplicar a correção (C); reject = retrabalho (R); source_defect = defeito de origem (O)."
+    },
+    "decided_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "reviewer": {
+      "type": "string",
+      "minLength": 1
+    },
+    "note": {
+      "type": "string"
+    }
+  }
+}
