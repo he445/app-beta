@@ -155,6 +155,113 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/batches/{batch_id}/bulk-corrections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        /** Operações de correção em lote do lote, da mais recente à mais antiga */
+        get: operations["listBulkCorrections"];
+        put?: never;
+        /**
+         * Corrigir tudo (documento ou lote inteiro)
+         * @description Decide `correct` em todas as sinalizações PENDENTES com correção automática do escopo:
+         *     correções de imagem (aplicadas numa cópia), remoção de página em branco e reordenação
+         *     pela numeração. Página faltando, defeitos que exigem redigitalização e o que pede
+         *     decisão humana ficam pendentes e voltam em `result.skipped`. Roda em segundo plano;
+         *     acompanhe o progresso real em `GET /bulk-corrections/{operation_id}`.
+         *
+         */
+        post: operations["startBulkCorrection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bulk-corrections/{operation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        /** Progresso e resultado de uma correção em lote */
+        get: operations["getBulkCorrection"];
+        put?: never;
+        post?: never;
+        /**
+         * Desfazer em lote só o que esta operação aplicou
+         * @description Remove as decisões que ainda carregam o `operation_id` desta operação (uma decisão
+         *     trocada depois, individualmente, não é tocada), recalcula as versões corrigidas das
+         *     páginas e registra "undo" no histórico.
+         *
+         */
+        delete: operations["undoBulkCorrection"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/batches/{batch_id}/corrected-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Como o lote corrigido vai ficar com as decisões atuais
+         * @description Ordem final, páginas removidas e o motivo, correções aplicadas, páginas que precisam
+         *     ser redigitalizadas e páginas faltando com a decisão tomada. `can_save` é falso
+         *     enquanto houver página faltando sem decisão.
+         *
+         */
+        get: operations["getCorrectedPlan"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/batches/{batch_id}/corrected-batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Salvar correções e gerar o lote corrigido (.zip)
+         * @description Confirma as operações de correção ainda não salvas e gera
+         *     `exports/lote-corrigido.zip`: mesma estrutura de pastas, ordem final, páginas
+         *     removidas fora, versão corrigida mais recente, arquivos renumerados (0001.tif...),
+         *     TIFF com compressão sem perda (Deflate) e DPI do original, mais `manifest.json`
+         *     (schemas/corrected-manifest.schema.json) e `manifest.csv`. O original nunca é
+         *     alterado. Recusado (409) enquanto houver página faltando sem decisão.
+         *
+         */
+        post: operations["saveCorrectedBatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/pages/{page_id}/image": {
         parameters: {
             query?: {
@@ -170,7 +277,10 @@ export interface paths {
         };
         /**
          * Imagem da página, original ou corrigida
-         * @description Tiles para zoom profundo (OpenSeadragon) entram numa versão menor seguinte.
+         * @description `corrected` devolve a versão corrigida mais recente (todas as correções de imagem
+         *     decididas, aplicadas sobre o original em ordem canônica); 404 se a página não tem
+         *     correção. Tiles para zoom profundo entram numa versão menor seguinte.
+         *
          */
         get: operations["getPageImage"];
         put?: never;
@@ -270,7 +380,7 @@ export interface paths {
             header?: never;
             path: {
                 batch_id: components["parameters"]["BatchId"];
-                name: "report.json" | "findings.csv" | "metadata.csv" | "rework_order.csv";
+                name: "report.json" | "findings.csv" | "metadata.csv" | "rework_order.csv" | "lote-corrigido.zip";
             };
             cookie?: never;
         };
@@ -462,6 +572,11 @@ export interface components {
             decided_at: string;
             reviewer: string;
             note?: string;
+            /**
+             * Format: uuid
+             * @description Operação de correção em lote que registrou a decisão; ausente nas decisões individuais.
+             */
+            operation_id?: string;
         };
         /**
          * Finding
@@ -520,6 +635,200 @@ export interface components {
             action: "approve" | "correct" | "reject" | "source_defect";
             reviewer: string;
             note?: string;
+        };
+        /**
+         * BulkCorrection
+         * @description Operação de correção em lote: progresso real, resultado e desfazer.
+         */
+        "bulk-correction.schema": {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            batch_id: string;
+            scope: {
+                /** @enum {unknown} */
+                kind: "batch" | "document";
+                id: string;
+            };
+            /** @enum {unknown} */
+            status: "queued" | "running" | "applied" | "saved" | "undone" | "failed";
+            progress: {
+                done: number;
+                total: number;
+                /** @description Página ou documento em correção. */
+                current: string | null;
+            };
+            reviewer: string;
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            finished_at?: string;
+            /** Format: date-time */
+            saved_at?: string;
+            error?: string;
+            result?: {
+                applied_total: number;
+                applied_by_rule: {
+                    [key: string]: number;
+                };
+                skipped_total: number;
+                skipped: {
+                    /** Format: uuid */
+                    finding_id: string;
+                    rule: string;
+                    /** @enum {unknown} */
+                    severity: "critical" | "high" | "medium" | "low";
+                    target: {
+                        /** @enum {unknown} */
+                        kind: "page" | "document" | "batch";
+                        id: string;
+                    };
+                    /**
+                     * @description missing_page: exige aprovação manual; needs_rescan: precisa redigitalizar (vai para a ordem de retrabalho); manual: exige decisão humana; failed: a correção não pôde ser aplicada.
+                     * @enum {unknown}
+                     */
+                    category: "missing_page" | "needs_rescan" | "manual" | "failed";
+                    reason: string;
+                }[];
+                pages: {
+                    /** Format: uuid */
+                    page_id: string;
+                    actions: string[];
+                    remaining_rules: string[];
+                }[];
+            };
+            undo?: {
+                undone_total: number;
+                undone_by_rule: {
+                    [key: string]: number;
+                };
+                reviewer: string;
+                /** Format: date-time */
+                at: string;
+            };
+            summary?: components["schemas"]["batch-summary.schema"];
+        };
+        /**
+         * BulkCorrectionRequest
+         * @description Pedido de "Corrigir tudo" para um documento ou para o lote inteiro.
+         */
+        "bulk-correction-request.schema": {
+            /** @enum {unknown} */
+            scope: "batch" | "document";
+            /** Format: uuid */
+            document_id?: string;
+            reviewer: string;
+        };
+        /**
+         * CorrectedPage
+         * @description Uma página do lote final: de onde vem, para onde vai e o que mudou.
+         */
+        "corrected-page.schema": {
+            /** Format: uuid */
+            page_id: string;
+            source_file: string;
+            source_page: number;
+            /** @description SHA-256 do arquivo de origem. */
+            source_sha256: string;
+            old_position: number;
+            new_position: number | null;
+            /** @description Caminho no lote corrigido, ex.: CX001/DOC0002/0003.tif. */
+            target_file: string | null;
+            /** @description Só no manifesto do lote gerado. */
+            target_sha256?: string;
+            dpi: number | null;
+            /** @enum {unknown} */
+            status: "exported" | "removed" | "not_exported";
+            /** @description Motivo da remoção ou da não exportação. */
+            reason: string | null;
+            /** @description Há correção de imagem aplicada. */
+            corrected: boolean;
+            /** @description Mudou de lugar pela reordenação aceita. */
+            moved: boolean;
+            changes: {
+                finding_id: string | null;
+                rule: string;
+                action: string;
+                /** @description Texto curto para o revisor: "endireitada 2,3°", "movida da posição 7 para a 6". */
+                text: string;
+                params: Record<string, never>;
+                decided_by: string | null;
+                decided_at: string | null;
+            }[];
+            needs_rescan: {
+                /** Format: uuid */
+                finding_id: string;
+                rule: string;
+                text: string;
+            }[];
+        };
+        /** CorrectedDocument */
+        "corrected-document.schema": {
+            /** Format: uuid */
+            document_id: string;
+            name: string;
+            /** @description Pasta do documento no lote corrigido (vazia = raiz). */
+            folder: string;
+            reordered: boolean;
+            pages: components["schemas"]["corrected-page.schema"][];
+            missing: {
+                /** Format: uuid */
+                finding_id: string;
+                missing: string[];
+                after_page_id: string | null;
+                before_page_id: string | null;
+                after_position: number | null;
+                message: string;
+                decision: components["schemas"]["decision.schema"] | null;
+            }[];
+        };
+        /**
+         * CorrectedPlan
+         * @description Como o lote corrigido vai ficar com as decisões atuais (faixa "Depois").
+         */
+        "corrected-plan.schema": {
+            /** Format: uuid */
+            batch_id: string;
+            can_save: boolean;
+            blockers: {
+                /** Format: uuid */
+                finding_id: string;
+                /** Format: uuid */
+                document_id: string;
+                document: string;
+                message: string;
+            }[];
+            pending_critical: number;
+            pending_rescan: number;
+            unsaved_operations: string[];
+            documents: components["schemas"]["corrected-document.schema"][];
+        };
+        /** CorrectedBatchRequest */
+        "corrected-batch-request.schema": {
+            reviewer: string;
+        };
+        /**
+         * CorrectedBatch
+         * @description Resultado de "Salvar correções".
+         */
+        "corrected-batch.schema": {
+            /** @constant */
+            file: "lote-corrigido.zip";
+            download: string;
+            size_bytes: number;
+            sha256: string;
+            /** Format: date-time */
+            generated_at: string;
+            totals: {
+                exported: number;
+                removed: number;
+                not_exported: number;
+                corrected: number;
+                moved: number;
+                missing_pages: number;
+            };
+            pending_critical: number;
+            saved_operations: string[];
         };
         /** NumberingUpdate */
         "numbering-update.schema": {
@@ -859,6 +1168,165 @@ export interface operations {
             409: components["responses"]["Problem"];
         };
     };
+    listBulkCorrections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Operações */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["bulk-correction.schema"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    startBulkCorrection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["bulk-correction-request.schema"];
+            };
+        };
+        responses: {
+            /** @description Operação na fila */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["bulk-correction.schema"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getBulkCorrection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Estado da operação (progresso em páginas e documentos corrigidos) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["bulk-correction.schema"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    undoBulkCorrection: {
+        parameters: {
+            query: {
+                reviewer: string;
+            };
+            header?: never;
+            path: {
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Operação desfeita e painel recalculado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["bulk-correction.schema"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    getCorrectedPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Plano do lote corrigido */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["corrected-plan.schema"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    saveCorrectedBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["corrected-batch-request.schema"];
+            };
+        };
+        responses: {
+            /** @description Lote corrigido gerado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["corrected-batch.schema"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+        };
+    };
     getPageImage: {
         parameters: {
             query?: {
@@ -1007,7 +1475,7 @@ export interface operations {
             header?: never;
             path: {
                 batch_id: components["parameters"]["BatchId"];
-                name: "report.json" | "findings.csv" | "metadata.csv" | "rework_order.csv";
+                name: "report.json" | "findings.csv" | "metadata.csv" | "rework_order.csv" | "lote-corrigido.zip";
             };
             cookie?: never;
         };
@@ -1021,6 +1489,7 @@ export interface operations {
                 content: {
                     "application/json": Record<string, never>;
                     "text/csv": string;
+                    "application/zip": string;
                 };
             };
             401: components["responses"]["Unauthorized"];

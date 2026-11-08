@@ -8,6 +8,33 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- "Corrigir tudo" num documento ou no lote inteiro: decide `correct` em todas as
+  sinalizações pendentes com correção automática (endireitar, girar, espelhar, recortar
+  bordas, brilho e contraste, pontilhado, cinza, remover página em branco, reordenar pela
+  numeração). Página faltando, defeitos que exigem redigitalizar e duplicatas ficam
+  pendentes, com o motivo. Progresso real, decisões com revisor, horário e
+  `operation_id`, e desfazer em lote só do que a operação aplicou (ADR-0009).
+- Lote corrigido para baixar: `.zip` com a mesma estrutura de pastas, ordem final,
+  removidas fora, versão corrigida mais recente, arquivos renumerados, TIFF Deflate (sem
+  perda) com o DPI do original e `manifest.json`/`manifest.csv`. Recusado enquanto houver
+  página faltando sem decisão.
+- Tela de sequência: faixas "Antes" e "Depois" com marcas do que mudou ("endireitada
+  2,3°", "movida da posição 7 para a 6", "removida: em branco", "precisa redigitalizar"),
+  tela de carregamento com progresso real, "Salvar correções" e "Desfazer correções";
+  cartão de página faltando com três decisões (retrabalho, defeito de origem, aprovar
+  mesmo assim); zoom com duplo clique ou Z, alternância Original/Corrigida e teclado.
+- "Corrigir o lote inteiro" no painel e na revisão; "Baixar lote corrigido" no relatório.
+- Contrato 0.3.0: rotas `bulk-corrections`, `corrected-plan`, `corrected-batch` e os
+  esquemas `bulk-correction*`, `corrected-*`; `Decision.operation_id`.
+- Especificação `spec/corrections.md` e ADR-0009.
+
+### Alterado
+
+- A versão corrigida de uma página passa a ser o original com **todas** as correções de
+  imagem decididas, em ordem canônica; antes, cada correção partia do original e a última
+  sobrescrevia as outras. O log `corrections.jsonl` ganhou formato novo (cadeia e versão).
+- A decisão individual saiu do `app.py` para o caso de uso `CorrectionService`.
+
 - Interface web (`ui/`): envio de pasta ou `.zip`, progresso ao vivo, painel do lote, fila
   de revisão pelo teclado (A, C, R, O, setas, espaço, Ctrl+Z, 1–4, N) com zoom
   OpenSeadragon e área do defeito destacada, antes e depois da correção, sequência do

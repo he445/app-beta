@@ -29,10 +29,13 @@ e configure `QA_CORS_ORIGINS` no motor com o domínio do site.
 | 2 | Processamento ao vivo (SSE) | `#/batches/<id>` |
 | 3 | Painel do lote | `#/batches/<id>` |
 | 4–5 | Fila de revisão e detalhe da página, pelo teclado | `#/batches/<id>/review` |
-| 6 | Sequência do documento | `#/batches/<id>/sequence/<doc>` |
+| 6 | Sequência do documento: "Corrigir tudo", faixas Antes/Depois, página faltando, zoom | `#/batches/<id>/sequence/<doc>` |
 | 7 | Metadados editáveis | `#/batches/<id>/metadata/<doc>` |
 | 8 | Relatório e ordem de retrabalho | `#/batches/<id>/reports` |
 | 9 | Perfis | `#/profiles` |
+
+Na sequência: clique numa página (ou Enter) para corrigir a numeração; duplo clique (ou
+**Z**) amplia, com **← →** para passar de página e **Esc** para fechar.
 
 Atalhos da revisão: **A** aprovar, **C** corrigir, **R** retrabalho, **O** defeito de
 origem, **← →** navegar, **Espaço** ampliar, **Ctrl+Z** desfazer, **1–4** filtrar por
@@ -57,6 +60,10 @@ npm run typecheck && npm test && npm run build
 node e2e/fluxo-completo.cjs ../lote-demo.zip /tmp/capturas  # com motor e vite no ar
 ```
 
-O fluxo completo envia um `.zip`, espera o painel, decide pelo teclado, desfaz, aplica
-uma correção automática e confere o "depois", abre sequência, edita um metadado, baixa a
-ordem de retrabalho e confere que não há erro de console nem rolagem horizontal no celular.
+O fluxo completo envia um `.zip`, espera o painel, decide pelo teclado e desfaz, aplica uma
+correção automática, roda "Corrigir tudo" num documento e "Corrigir o lote inteiro" lendo
+a tela de carregamento, confere as faixas Antes/Depois, decide a página faltando (com o
+Salvar bloqueado até lá), abre o zoom por duplo clique e pelo teclado, salva e inspeciona
+o zip (TIFF Deflate e manifesto), edita um metadado, baixa a ordem de retrabalho e confere
+que não há erro de console nem rolagem horizontal no celular. Com o terceiro argumento
+(pasta do lote original), confere também que nenhum arquivo original mudou.

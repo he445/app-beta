@@ -25,6 +25,11 @@ Para revisar pela interface web (detalhes em [ui/README.md](ui/README.md)):
 cd ui && npm ci && npm run dev    # http://localhost:5173, token demo-token
 ```
 
+Na tela de sequência, **Corrigir tudo** aplica as correções automáticas (endireitar,
+recortar bordas, remover página em branco, reordenar pela numeração), mostra o antes e o
+depois e **Salvar correções** baixa o lote corrigido em `.zip` (TIFF sem perda, mesma
+estrutura de pastas e manifesto). Detalhes em [spec/corrections.md](spec/corrections.md).
+
 Na base sintética de referência (199 páginas A4 a 300 dpi, 4 núcleos, sem GPU): 100% dos
 defeitos críticos encontrados, precisão de 88,7%, 67% das páginas dispensam revisão,
 cerca de 7 páginas por segundo. Detalhes e ressalvas em

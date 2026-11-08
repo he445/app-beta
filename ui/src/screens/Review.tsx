@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDecide, usePageImage, useReport, useSetNumbering, useUndo } from "../api/hooks";
 import type { Analysis, DecisionAction, Severity } from "../api/types";
+import { BulkBatchButton } from "../components/BulkButton";
 import { Viewer, type ViewerHandle } from "../components/Viewer";
 import { ErrorBox, Loading, SeverityBadge, Thumb } from "../components/ui";
 import {
@@ -124,6 +125,7 @@ function ReviewQueue({ report }: { report: Analysis }) {
             <strong>{done}</strong> de {report.findings.length} decididas
             <div className="progress small"><div style={{ width: pct(report.findings.length ? done / report.findings.length : 0) }} /></div>
           </div>
+          <BulkBatchButton batchId={batchId} className="full" />
           <div className="filters">
             {SEVERITIES.map((sev, i) => (
               <button

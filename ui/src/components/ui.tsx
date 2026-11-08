@@ -40,9 +40,21 @@ export function Loading({ label = "Carregando…" }: { label?: string }) {
   return <div className="loading">{label}</div>;
 }
 
-/** Miniatura autenticada da página. */
-export function Thumb({ pageId, width = 160, className = "", alt = "" }: { pageId?: string; width?: number; className?: string; alt?: string }) {
-  const img = usePageImage(pageId, "original", width * 2);
+/** Miniatura autenticada da página (original ou versão corrigida). */
+export function Thumb({
+  pageId,
+  width = 160,
+  className = "",
+  alt = "",
+  variant = "original",
+}: {
+  pageId?: string;
+  width?: number;
+  className?: string;
+  alt?: string;
+  variant?: "original" | "corrected";
+}) {
+  const img = usePageImage(pageId, variant, width * 2);
   return (
     <div className={`thumb ${className}`} style={{ width }}>
       {img.data ? <img src={img.data} alt={alt} /> : <div className="thumb-placeholder">{img.isError ? "sem imagem" : ""}</div>}

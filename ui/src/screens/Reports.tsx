@@ -1,7 +1,7 @@
 // Tela 8: relatório do lote e ordem de retrabalho por estação.
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { raw, download } from "../api/client";
-import { useReport } from "../api/hooks";
+import { usePlan, useReport, useSaveCorrected } from "../api/hooks";
 import { Card, ErrorBox, Loading, Stat } from "../components/ui";
 import { csvObjects } from "../lib/csv";
 import { VERDICT_LABEL, friendlyParams, pct, ruleLabel } from "../lib/format";
@@ -23,6 +23,8 @@ const FILES = [
 
 export function Reports({ id }: { id: string }) {
   const report = useReport(id);
+  const plan = usePlan(id, Boolean(report.data));
+  const saveCorrected = useSaveCorrected(id, report.data?.batch.name ?? "lote");
   const exports = useMutation({ mutationFn: () => raw(`/batches/${id}/exports`, { method: "POST" }) });
   const rework = useQuery({
     queryKey: ["rework", id, report.dataUpdatedAt],
@@ -59,6 +61,38 @@ export function Reports({ id }: { id: string }) {
         <Stat label="Defeitos de origem" value={sourceDefects.length} />
         <Stat label="Dispensam revisão" value={pct(s.no_review_ratio)} />
       </div>
+
+      <Card title="Lote corrigido">
+        <p className="small muted">
+          Mesma estrutura de pastas, páginas na ordem final, removidas fora, versão corrigida de cada
+          página, TIFF sem perda com o DPI do original e manifesto do que mudou. O original não é alterado.
+        </p>
+        {plan.data && plan.data.pending_critical > 0 && (
+          <div className="warning small">
+            Ainda há {plan.data.pending_critical} sinalização(ões) crítica(s) pendente(s). O lote corrigido
+            leva essas páginas como estão e o manifesto as lista para retrabalho.
+          </div>
+        )}
+        {plan.data && !plan.data.can_save && (
+          <div className="blocked-reason small">
+            Decida a página faltando antes de baixar: {plan.data.blockers.map((b) => b.document).join(", ")}.
+          </div>
+        )}
+        <button
+          className="primary"
+          disabled={!plan.data?.can_save || saveCorrected.isPending}
+          onClick={() => saveCorrected.mutate()}
+        >
+          {saveCorrected.isPending ? "Gerando o lote…" : "Baixar lote corrigido"}
+        </button>
+        <ErrorBox error={saveCorrected.error} />
+        {saveCorrected.data && (
+          <p className="small muted">
+            {saveCorrected.data.totals.exported} páginas exportadas, {saveCorrected.data.totals.removed} removida(s),{" "}
+            {saveCorrected.data.totals.corrected} corrigida(s). SHA-256 do zip: <code>{saveCorrected.data.sha256.slice(0, 16)}…</code>
+          </p>
+        )}
+      </Card>
 
       <Card title="Exportar">
         <div className="row wrap">

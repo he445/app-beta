@@ -1,8 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, blobUrl, getSession, json } from "./client";
+import { useEffect, useRef } from "react";
+import { api, blobUrl, download, getSession, json } from "./client";
 import type {
   Analysis,
   BatchStatus,
+  BulkCorrection,
+  CorrectedBatch,
+  CorrectedPlan,
   DecisionAction,
   DecisionResponse,
   MetadataField,
@@ -15,6 +19,8 @@ export const keys = {
   batch: (id: string) => ["batch", id] as const,
   report: (id: string) => ["report", id] as const,
   profiles: ["profiles"] as const,
+  plan: (id: string) => ["plan", id] as const,
+  operations: (id: string) => ["operations", id] as const,
   image: (page: string, variant: string, width?: number) => ["image", page, variant, width] as const,
 };
 
@@ -64,6 +70,89 @@ function patchReport(qc: ReturnType<typeof useQueryClient>, batchId: string, fn:
   qc.setQueryData<Analysis>(keys.report(batchId), (old) => (old ? fn(old) : old));
 }
 
+function reviewer(): string {
+  return getSession().reviewer || "revisor";
+}
+
+/** Depois de qualquer mudança nas correções: relatório, plano e cópias corrigidas mudam. */
+export function invalidateCorrections(qc: ReturnType<typeof useQueryClient>, batchId: string) {
+  void qc.invalidateQueries({ queryKey: keys.report(batchId) });
+  void qc.invalidateQueries({ queryKey: keys.plan(batchId) });
+  void qc.invalidateQueries({ queryKey: keys.operations(batchId) });
+  void qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === "image" && q.queryKey[2] === "corrected" });
+}
+
+export function usePlan(batchId: string, enabled = true) {
+  return useQuery({
+    queryKey: keys.plan(batchId),
+    queryFn: () => api<CorrectedPlan>(`/batches/${batchId}/corrected-plan`),
+    enabled,
+  });
+}
+
+/**
+ * Operações de "Corrigir tudo" do lote. Enquanto uma estiver em andamento, consulta o
+ * progresso real a cada 400 ms; quando termina, recarrega relatório, plano e imagens.
+ */
+export function useBulkOperations(batchId: string) {
+  const qc = useQueryClient();
+  const query = useQuery({
+    queryKey: keys.operations(batchId),
+    queryFn: () => api<BulkCorrection[]>(`/batches/${batchId}/bulk-corrections`),
+    refetchInterval: (q) =>
+      q.state.data?.some((op) => op.status === "queued" || op.status === "running") ? 400 : false,
+  });
+  const running = query.data?.some((op) => op.status === "queued" || op.status === "running") ?? false;
+  const wasRunning = useRef(running);
+  useEffect(() => {
+    if (wasRunning.current && !running) invalidateCorrections(qc, batchId);
+    wasRunning.current = running;
+  }, [running, qc, batchId]);
+  return query;
+}
+
+export function useStartBulk(batchId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (documentId?: string) =>
+      json<BulkCorrection>(
+        `/batches/${batchId}/bulk-corrections`,
+        "POST",
+        documentId ? { scope: "document", document_id: documentId, reviewer: reviewer() } : { scope: "batch", reviewer: reviewer() },
+      ),
+    onSuccess: (op) => {
+      qc.setQueryData<BulkCorrection[]>(keys.operations(batchId), (old) => [op, ...(old ?? [])]);
+    },
+  });
+}
+
+export function useUndoBulk(batchId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (operationId: string) =>
+      api<BulkCorrection>(`/bulk-corrections/${operationId}?reviewer=${encodeURIComponent(reviewer())}`, {
+        method: "DELETE",
+      }),
+    onSuccess: () => invalidateCorrections(qc, batchId),
+  });
+}
+
+/** "Salvar correções": gera o lote corrigido e baixa o .zip. */
+export function useSaveCorrected(batchId: string, batchName: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const saved = await json<CorrectedBatch>(`/batches/${batchId}/corrected-batch`, "POST", { reviewer: reviewer() });
+      await download(saved.download, `${batchName}-${saved.file}`);
+      return saved;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.operations(batchId) });
+      void qc.invalidateQueries({ queryKey: keys.plan(batchId) });
+    },
+  });
+}
+
 export function useDecide(batchId: string) {
   const qc = useQueryClient();
   return useMutation({
@@ -78,7 +167,8 @@ export function useDecide(batchId: string) {
         batch: { ...r.batch, summary: res.summary },
         findings: r.findings.map((f) => (f.id === res.finding.id ? res.finding : f)),
       }));
-      if (res.applied) void qc.invalidateQueries({ queryKey: ["image", res.finding.target.id, "corrected"] });
+      void qc.invalidateQueries({ queryKey: keys.plan(batchId) });
+      void qc.invalidateQueries({ queryKey: ["image", res.finding.target.id, "corrected"] });
     },
   });
 }
@@ -91,12 +181,15 @@ export function useUndo(batchId: string) {
         `/findings/${findingId}/decision?reviewer=${encodeURIComponent(getSession().reviewer || "revisor")}`,
         { method: "DELETE" },
       ),
-    onSuccess: (res) =>
+    onSuccess: (res) => {
       patchReport(qc, batchId, (r) => ({
         ...r,
         batch: { ...r.batch, summary: res.summary },
         findings: r.findings.map((f) => (f.id === res.finding.id ? res.finding : f)),
-      })),
+      }));
+      void qc.invalidateQueries({ queryKey: keys.plan(batchId) });
+      void qc.invalidateQueries({ queryKey: ["image", res.finding.target.id, "corrected"] });
+    },
   });
 }
 
@@ -109,7 +202,10 @@ export function useSetNumbering(batchId: string) {
         reviewer: getSession().reviewer || "revisor",
       }),
     // A numeração regenera as sinalizações de sequência: recarrega o relatório.
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.report(batchId) }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.report(batchId) });
+      void qc.invalidateQueries({ queryKey: keys.plan(batchId) });
+    },
   });
 }
 

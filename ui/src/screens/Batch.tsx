@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { keys, useBatch, useReport } from "../api/hooks";
 import { streamEvents } from "../api/sse";
 import type { Analysis, BatchStatus } from "../api/types";
+import { BulkBatchButton } from "../components/BulkButton";
 import { Bar, Card, ErrorBox, Loading, SeverityBadge, Stat } from "../components/ui";
 import { SEVERITIES, VERDICT_LABEL, pct, ruleLabel } from "../lib/format";
 import { href } from "../router";
@@ -88,9 +89,12 @@ function Dashboard({ report }: { report: Analysis }) {
             Perfil {report.batch.profile_id} · analisado em {new Date(report.batch.analyzed_at).toLocaleString("pt-BR")}
           </p>
         </div>
-        <a className="button primary" href={href({ name: "review", id })}>
-          Revisar {pending} pendente(s)
-        </a>
+        <div className="row wrap">
+          <BulkBatchButton batchId={id} />
+          <a className="button primary" href={href({ name: "review", id })}>
+            Revisar {pending} pendente(s)
+          </a>
+        </div>
       </div>
 
       <div className="stats">

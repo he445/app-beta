@@ -13,6 +13,13 @@ export type Profile = S["profile.schema"];
 export type Numbering = S["numbering.schema"];
 export type Region = S["region.schema"];
 export type DecisionRequest = S["decision-request.schema"];
+export type BulkCorrection = S["bulk-correction.schema"];
+export type BulkSkipped = NonNullable<BulkCorrection["result"]>["skipped"][number];
+export type CorrectedPlan = S["corrected-plan.schema"];
+export type CorrectedDocument = S["corrected-document.schema"];
+export type CorrectedPage = S["corrected-page.schema"];
+export type MissingGap = CorrectedDocument["missing"][number];
+export type CorrectedBatch = S["corrected-batch.schema"];
 export type DecisionAction = DecisionRequest["action"];
 export type Severity = Finding["severity"];
 

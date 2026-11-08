@@ -56,3 +56,25 @@ export const SHORTCUTS: [string, string][] = [
   ["1–4", "Filtrar por severidade"],
   ["N", "Digitar a numeração da página"],
 ];
+
+export type ZoomKeyAction = "close" | "prev" | "next" | "zoom";
+
+/** Teclado do modal de zoom: Esc fecha, setas passam de página, espaço amplia. */
+export function zoomModalKey(e: KeyLike): ZoomKeyAction | null {
+  if (e.ctrlKey || e.metaKey || e.altKey) return null;
+  const key = e.key.toLowerCase();
+  if (key === "escape" || key === "esc") return "close";
+  if (key === "arrowleft") return "prev";
+  if (key === "arrowright") return "next";
+  if (key === " " || key === "spacebar") return "zoom";
+  return null;
+}
+
+/** Teclado de uma miniatura da sequência: Enter abre a numeração, Z abre o zoom. */
+export function thumbnailKey(e: KeyLike): "numbering" | "zoom" | null {
+  if (e.ctrlKey || e.metaKey || e.altKey) return null;
+  const key = e.key.toLowerCase();
+  if (key === "enter") return "numbering";
+  if (key === "z") return "zoom";
+  return null;
+}

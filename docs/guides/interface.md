@@ -26,10 +26,24 @@ Guia para garantidores e conferentes. Para instalar e publicar, veja
 | 1–4 | Mostrar só crítico, alto, médio ou baixo (de novo: todos) |
 | N | Digitar a numeração correta da folha |
 
-5. **Sequência:** miniaturas na ordem do arquivo com a numeração lida, o canto ampliado,
-   lacunas em vermelho e a ordem proposta. Clique numa página para corrigir a numeração.
+5. **Sequência:** miniaturas na ordem do arquivo com a numeração lida e o canto ampliado.
+   Clique numa página (ou Enter) para corrigir a numeração; duplo clique (ou Z) abre a
+   página ampliada, com Original/Corrigida, setas e Esc.
+   - **Corrigir tudo** aplica as correções automáticas do documento (no painel e na
+     revisão, **Corrigir o lote inteiro**). A tela de carregamento mostra quantas páginas
+     já foram corrigidas. Depois aparecem as faixas **Antes** (como está no arquivo) e
+     **Depois** (o lote corrigido, renumerado), com o que mudou em cada página.
+   - Desfoque, resolução baixa e arquivo ilegível **não** são "melhorados": aparecem como
+     "precisa redigitalizar" e vão para a ordem de retrabalho.
+   - **Página faltando** aparece como um cartão no lugar da lacuna: decida *mandar para
+     retrabalho*, *defeito de origem* ou *aprovar mesmo assim*. Enquanto houver página
+     faltando sem decisão, **Salvar correções** fica bloqueado.
+   - **Salvar correções** gera e baixa o lote corrigido; **Desfazer correções** desfaz só
+     o que o "Corrigir tudo" aplicou. Até salvar, a tela avisa que as correções não
+     foram salvas.
 6. **Metadados:** confirme ou corrija os campos exigidos pelo Decreto 10.278/2020.
-7. **Relatório:** exporte o relatório, os CSVs e a ordem de retrabalho por estação.
+7. **Relatório:** baixe o lote corrigido (com aviso se ainda houver críticos pendentes),
+   o relatório, os CSVs e a ordem de retrabalho por estação.
 
 O original nunca é alterado: toda correção gera uma cópia, registrada com data, hora e
 revisor.
