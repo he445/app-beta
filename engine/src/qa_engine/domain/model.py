@@ -152,6 +152,8 @@ class Decision:
     decided_at: datetime
     reviewer: str
     note: str | None = None
+    operation_id: str | None = None
+    """Operação de correção em lote que registrou a decisão (permite desfazer em lote)."""
 
 
 @dataclass(frozen=True, slots=True)

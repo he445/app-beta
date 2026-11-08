@@ -5,4 +5,4 @@ A arquitetura é hexagonal (ADR-0003): ``domain`` não conhece nada,
 casos de uso por meio das ``ports`` e ``adapters`` embrulham ferramentas.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

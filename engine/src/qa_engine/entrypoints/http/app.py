@@ -20,35 +20,39 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import cv2
-import numpy as np
 import yaml
 from fastapi import Body, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, PlainTextResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from PIL import Image
 
 from qa_engine import __version__
+from qa_engine.adapters.corrected_zip import ZipTiffWriter
 from qa_engine.adapters.images import FileImageSource
+from qa_engine.adapters.metadata import PillowMetadataReader
+from qa_engine.adapters.page_versions import FilePageVersionStore
 from qa_engine.adapters.sqlite import SqliteRepository
+from qa_engine.adapters.system import SystemClock
 from qa_engine.application.contracts import ContractError, validate
-from qa_engine.application.corrections import (
-    IMAGE_ACTIONS,
-    CorrectionNotApplicableError,
-    apply_correction,
+from qa_engine.application.correction_service import (
+    CORRECTED_ZIP,
+    BatchContext,
+    ConflictError,
+    CorrectionService,
+    NotFoundError,
+    SaveBlockedError,
 )
 from qa_engine.application.exports import findings_csv, metadata_csv, rework_csv
 from qa_engine.application.profile import Profile, load_profile, profile_from_dict
 from qa_engine.application.review import (
     baselines_from_json,
     baselines_json,
-    decide,
     finding_from_json,
-    recompute_summary,
     renumber,
 )
 from qa_engine.application.serialize import analysis_json, iso
 from qa_engine.application.services import run_analysis
-from qa_engine.domain.model import CorrectionAction, CorrectionClass, DecisionAction
+from qa_engine.domain.model import DecisionAction
 from qa_engine.entrypoints.http.settings import Settings
 from qa_engine.entrypoints.http.uploads import (
     UploadError,
@@ -63,6 +67,7 @@ EXPORTS = {
     "findings.csv": "text/csv; charset=utf-8",
     "metadata.csv": "text/csv; charset=utf-8",
     "rework_order.csv": "text/csv; charset=utf-8",
+    CORRECTED_ZIP: "application/zip",
 }
 
 
@@ -81,7 +86,11 @@ class Engine:
         self.settings = settings
         self.repo = SqliteRepository(settings.data_dir / "qa.sqlite3")
         self.queue = ThreadPoolExecutor(max_workers=1, thread_name_prefix="analysis")
+        self.corrections = ThreadPoolExecutor(max_workers=1, thread_name_prefix="corrections")
         self.images = FileImageSource()
+        self.service = CorrectionService(
+            self.repo, self.images, PillowMetadataReader(), SystemClock(), __version__
+        )
 
     def now(self) -> datetime:
         """Agora, em UTC."""
@@ -97,6 +106,34 @@ class Engine:
         if not path.is_file():
             raise HTTPException(404, f"perfil {profile_id!r} não encontrado")
         return load_profile(path)
+
+    def context(self, batch_id: str) -> BatchContext:
+        """Contexto dos casos de uso de correção para um lote."""
+        row = self.repo.get_batch(batch_id)
+        if row is None:
+            raise HTTPException(404, "lote não encontrado")
+        work = self.batch_dir(batch_id)
+        baselines_path = work / "baselines.json"
+        baselines = (
+            baselines_from_json(json.loads(baselines_path.read_text("utf-8")))
+            if baselines_path.is_file()
+            else {}
+        )
+        return BatchContext(
+            batch_id=batch_id,
+            name=row.name,
+            root=row.root,
+            profile=self.profile(row.profile_id),
+            baselines=baselines,
+            versions=FilePageVersionStore(work / "corrected"),
+        )
+
+    def run_bulk(self, batch_id: str, operation_id: str) -> None:
+        """Trabalho de fundo do "Corrigir tudo"."""
+        try:
+            self.service.run_bulk(self.context(batch_id), operation_id)
+        except Exception:
+            log.exception("falha na correção em lote %s", operation_id)
 
     def purge(self) -> None:
         """Apaga lotes mais antigos que a retenção (24 h na PoC)."""
@@ -138,6 +175,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         engine.purge()
         yield
         engine.queue.shutdown(wait=False, cancel_futures=True)
+        engine.corrections.shutdown(wait=False, cancel_futures=True)
         engine.repo.close()
 
     app = FastAPI(
@@ -170,6 +208,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.exception_handler(HTTPException)
     async def http_error(_: Request, exc: HTTPException) -> JSONResponse:
         return problem(exc.status_code, str(exc.detail))
+
+    @app.exception_handler(NotFoundError)
+    async def not_found(_: Request, exc: NotFoundError) -> JSONResponse:
+        return problem(404, str(exc))
+
+    @app.exception_handler(SaveBlockedError)
+    async def save_blocked(_: Request, exc: SaveBlockedError) -> JSONResponse:
+        return problem(409, "Página faltando sem decisão", str(exc))
+
+    @app.exception_handler(ConflictError)
+    async def conflict(_: Request, exc: ConflictError) -> JSONResponse:
+        return problem(409, "Conflito", str(exc))
 
     @app.exception_handler(ContractError)
     async def contract_error(_: Request, exc: ContractError) -> JSONResponse:
@@ -303,53 +353,66 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # Revisão -----------------------------------------------------------------
 
+    def finding_batch(finding_id: str) -> str:
+        found = engine.repo.get_finding(finding_id)
+        if found is None:
+            raise HTTPException(404, "sinalização não encontrada")
+        return found[0]
+
     @app.post("/findings/{finding_id}/decision")
     def decide_finding(finding_id: str, body: Annotated[dict[str, Any], Body()]) -> dict[str, Any]:
         validate(body, "decision-request.schema.json")
-        found = engine.repo.get_finding(finding_id)
-        if found is None:
-            raise HTTPException(404, "sinalização não encontrada")
-        batch_id, finding = found
-        row = batch_or_404(batch_id)
-        profile = engine.profile(row.profile_id)
-        action = DecisionAction(body["action"])
-        applied: dict[str, Any] | None = None
-        correction = finding["correction"]
-        image_fix = (
-            correction["kind"] == CorrectionClass.AUTOMATIC.value
-            and CorrectionAction(correction["action"]) in IMAGE_ACTIONS
-            and finding["target"]["kind"] == "page"
+        ctx = engine.context(finding_batch(finding_id))
+        return engine.service.decide(
+            ctx, finding_id, DecisionAction(body["action"]), body["reviewer"], body.get("note")
         )
-        if action is DecisionAction.CORRECT and image_fix:
-            applied = _apply(engine, batch_id, finding, profile)
-        updated = decide(finding, action, body["reviewer"], engine.now(), body.get("note"))
-        report = engine.repo.get_report(batch_id)
-        assert report is not None
-        report["findings"] = [updated if f["id"] == finding_id else f for f in report["findings"]]
-        summary = recompute_summary(report, profile)
-        engine.repo.record_decision(batch_id, updated, summary)
-        response: dict[str, Any] = {"finding": updated, "summary": summary}
-        if applied is not None:
-            response["applied"] = applied
-        return response
 
     @app.delete("/findings/{finding_id}/decision")
     def undo_decision(finding_id: str, reviewer: str = "revisor") -> dict[str, Any]:
-        found = engine.repo.get_finding(finding_id)
-        if found is None:
-            raise HTTPException(404, "sinalização não encontrada")
-        batch_id, finding = found
-        if not finding.get("decision"):
-            raise HTTPException(409, "a sinalização não tem decisão para desfazer")
-        row = batch_or_404(batch_id)
-        profile = engine.profile(row.profile_id)
-        updated = {k: v for k, v in finding.items() if k != "decision"}
-        report = engine.repo.get_report(batch_id)
-        assert report is not None
-        report["findings"] = [updated if f["id"] == finding_id else f for f in report["findings"]]
-        summary = recompute_summary(report, profile)
-        engine.repo.undo_decision(batch_id, updated, reviewer, iso(engine.now()), summary)
-        return {"finding": updated, "summary": summary}
+        ctx = engine.context(finding_batch(finding_id))
+        return engine.service.undo(ctx, finding_id, reviewer)
+
+    # Correção em lote e lote corrigido -----------------------------------------------
+
+    @app.post("/batches/{batch_id}/bulk-corrections", status_code=202)
+    def start_bulk(batch_id: str, body: Annotated[dict[str, Any], Body()]) -> dict[str, Any]:
+        validate(body, "bulk-correction-request.schema.json")
+        ctx = engine.context(batch_id)
+        operation = engine.service.start_bulk(
+            ctx, body["scope"], body.get("document_id"), body["reviewer"]
+        )
+        engine.corrections.submit(engine.run_bulk, batch_id, operation["id"])
+        return operation
+
+    @app.get("/batches/{batch_id}/bulk-corrections")
+    def list_bulk(batch_id: str) -> list[dict[str, Any]]:
+        batch_or_404(batch_id)
+        return engine.service.operations(batch_id)
+
+    @app.get("/bulk-corrections/{operation_id}")
+    def get_bulk(operation_id: str) -> dict[str, Any]:
+        return engine.service.operation(operation_id)
+
+    @app.delete("/bulk-corrections/{operation_id}")
+    def undo_bulk(operation_id: str, reviewer: str) -> dict[str, Any]:
+        operation = engine.service.operation(operation_id)
+        return engine.service.undo_bulk(
+            engine.context(operation["batch_id"]), operation_id, reviewer
+        )
+
+    @app.get("/batches/{batch_id}/corrected-plan")
+    def corrected_plan(batch_id: str) -> dict[str, Any]:
+        return engine.service.plan(engine.context(batch_id))
+
+    @app.post("/batches/{batch_id}/corrected-batch", status_code=201)
+    def save_corrected(batch_id: str, body: Annotated[dict[str, Any], Body()]) -> dict[str, Any]:
+        validate(body, "corrected-batch-request.schema.json")
+        target = engine.batch_dir(batch_id) / "exports" / CORRECTED_ZIP
+        return engine.service.save(
+            engine.context(batch_id),
+            body["reviewer"],
+            lambda when: ZipTiffWriter(target, when),
+        )
 
     @app.put("/pages/{page_id}/numbering")
     def put_numbering(page_id: str, body: Annotated[dict[str, Any], Body()]) -> dict[str, Any]:
@@ -390,10 +453,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(404, "página não encontrada")
         row = batch_or_404(page["batch_id"])
         if variant == "corrected":
-            corrected = sorted((engine.batch_dir(row.id) / "corrected").glob(f"{page_id}.*.png"))
-            if not corrected:
+            corrected = engine.service.corrected_image(engine.context(row.id), page_id)
+            if corrected is None:
                 raise HTTPException(404, "página sem cópia corrigida")
-            img = np.asarray(Image.open(corrected[-1]))
+            img = corrected
         elif variant == "original":
             img = engine.images.load_original(row.root / page["source_file"], page["page_in_file"])
         else:
@@ -457,7 +520,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         path = engine.batch_dir(batch_id) / "exports" / name
         if name not in EXPORTS or not path.is_file():
             raise HTTPException(404, "exportação não encontrada; gere com POST .../exports")
-        return PlainTextResponse(path.read_text("utf-8"), media_type=EXPORTS[name])
+        filename = f"{batch_or_404(batch_id).name}-{name}" if name == CORRECTED_ZIP else name
+        return FileResponse(path, media_type=EXPORTS[name], filename=filename)
 
     # Perfis -----------------------------------------------------------------
 
@@ -482,45 +546,3 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return dict(profile.raw)
 
     return app
-
-
-def _apply(
-    engine: Engine, batch_id: str, finding: dict[str, Any], profile: Profile
-) -> dict[str, Any]:
-    page = engine.repo.get_page(finding["target"]["id"])
-    row = engine.repo.get_batch(batch_id)
-    if page is None or row is None:
-        raise HTTPException(404, "página não encontrada")
-    baselines_path = engine.batch_dir(batch_id) / "baselines.json"
-    baselines = (
-        baselines_from_json(json.loads(baselines_path.read_text("utf-8")))
-        if baselines_path.is_file()
-        else {}
-    )
-    original = engine.images.load_original(row.root / page["source_file"], page["page_in_file"])
-    sha = next(
-        (
-            p["sha256"]
-            for p in (engine.repo.get_report(batch_id) or {"pages": []})["pages"]
-            if p["id"] == page["id"]
-        ),
-        "",
-    )
-    try:
-        record = apply_correction(
-            finding=finding_from_json(finding),
-            original=original,
-            dpi=page["dpi"],
-            source_sha256=sha,
-            out_dir=engine.batch_dir(batch_id) / "corrected",
-            profile=profile,
-            baselines=baselines,
-            now=engine.now(),
-        )
-    except CorrectionNotApplicableError as exc:
-        raise HTTPException(422, str(exc)) from exc
-    return {
-        "output": record.output.name,
-        "output_sha256": record.output_sha256,
-        "remaining_rules": list(record.remaining_rules),
-    }

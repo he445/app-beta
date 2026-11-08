@@ -30,6 +30,11 @@
     },
     "note": {
       "type": "string"
+    },
+    "operation_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Operação de correção em lote que registrou a decisão; ausente nas decisões individuais."
     }
   }
 }

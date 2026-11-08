@@ -49,6 +49,7 @@ def decision_from_json(data: Mapping[str, Any]) -> Decision:
         decided_at=datetime.fromisoformat(str(data["decided_at"]).replace("Z", "+00:00")),
         reviewer=str(data["reviewer"]),
         note=data.get("note"),
+        operation_id=data.get("operation_id"),
     )
 
 
@@ -119,10 +120,20 @@ def decide(
     reviewer: str,
     now: datetime,
     note: str | None = None,
+    operation_id: str | None = None,
 ) -> dict[str, Any]:
-    """Registra a decisão do revisor numa sinalização (JSON) e devolve a nova versão."""
+    """Registra a decisão do revisor numa sinalização (JSON) e devolve a nova versão.
+
+    Args:
+        finding: sinalização no formato do contrato.
+        action: decisão tomada.
+        reviewer: quem decidiu.
+        now: quando decidiu (UTC).
+        note: observação opcional.
+        operation_id: operação de correção em lote, quando a decisão vem de "Corrigir tudo".
+    """
     updated = dict(finding)
-    updated["decision"] = decision_json(Decision(action, now, reviewer, note))
+    updated["decision"] = decision_json(Decision(action, now, reviewer, note, operation_id))
     return updated
 
 

@@ -7,6 +7,7 @@ from PIL import Image
 
 from conftest import page_150, save
 from qa_engine.adapters.images import FileImageSource
+from qa_engine.adapters.page_versions import FilePageVersionStore
 from qa_engine.adapters.system import FixedClock
 from qa_engine.application.contracts import validate
 from qa_engine.application.corrections import apply_correction
@@ -74,20 +75,25 @@ def test_original_is_untouched_and_correction_fixes_skew(
     skew = next(f for f in report["findings"] if f["rule"] == "skew")
     page = next(p for p in report["pages"] if p["id"] == skew["target"]["id"])
     original = FileImageSource().load_original(small_batch / page["source_file"], 0)
+    store = FilePageVersionStore(tmp_path / "corrected")
     record = apply_correction(
         finding=finding_from_json(skew),
         original=original,
         dpi=page["dpi"],
         source_sha256=page["sha256"],
-        out_dir=tmp_path / "corrected",
+        store=store,
         profile=test_profile,
         baselines=analysis.baselines,
         now=CLOCK.now(),
+        reviewer="garantidor1",
     )
-    assert record.output.is_file()
+    assert record.output is not None
+    assert (tmp_path / "corrected" / record.output).is_file()
     assert "skew" not in record.remaining_rules
     log = (tmp_path / "corrected/corrections.jsonl").read_text("utf-8").splitlines()
-    assert json.loads(log[0])["action"] == "deskew"
+    event = json.loads(log[0])
+    assert event["chain"][0]["action"] == "deskew"
+    assert event["reviewer"] == "garantidor1"
     assert {p: p.read_bytes() for p in small_batch.rglob("*.tif")} == before
 
 

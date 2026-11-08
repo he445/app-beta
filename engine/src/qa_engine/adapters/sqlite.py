@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from importlib import resources
@@ -218,57 +218,138 @@ class SqliteRepository:
         row = self._one("SELECT batch_id, finding_json FROM findings WHERE id = ?", (finding_id,))
         return (row[0], json.loads(row[1])) if row else None
 
-    def record_decision(
-        self, batch_id: str, finding: Mapping[str, Any], summary: Mapping[str, Any]
-    ) -> None:
-        """Grava a decisão na sinalização, no histórico e atualiza o painel do lote."""
-        decision = finding["decision"]
-        with self._tx() as c:
-            c.execute(
-                "UPDATE findings SET finding_json = ? WHERE id = ?",
-                (json.dumps(finding, ensure_ascii=False), finding["id"]),
-            )
-            c.execute(
-                "INSERT INTO decisions (finding_id, batch_id, rule, action, reviewer, decided_at,"
-                " note) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (
-                    finding["id"],
-                    batch_id,
-                    finding["rule"],
-                    decision["action"],
-                    decision["reviewer"],
-                    decision["decided_at"],
-                    decision.get("note"),
-                ),
-            )
-            c.execute(
-                "UPDATE batches SET summary_json = ? WHERE id = ?",
-                (json.dumps(summary), batch_id),
-            )
-
-    def undo_decision(
+    def record_decisions(
         self,
         batch_id: str,
-        finding: Mapping[str, Any],
+        findings: Sequence[Mapping[str, Any]],
+        summary: Mapping[str, Any] | None,
+    ) -> None:
+        """Grava as decisões nas sinalizações e no histórico, numa transação."""
+        with self._tx() as c:
+            for finding in findings:
+                decision = finding["decision"]
+                c.execute(
+                    "UPDATE findings SET finding_json = ? WHERE id = ?",
+                    (json.dumps(finding, ensure_ascii=False), finding["id"]),
+                )
+                c.execute(
+                    "INSERT INTO decisions (finding_id, batch_id, rule, action, reviewer,"
+                    " decided_at, note, operation_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        finding["id"],
+                        batch_id,
+                        finding["rule"],
+                        decision["action"],
+                        decision["reviewer"],
+                        decision["decided_at"],
+                        decision.get("note"),
+                        decision.get("operation_id"),
+                    ),
+                )
+            if summary is not None:
+                c.execute(
+                    "UPDATE batches SET summary_json = ? WHERE id = ?",
+                    (json.dumps(summary), batch_id),
+                )
+
+    def clear_decisions(
+        self,
+        batch_id: str,
+        findings: Sequence[Mapping[str, Any]],
         reviewer: str,
         at: str,
-        summary: Mapping[str, Any],
+        operation_id: str | None,
+        summary: Mapping[str, Any] | None,
     ) -> None:
-        """Grava a sinalização sem decisão e registra ``undo`` no histórico."""
+        """Grava as sinalizações sem decisão e registra ``undo`` no histórico."""
+        with self._tx() as c:
+            for finding in findings:
+                c.execute(
+                    "UPDATE findings SET finding_json = ? WHERE id = ?",
+                    (json.dumps(finding, ensure_ascii=False), finding["id"]),
+                )
+                c.execute(
+                    "INSERT INTO decisions (finding_id, batch_id, rule, action, reviewer,"
+                    " decided_at, operation_id) VALUES (?, ?, ?, 'undo', ?, ?, ?)",
+                    (finding["id"], batch_id, finding["rule"], reviewer, at, operation_id),
+                )
+            if summary is not None:
+                c.execute(
+                    "UPDATE batches SET summary_json = ? WHERE id = ?",
+                    (json.dumps(summary), batch_id),
+                )
+
+    def set_summary(self, batch_id: str, summary: Mapping[str, Any]) -> None:
+        """Atualiza o painel do lote."""
         with self._tx() as c:
             c.execute(
-                "UPDATE findings SET finding_json = ? WHERE id = ?",
-                (json.dumps(finding, ensure_ascii=False), finding["id"]),
+                "UPDATE batches SET summary_json = ? WHERE id = ?", (json.dumps(summary), batch_id)
             )
+
+    # Operações de correção em lote ---------------------------------------------
+
+    def create_operation(self, operation: Mapping[str, Any]) -> None:
+        """Registra uma operação de correção em lote."""
+        with self._tx() as c:
             c.execute(
-                "INSERT INTO decisions (finding_id, batch_id, rule, action, reviewer, decided_at)"
-                " VALUES (?, ?, ?, 'undo', ?, ?)",
-                (finding["id"], batch_id, finding["rule"], reviewer, at),
+                "INSERT INTO operations (id, batch_id, scope_kind, scope_id, status, done, total,"
+                " current, reviewer, started_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    operation["id"],
+                    operation["batch_id"],
+                    operation["scope"]["kind"],
+                    operation["scope"]["id"],
+                    operation["status"],
+                    operation["progress"]["done"],
+                    operation["progress"]["total"],
+                    operation["progress"]["current"],
+                    operation["reviewer"],
+                    operation["started_at"],
+                ),
             )
+
+    def update_operation(self, operation_id: str, **fields: Any) -> None:
+        """Atualiza campos da operação; ``result`` e ``undo`` são gravados como JSON."""
+        columns = {
+            "status",
+            "done",
+            "total",
+            "current",
+            "finished_at",
+            "saved_at",
+            "error",
+        }
+        sets: list[str] = []
+        values: list[Any] = []
+        for key, value in fields.items():
+            if key in ("result", "undo"):
+                sets.append(f"{key}_json = ?")
+                values.append(json.dumps(value, ensure_ascii=False))
+            elif key in columns:
+                sets.append(f"{key} = ?")
+                values.append(value)
+            else:
+                raise ValueError(f"campo de operação desconhecido: {key}")
+        if not sets:
+            return
+        with self._tx() as c:
             c.execute(
-                "UPDATE batches SET summary_json = ? WHERE id = ?",
-                (json.dumps(summary), batch_id),
+                f"UPDATE operations SET {', '.join(sets)} WHERE id = ?",
+                (*values, operation_id),
             )
+
+    def get_operation(self, operation_id: str) -> dict[str, Any] | None:
+        """Operação no formato de ``bulk-correction.schema.json``."""
+        row = self._one("SELECT * FROM operations WHERE id = ?", (operation_id,))
+        return _operation(row) if row else None
+
+    def list_operations(self, batch_id: str) -> list[dict[str, Any]]:
+        """Operações do lote, da mais recente à mais antiga."""
+        rows = self._all(
+            "SELECT * FROM operations WHERE batch_id = ? ORDER BY started_at DESC, rowid DESC",
+            (batch_id,),
+        )
+        return [_operation(r) for r in rows]
 
     def update_metadata(self, batch_id: str, document_id: str, fields: list[Any]) -> None:
         """Substitui os metadados de um documento no relatório."""
@@ -346,3 +427,23 @@ def _batch(row: sqlite3.Row) -> BatchRow:
         error=row["error"],
         summary=json.loads(row["summary_json"]) if row["summary_json"] else None,
     )
+
+
+def _operation(row: sqlite3.Row) -> dict[str, Any]:
+    data: dict[str, Any] = {
+        "id": row["id"],
+        "batch_id": row["batch_id"],
+        "scope": {"kind": row["scope_kind"], "id": row["scope_id"]},
+        "status": row["status"],
+        "progress": {"done": row["done"], "total": row["total"], "current": row["current"]},
+        "reviewer": row["reviewer"],
+        "started_at": row["started_at"],
+    }
+    for key in ("finished_at", "saved_at", "error"):
+        if row[key]:
+            data[key] = row[key]
+    if row["result_json"]:
+        data["result"] = json.loads(row["result_json"])
+    if row["undo_json"]:
+        data["undo"] = json.loads(row["undo_json"])
+    return data

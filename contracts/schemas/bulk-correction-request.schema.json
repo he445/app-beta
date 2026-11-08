@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "bulk-correction-request.schema.json",
+  "title": "BulkCorrectionRequest",
+  "description": "Pedido de \"Corrigir tudo\" para um documento ou para o lote inteiro.",
+  "type": "object",
+  "required": [
+    "scope",
+    "reviewer"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "scope": {
+      "enum": [
+        "batch",
+        "document"
+      ]
+    },
+    "document_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "reviewer": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "if": {
+    "properties": {
+      "scope": {
+        "const": "document"
+      }
+    }
+  },
+  "then": {
+    "required": [
+      "document_id"
+    ]
+  }
+}

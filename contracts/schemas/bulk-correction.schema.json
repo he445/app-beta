@@ -1,0 +1,257 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "bulk-correction.schema.json",
+  "title": "BulkCorrection",
+  "description": "Operação de correção em lote: progresso real, resultado e desfazer.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "batch_id",
+    "scope",
+    "status",
+    "progress",
+    "reviewer",
+    "started_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "batch_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "scope": {
+      "type": "object",
+      "required": [
+        "kind",
+        "id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "batch",
+            "document"
+          ]
+        },
+        "id": {
+          "type": "string"
+        }
+      }
+    },
+    "status": {
+      "enum": [
+        "queued",
+        "running",
+        "applied",
+        "saved",
+        "undone",
+        "failed"
+      ]
+    },
+    "progress": {
+      "type": "object",
+      "required": [
+        "done",
+        "total",
+        "current"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "current": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Página ou documento em correção."
+        }
+      }
+    },
+    "reviewer": {
+      "type": "string"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "finished_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "saved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "error": {
+      "type": "string"
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "applied_total",
+        "applied_by_rule",
+        "skipped_total",
+        "skipped",
+        "pages"
+      ],
+      "properties": {
+        "applied_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "applied_by_rule": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "skipped_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skipped": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "finding_id",
+              "rule",
+              "severity",
+              "target",
+              "category",
+              "reason"
+            ],
+            "properties": {
+              "finding_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "rule": {
+                "type": "string",
+                "pattern": "^[a-z0-9_]+$"
+              },
+              "severity": {
+                "enum": [
+                  "critical",
+                  "high",
+                  "medium",
+                  "low"
+                ]
+              },
+              "target": {
+                "type": "object",
+                "required": [
+                  "kind",
+                  "id"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "page",
+                      "document",
+                      "batch"
+                    ]
+                  },
+                  "id": {
+                    "type": "string"
+                  }
+                }
+              },
+              "category": {
+                "enum": [
+                  "missing_page",
+                  "needs_rescan",
+                  "manual",
+                  "failed"
+                ],
+                "description": "missing_page: exige aprovação manual; needs_rescan: precisa redigitalizar (vai para a ordem de retrabalho); manual: exige decisão humana; failed: a correção não pôde ser aplicada."
+              },
+              "reason": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "pages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "page_id",
+              "actions",
+              "remaining_rules"
+            ],
+            "properties": {
+              "page_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "actions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "remaining_rules": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_]+$"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "undo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "undone_total",
+        "undone_by_rule",
+        "reviewer",
+        "at"
+      ],
+      "properties": {
+        "undone_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "undone_by_rule": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "reviewer": {
+          "type": "string"
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "summary": {
+      "$ref": "batch-summary.schema.json"
+    }
+  }
+}

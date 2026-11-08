@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QA Automático de Digitalização — API do motor
-  version: 0.2.0
+  version: 0.3.0
   summary: Contrato entre a interface web, a linha de comando e o motor de análise.
   description: |
     Fonte da verdade do sistema (ADR-0002). Modelos de cada linguagem são gerados a partir
@@ -27,6 +27,8 @@ tags:
     description: Decisões do revisor
   - name: pages
     description: Imagens e numeração
+  - name: corrections
+    description: Correção em lote ("Corrigir tudo") e lote corrigido para baixar
   - name: profiles
     description: Perfis de cliente
   - name: system
@@ -241,6 +243,133 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
+  /batches/{batch_id}/bulk-corrections:
+    parameters: [{ $ref: "#/components/parameters/BatchId" }]
+    post:
+      tags: [corrections]
+      operationId: startBulkCorrection
+      summary: Corrigir tudo (documento ou lote inteiro)
+      description: |
+        Decide `correct` em todas as sinalizações PENDENTES com correção automática do escopo:
+        correções de imagem (aplicadas numa cópia), remoção de página em branco e reordenação
+        pela numeração. Página faltando, defeitos que exigem redigitalização e o que pede
+        decisão humana ficam pendentes e voltam em `result.skipped`. Roda em segundo plano;
+        acompanhe o progresso real em `GET /bulk-corrections/{operation_id}`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "schemas/bulk-correction-request.schema.json" }
+      responses:
+        "202":
+          description: Operação na fila
+          content:
+            application/json:
+              schema: { $ref: "schemas/bulk-correction.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+    get:
+      tags: [corrections]
+      operationId: listBulkCorrections
+      summary: Operações de correção em lote do lote, da mais recente à mais antiga
+      responses:
+        "200":
+          description: Operações
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "schemas/bulk-correction.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /bulk-corrections/{operation_id}:
+    parameters:
+      - name: operation_id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [corrections]
+      operationId: getBulkCorrection
+      summary: Progresso e resultado de uma correção em lote
+      responses:
+        "200":
+          description: Estado da operação (progresso em páginas e documentos corrigidos)
+          content:
+            application/json:
+              schema: { $ref: "schemas/bulk-correction.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+    delete:
+      tags: [corrections]
+      operationId: undoBulkCorrection
+      summary: Desfazer em lote só o que esta operação aplicou
+      description: |
+        Remove as decisões que ainda carregam o `operation_id` desta operação (uma decisão
+        trocada depois, individualmente, não é tocada), recalcula as versões corrigidas das
+        páginas e registra "undo" no histórico.
+      parameters:
+        - name: reviewer
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        "200":
+          description: Operação desfeita e painel recalculado
+          content:
+            application/json:
+              schema: { $ref: "schemas/bulk-correction.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /batches/{batch_id}/corrected-plan:
+    parameters: [{ $ref: "#/components/parameters/BatchId" }]
+    get:
+      tags: [corrections]
+      operationId: getCorrectedPlan
+      summary: Como o lote corrigido vai ficar com as decisões atuais
+      description: |
+        Ordem final, páginas removidas e o motivo, correções aplicadas, páginas que precisam
+        ser redigitalizadas e páginas faltando com a decisão tomada. `can_save` é falso
+        enquanto houver página faltando sem decisão.
+      responses:
+        "200":
+          description: Plano do lote corrigido
+          content:
+            application/json:
+              schema: { $ref: "schemas/corrected-plan.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /batches/{batch_id}/corrected-batch:
+    parameters: [{ $ref: "#/components/parameters/BatchId" }]
+    post:
+      tags: [corrections]
+      operationId: saveCorrectedBatch
+      summary: Salvar correções e gerar o lote corrigido (.zip)
+      description: |
+        Confirma as operações de correção ainda não salvas e gera
+        `exports/lote-corrigido.zip`: mesma estrutura de pastas, ordem final, páginas
+        removidas fora, versão corrigida mais recente, arquivos renumerados (0001.tif...),
+        TIFF com compressão sem perda (Deflate) e DPI do original, mais `manifest.json`
+        (schemas/corrected-manifest.schema.json) e `manifest.csv`. O original nunca é
+        alterado. Recusado (409) enquanto houver página faltando sem decisão.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "schemas/corrected-batch-request.schema.json" }
+      responses:
+        "201":
+          description: Lote corrigido gerado
+          content:
+            application/json:
+              schema: { $ref: "schemas/corrected-batch.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
   /pages/{page_id}/image:
     parameters:
       - $ref: "#/components/parameters/PageId"
@@ -255,7 +384,10 @@ paths:
       tags: [pages]
       operationId: getPageImage
       summary: Imagem da página, original ou corrigida
-      description: Tiles para zoom profundo (OpenSeadragon) entram numa versão menor seguinte.
+      description: |
+        `corrected` devolve a versão corrigida mais recente (todas as correções de imagem
+        decididas, aplicadas sobre o original em ordem canônica); 404 se a página não tem
+        correção. Tiles para zoom profundo entram numa versão menor seguinte.
       responses:
         "200":
           description: PNG
@@ -367,7 +499,8 @@ paths:
       - name: name
         in: path
         required: true
-        schema: { enum: [report.json, findings.csv, metadata.csv, rework_order.csv] }
+        schema:
+          enum: [report.json, findings.csv, metadata.csv, rework_order.csv, lote-corrigido.zip]
     get:
       tags: [batches]
       operationId: getExport
@@ -378,6 +511,7 @@ paths:
           content:
             application/json: { schema: { type: object } }
             text/csv: { schema: { type: string } }
+            application/zip: { schema: { type: string, format: binary } }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/Problem" }
   /profiles:

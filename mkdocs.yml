@@ -42,6 +42,7 @@ nav:
           - "0006 Código em inglês": adr/0006-codigo-em-ingles-documentacao-em-portugues.md
           - "0007 Conformidade gerada": adr/0007-fixtures-de-conformidade-gerados.md
           - "0008 Interface web": adr/0008-interface-web.md
+          - "0009 Correção em lote e lote corrigido": adr/0009-correcao-em-lote-e-lote-corrigido.md
           - Modelo: adr/0000-template.md
   - Referência:
       - API: reference/api.md

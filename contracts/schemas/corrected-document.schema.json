@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "corrected-document.schema.json",
+  "title": "CorrectedDocument",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "document_id",
+    "name",
+    "folder",
+    "reordered",
+    "pages",
+    "missing"
+  ],
+  "properties": {
+    "document_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "name": {
+      "type": "string"
+    },
+    "folder": {
+      "type": "string",
+      "description": "Pasta do documento no lote corrigido (vazia = raiz)."
+    },
+    "reordered": {
+      "type": "boolean"
+    },
+    "pages": {
+      "type": "array",
+      "items": {
+        "$ref": "corrected-page.schema.json"
+      }
+    },
+    "missing": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "finding_id",
+          "missing",
+          "after_page_id",
+          "before_page_id",
+          "after_position",
+          "message",
+          "decision"
+        ],
+        "properties": {
+          "finding_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "missing": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "after_page_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "before_page_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "after_position": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "decision": {
+            "oneOf": [
+              {
+                "$ref": "decision.schema.json"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

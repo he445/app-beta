@@ -26,6 +26,8 @@ def decision_json(decision: Decision) -> dict[str, Any]:
     }
     if decision.note:
         data["note"] = decision.note
+    if decision.operation_id:
+        data["operation_id"] = decision.operation_id
     return data
 
 

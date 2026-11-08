@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "corrected-batch-request.schema.json",
+  "title": "CorrectedBatchRequest",
+  "type": "object",
+  "required": [
+    "reviewer"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "reviewer": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

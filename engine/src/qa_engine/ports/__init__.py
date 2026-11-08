@@ -101,3 +101,99 @@ class Executor(Protocol):
     def map(self, fn: Callable[[T], R], items: Iterable[T]) -> Iterator[R]:
         """Aplica ``fn`` a cada item e devolve os resultados na ordem de entrada."""
         ...
+
+
+class ReviewStore(Protocol):
+    """Persistência das decisões, do painel e das operações de correção em lote."""
+
+    def get_report(self, batch_id: str) -> dict[str, Any] | None:
+        """Relatório com as sinalizações e decisões vigentes."""
+        ...
+
+    def record_decisions(
+        self,
+        batch_id: str,
+        findings: Sequence[Mapping[str, Any]],
+        summary: Mapping[str, Any] | None,
+    ) -> None:
+        """Grava as sinalizações decididas e o histórico, numa transação."""
+        ...
+
+    def clear_decisions(
+        self,
+        batch_id: str,
+        findings: Sequence[Mapping[str, Any]],
+        reviewer: str,
+        at: str,
+        operation_id: str | None,
+        summary: Mapping[str, Any] | None,
+    ) -> None:
+        """Grava as sinalizações sem decisão e registra ``undo`` no histórico."""
+        ...
+
+    def set_summary(self, batch_id: str, summary: Mapping[str, Any]) -> None:
+        """Atualiza o painel do lote."""
+        ...
+
+    def create_operation(self, operation: Mapping[str, Any]) -> None:
+        """Registra uma operação de correção em lote."""
+        ...
+
+    def update_operation(self, operation_id: str, **fields: Any) -> None:
+        """Atualiza campos da operação (progresso, estado, resultado)."""
+        ...
+
+    def get_operation(self, operation_id: str) -> dict[str, Any] | None:
+        """Operação no formato de ``bulk-correction.schema.json`` (sem ``summary``)."""
+        ...
+
+    def list_operations(self, batch_id: str) -> list[dict[str, Any]]:
+        """Operações do lote, da mais recente à mais antiga."""
+        ...
+
+
+class PageVersionStore(Protocol):
+    """Cópias corrigidas das páginas e o log só de inserção que as descreve."""
+
+    def events(self) -> list[dict[str, Any]]:
+        """Eventos do log, na ordem em que foram gravados."""
+        ...
+
+    def append(self, event: Mapping[str, Any]) -> dict[str, Any]:
+        """Grava um evento (recebe ``seq``) e o devolve."""
+        ...
+
+    def save(self, page_id: str, image: NDArray[np.uint8], dpi: float | None) -> tuple[str, str]:
+        """Grava uma versão corrigida; devolve ``(nome, sha256)``."""
+        ...
+
+    def load(self, name: str) -> NDArray[np.uint8] | None:
+        """Lê uma versão gravada, ou ``None`` se não existir mais."""
+        ...
+
+
+class CorrectedBatchWriter(Protocol):
+    """Escreve o lote corrigido: páginas em formato sem perda e arquivos de texto."""
+
+    def add_page(
+        self,
+        path: str,
+        image: NDArray[np.uint8],
+        dpi: float | None,
+        bilevel: bool,
+        tags: Mapping[str, str],
+    ) -> str:
+        """Grava uma página; devolve o SHA-256 do arquivo escrito."""
+        ...
+
+    def add_text(self, path: str, text: str) -> None:
+        """Grava um arquivo de texto (manifesto)."""
+        ...
+
+    def close(self) -> tuple[Path, str, int]:
+        """Finaliza; devolve ``(caminho, sha256, tamanho em bytes)``."""
+        ...
+
+    def abort(self) -> None:
+        """Descarta o que foi escrito."""
+        ...

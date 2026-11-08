@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "corrected-manifest.schema.json",
+  "title": "CorrectedManifest",
+  "description": "manifest.json do lote corrigido: cada página, sua origem, destino, correções e hashes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "batch_id",
+    "batch_name",
+    "generated_at",
+    "generated_by",
+    "engine_version",
+    "format",
+    "compression",
+    "original_unchanged",
+    "totals",
+    "documents"
+  ],
+  "properties": {
+    "batch_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "batch_name": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "generated_by": {
+      "type": "string"
+    },
+    "engine_version": {
+      "type": "string"
+    },
+    "format": {
+      "const": "TIFF"
+    },
+    "compression": {
+      "const": "tiff_deflate",
+      "description": "Compressão sem perda (Decreto 10.278/2020, Anexo I)."
+    },
+    "original_unchanged": {
+      "const": true
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "exported",
+        "removed",
+        "not_exported",
+        "corrected",
+        "moved",
+        "missing_pages"
+      ],
+      "properties": {
+        "exported": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "removed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "not_exported": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "corrected": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "moved": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missing_pages": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "documents": {
+      "type": "array",
+      "items": {
+        "$ref": "corrected-document.schema.json"
+      }
+    }
+  }
+}

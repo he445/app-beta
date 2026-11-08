@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "corrected-page.schema.json",
+  "title": "CorrectedPage",
+  "description": "Uma página do lote final: de onde vem, para onde vai e o que mudou.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "page_id",
+    "source_file",
+    "source_page",
+    "source_sha256",
+    "old_position",
+    "new_position",
+    "target_file",
+    "dpi",
+    "status",
+    "reason",
+    "corrected",
+    "moved",
+    "changes",
+    "needs_rescan"
+  ],
+  "properties": {
+    "page_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "source_file": {
+      "type": "string"
+    },
+    "source_page": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "source_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 do arquivo de origem."
+    },
+    "old_position": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "new_position": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "target_file": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Caminho no lote corrigido, ex.: CX001/DOC0002/0003.tif."
+    },
+    "target_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Só no manifesto do lote gerado."
+    },
+    "dpi": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "status": {
+      "enum": [
+        "exported",
+        "removed",
+        "not_exported"
+      ]
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Motivo da remoção ou da não exportação."
+    },
+    "corrected": {
+      "type": "boolean",
+      "description": "Há correção de imagem aplicada."
+    },
+    "moved": {
+      "type": "boolean",
+      "description": "Mudou de lugar pela reordenação aceita."
+    },
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "finding_id",
+          "rule",
+          "action",
+          "text",
+          "params",
+          "decided_by",
+          "decided_at"
+        ],
+        "properties": {
+          "finding_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rule": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]+$"
+          },
+          "action": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string",
+            "description": "Texto curto para o revisor: \"endireitada 2,3°\", \"movida da posição 7 para a 6\"."
+          },
+          "params": {
+            "type": "object"
+          },
+          "decided_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "decided_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "needs_rescan": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "finding_id",
+          "rule",
+          "text"
+        ],
+        "properties": {
+          "finding_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rule": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]+$"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

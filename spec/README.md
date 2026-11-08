@@ -12,6 +12,7 @@ com a suíte de `conformance/`.
 | [`sequencing.md`](sequencing.md) | Numeração, sequência e completude (regras de documento) |
 | [`scoring.md`](scoring.md) | Severidade, estado do documento, veredito e amostragem |
 | [`metadata.md`](metadata.md) | Metadados do Decreto 10.278/2020 e técnicos |
+| [`corrections.md`](corrections.md) | Versão corrigida, "Corrigir tudo", desfazer em lote e lote corrigido |
 
 ## Convenções
 
