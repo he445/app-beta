@@ -166,7 +166,7 @@ label.check { display: flex; align-items: center; gap: 0.35rem; margin: 0; white
 .table tr.confirmed th { color: var(--ok); }
 
 /* Revisão */
-.review { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 52px); }
+.review { display: grid; grid-template-columns: 320px minmax(0, 1fr); height: calc(100vh - 52px); }
 .queue { border-right: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; min-height: 0; }
 .queue-head { padding: 0.75rem; border-bottom: 1px solid var(--border); display: grid; gap: 0.6rem; }
 .filters { display: flex; flex-wrap: wrap; gap: 0.3rem; }
@@ -244,14 +244,19 @@ textarea.code { min-height: 60vh; font-family: ui-monospace, Menlo, monospace; f
 .login-card details { margin-bottom: 1rem; font-size: 0.9rem; }
 
 @media (max-width: 900px) {
-  .review { grid-template-columns: 1fr; height: auto; }
+  .review { grid-template-columns: minmax(0, 1fr); height: auto; }
   .queue { max-height: 40vh; }
   .detail-grid { grid-template-columns: 1fr; }
   .viewer-wrap { height: 60vh; }
-  .split { grid-template-columns: 1fr; }
+  /* minmax(0, 1fr): sem isso as faixas de miniaturas alargam a coluna e a página inteira. */
+  .split { grid-template-columns: minmax(0, 1fr); }
   .doc-list { position: static; max-height: 30vh; }
   .page { padding: 1rem; }
-  .topbar { gap: 0.75rem; overflow-x: auto; }
+  /* Celular: marca e revisor na primeira linha, navegação do lote na segunda, com rolagem. */
+  .topbar { flex-wrap: wrap; height: auto; padding: 0.35rem 0.75rem; gap: 0.25rem 0.75rem; }
+  .brand { white-space: nowrap; }
+  .topbar nav { order: 3; width: 100%; padding-bottom: 0.25rem; scrollbar-width: none; }
+  .topbar nav a { padding: 0.45rem 0.7rem; }
   /* Tabelas largas rolam dentro do próprio bloco, nunca a página inteira. */
   .table { display: block; overflow-x: auto; }
   .table tbody th { width: auto; }
@@ -294,3 +299,32 @@ button.full { width: 100%; justify-content: center; }
 .zoom-body { position: relative; flex: 1; min-height: 0; background: #2a2e35; }
 .overlay-loading { position: absolute; inset: 0; display: grid; place-items: center; color: #c9ced6; }
 .before-after.inline-toggle { position: static; transform: none; box-shadow: none; border: 1px solid var(--border); }
+
+/* Partida, entrada, demonstração e toque (ADR-0010) */
+.boot { text-align: center; display: grid; gap: 0.6rem; justify-items: center; }
+.boot form, .boot details { width: 100%; text-align: left; }
+.spinner { width: 2rem; height: 2rem; border-radius: 50%; border: 3px solid var(--surface-2); border-top-color: var(--accent); animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.demo-card { border-left: 4px solid var(--accent); }
+.row.center { justify-content: center; }
+.seq-page { padding: 0; gap: 0; overflow: hidden; }
+.seq-hit { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; padding: 0.4rem; border: none; border-radius: 0; background: transparent; width: 100%; }
+.seq-hit:hover:not(:disabled) { border: none; background: var(--surface-2); }
+.zoom-btn { width: 100%; justify-content: center; border: none; border-top: 1px solid var(--border); border-radius: 0; padding: 0.35rem; font-size: 0.82rem; color: var(--accent); background: transparent; }
+@media (pointer: coarse) {
+  button, .button { min-height: 44px; }
+  .small-btn, .chip-btn { min-height: 40px; }
+  .seq-hit { min-height: 0; }
+  .zoom-hint { display: none; }
+}
+@media (max-width: 900px) {
+  .zoom-backdrop { padding: 0; }
+  .zoom-modal { width: 100%; height: 100%; border-radius: 0; }
+  .zoom-head { gap: 0.4rem; }
+  .unsaved { flex-direction: column; align-items: stretch; }
+  .unsaved .row button { flex: 1; justify-content: center; }
+  .page-head .row { width: 100%; }
+  .page-head .row > * { flex: 1; justify-content: center; }
+  .topbar-right .reviewer-name { max-width: 7rem; overflow: hidden; text-overflow: ellipsis; }
+  .progress-overlay { padding-top: 4vh; }
+}

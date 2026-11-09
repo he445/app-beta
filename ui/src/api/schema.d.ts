@@ -11,7 +11,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Saúde do serviço */
+        /**
+         * Saúde do serviço
+         * @description Público. A interface consulta esta rota ao abrir: espera o motor acordar (no plano
+         *     gratuito do Render leva até 1 minuto) e descobre se precisa pedir token
+         *     (`auth_required`) ou só o nome do revisor.
+         *
+         */
         get: operations["getHealth"];
         put?: never;
         post?: never;
@@ -39,6 +45,48 @@ export interface paths {
          *
          */
         post: operations["createBatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/demo-batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lotes de demonstração prontos no servidor
+         * @description Gerados no build da imagem com `tools/synth` (ADR-0010). O gabarito não é exposto.
+         */
+        get: operations["listDemoBatches"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/demo-batches/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Analisar um lote de demonstração (sem enviar arquivos)
+         * @description Copia o lote para um lote novo e o põe na fila, como `POST /batches`.
+         */
+        post: operations["startDemoBatch"];
         delete?: never;
         options?: never;
         head?: never;
@@ -442,6 +490,16 @@ export interface components {
             status: number;
             detail?: string;
         };
+        /** Health */
+        "health.schema": {
+            /** @constant */
+            status: "ok";
+            version: string;
+            /** @description Verdadeiro quando o motor exige token (QA_API_TOKEN). Falso: a interface pede só o nome do revisor. */
+            auth_required: boolean;
+            /** @description Quantos lotes de demonstração o servidor tem prontos. */
+            demo_batches: number;
+        };
         /** BatchSummary */
         "batch-summary.schema": {
             /** @enum {unknown} */
@@ -481,6 +539,20 @@ export interface components {
             created_at: string;
             error?: string;
             summary?: components["schemas"]["batch-summary.schema"];
+        };
+        /**
+         * DemoBatch
+         * @description Lote sintético pronto no servidor (gerado no build da imagem).
+         */
+        "demo-batch.schema": {
+            name: string;
+            pages: number;
+            documents: number;
+        };
+        /** DemoBatchRequest */
+        "demo-batch-request.schema": {
+            /** @default demo */
+            profile_id: string;
         };
         /** Batch */
         "batch.schema": {
@@ -929,11 +1001,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        /** @constant */
-                        status: "ok";
-                        version: string;
-                    };
+                    "application/json": components["schemas"]["health.schema"];
                 };
             };
         };
@@ -999,6 +1067,55 @@ export interface operations {
             400: components["responses"]["Problem"];
             401: components["responses"]["Unauthorized"];
             413: components["responses"]["Problem"];
+        };
+    };
+    listDemoBatches: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Lotes disponíveis (vazio se `QA_DEMO_DIR` não estiver configurado) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["demo-batch.schema"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    startDemoBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["demo-batch-request.schema"];
+            };
+        };
+        responses: {
+            /** @description Lote na fila */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["batch-status.schema"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["Problem"];
         };
     };
     getBatch: {

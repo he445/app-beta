@@ -1,6 +1,6 @@
 # Sequência e completude
 
-Versão: 1.0.0 · Regras: `missing_page` (crítico), `out_of_order` (médio),
+Versão: 1.1.0 · Regras: `missing_page` (crítico), `out_of_order` (médio),
 `numbering_review` (alto ou médio), `completeness_unverifiable` (baixo)
 
 ## Objetivo
@@ -67,7 +67,7 @@ Transição de `p` para `c`:
 | `p = nada` | 0 |
 | `c = sucessor(p)` | `+w_step` |
 | `c` é intercalação de `p` | `+w_intercalation` |
-| `c > p` | `−w_gap × |faltando(p, c)|` |
+| `c > p` | `−min(w_gap × |faltando(p, c)|, w_gap_max)` |
 | `c = p` | `−w_repeat` |
 | `c < p` | `−w_back` |
 
@@ -119,9 +119,12 @@ Uma dúvida nunca vira "página faltando": vira `numbering_review`.
 | `high_confidence` | 0,85 | | `w_gap` | 1,0 |
 | `w_read` | 4,0 | | `w_back` | 4,0 |
 | `w_infer` | 1,0 | | `w_repeat` | 1,0 |
+| | | | `w_gap_max` | 1,5 |
 
 Os pesos fazem uma leitura confiável (≥ 0,5) vencer a inferência numa lacuna de uma folha
-(`4c − 1 > 2 − 1`) e uma leitura errada isolada perder para o contexto.
+(`4c − 1 > 2 − 1`) e uma leitura errada isolada perder para o contexto. O teto
+`w_gap_max` faz uma leitura com confiança acima de 0,625 vencer a inferência numa lacuna
+de qualquer tamanho (`4c − 1,5 > 1`), inclusive no fim do documento.
 
 ## Falhas conhecidas
 
@@ -139,3 +142,5 @@ Os pesos fazem uma leitura confiável (≥ 0,5) vencer a inferência numa lacuna
 ## Histórico de versões
 
 - 1.0.0: versão inicial.
+- 1.1.0: teto `w_gap_max` na penalidade de salto (lacuna grande no fim do documento
+  era confundida com leitura errada).

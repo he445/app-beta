@@ -123,14 +123,21 @@ def correction_batch(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def demo_profile_path(repo: Path) -> Path:
+def full_profile_path(repo: Path) -> Path:
+    """Perfil com todas as regras: os testes cobrem o catálogo inteiro."""
+    return repo / "profiles" / "completo.yaml"
+
+
+@pytest.fixture
+def focus_profile_path(repo: Path) -> Path:
+    """Perfil da demonstração: faltando, em branco, torta e sem nitidez."""
     return repo / "profiles" / "demo.yaml"
 
 
 @pytest.fixture
-def test_profile(demo_profile_path: Path) -> Profile:
-    """Perfil da demonstração com mínimo de 150 dpi (as páginas de teste são de 150 dpi)."""
-    data = yaml.safe_load(demo_profile_path.read_text("utf-8"))
+def test_profile(full_profile_path: Path) -> Profile:
+    """Perfil completo com mínimo de 150 dpi (as páginas de teste são de 150 dpi)."""
+    data = yaml.safe_load(full_profile_path.read_text("utf-8"))
     data["id"] = "test"
     data["resolution"] = {"min_dpi": 150}
     return profile_from_dict(data)

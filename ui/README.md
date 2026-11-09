@@ -13,7 +13,15 @@ cd engine && QA_API_TOKEN=demo-token uv run python -m qa_engine.entrypoints.http
 cd ui && npm ci && npm run dev        # http://localhost:5173
 ```
 
-Entre com seu nome (gravado em cada decisão) e o token. Para publicar como site estático:
+Entre com seu nome (gravado em cada decisão). O token só é pedido quando o motor exige
+(`QA_API_TOKEN`; `GET /health` informa `auth_required`). Na partida a interface espera o
+motor acordar. Para publicar junto com o motor (mesma origem, padrão da imagem Docker):
+
+```bash
+VITE_API_URL= npm run build    # o motor serve ui/dist com QA_UI_DIR
+```
+
+Para publicar como site estático separado:
 
 ```bash
 VITE_API_URL=https://motor.exemplo npm run build   # gera dist/
@@ -58,7 +66,14 @@ e2e/                  fluxo completo no navegador (Playwright)
 npm run gen && git diff --exit-code src/api/schema.d.ts   # tipos em dia com o contrato
 npm run typecheck && npm test && npm run build
 node e2e/fluxo-completo.cjs ../lote-demo.zip /tmp/capturas  # com motor e vite no ar
+npm run e2e:celular -- http://localhost:8000/ "Pixel 7" /tmp/capturas   # motor servindo a interface
+npm run e2e:celular -- http://localhost:8000/ "iPhone 13" /tmp/capturas
 ```
+
+O roteiro de celular usa só toque: entra só com o nome, abre o lote de demonstração,
+revisa, roda "Corrigir tudo", decide a página faltando, amplia pelo botão, salva e baixa o
+zip, e falha com erro de console, requisição que falhou, resposta 5xx ou rolagem
+horizontal em qualquer tela. Roda na CI.
 
 O fluxo completo envia um `.zip`, espera o painel, decide pelo teclado e desfaz, aplica uma
 correção automática, roda "Corrigir tudo" num documento e "Corrigir o lote inteiro" lendo

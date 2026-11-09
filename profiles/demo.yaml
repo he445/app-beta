@@ -1,6 +1,9 @@
-# Perfil da demonstração (base sintética). Validado contra contracts/schemas/profile.schema.json.
+# Perfil da demonstração: foco em página faltando, página em branco, página torta e
+# página sem nitidez (ADR-0010). As regras de ajuste da digitalizadora (bordas pretas,
+# exposição, resolução) e a de duplicata ficam desligadas aqui, não apagadas: o perfil
+# "completo" liga todas. Validado contra contracts/schemas/profile.schema.json.
 id: demo
-name: Demonstração — base sintética
+name: Demonstração — faltando, em branco, torta e sem nitidez
 organization: SOS DOCS
 resolution:
   min_dpi: 300
@@ -17,5 +20,14 @@ stations:
   - { make: Kodak, model: i4250, location: "Unidade Campo Grande, Estação 3" }
   - { make: Kodak, model: S2085f, location: "Unidade Centro, Estação 1" }
 detectors:
+  # Foco da demonstração (ligadas por padrão): missing_page, blank_page, skew, blur.
+  # Também ligadas, porque sustentam essas quatro: numeração e completude
+  # (out_of_order, numbering_review, completeness_unverifiable) e corrupted_file
+  # (um arquivo ilegível nunca pode passar calado).
   blank_page:
     params: { remove_blank_pages: true }
+  # Ajuste da digitalizadora: fora da demonstração.
+  black_borders: { enabled: false }
+  exposure: { enabled: false }
+  low_resolution: { enabled: false }
+  duplicate_page: { enabled: false }

@@ -1,13 +1,55 @@
 // Tela 1: enviar lote. Também lista os lotes recentes.
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { raw } from "../api/client";
+import { api, json, raw } from "../api/client";
+import { useEngine } from "../api/engine";
 import { keys, useBatches, useProfiles } from "../api/hooks";
 import type { BatchStatus } from "../api/types";
 import { Card, ErrorBox, Loading } from "../components/ui";
-import { filesFromDrop, filesFromInput, type PickedFile } from "../lib/files";
+import { canPickFolders, filesFromDrop, filesFromInput, isTouchDevice, type PickedFile } from "../lib/files";
 import { VERDICT_LABEL } from "../lib/format";
 import { href, navigate } from "../router";
+
+interface DemoBatch {
+  name: string;
+  pages: number;
+  documents: number;
+}
+
+/** Lote de demonstração pronto no servidor: o celular não precisa enviar nada (ADR-0010). */
+function DemoBatchCard({ profile }: { profile: string }) {
+  const engine = useEngine();
+  const qc = useQueryClient();
+  const demos = useQuery({
+    queryKey: ["demo-batches"],
+    queryFn: () => api<DemoBatch[]>("/demo-batches"),
+    enabled: engine.demo_batches > 0,
+  });
+  const start = useMutation({
+    mutationFn: (name: string) => json<BatchStatus>(`/demo-batches/${encodeURIComponent(name)}`, "POST", { profile_id: profile }),
+    onSuccess: (status) => {
+      void qc.invalidateQueries({ queryKey: keys.batches });
+      navigate({ name: "batch", id: status.id });
+    },
+  });
+  if (!engine.demo_batches || !demos.data?.length) return null;
+  return (
+    <Card title="Lote de demonstração" className="demo-card">
+      <p className="small muted">
+        Lote sintético já no servidor, com página faltando, página em branco, página torta e
+        página sem nitidez. Nada é enviado do aparelho.
+      </p>
+      <div className="row wrap">
+        {demos.data.map((d) => (
+          <button key={d.name} className="primary" disabled={start.isPending} onClick={() => start.mutate(d.name)}>
+            {start.isPending ? "Abrindo…" : `Analisar ${d.name} (${d.pages} páginas, ${d.documents} documentos)`}
+          </button>
+        ))}
+      </div>
+      <ErrorBox error={start.error} />
+    </Card>
+  );
+}
 
 export function Home() {
   const profiles = useProfiles();
@@ -23,6 +65,9 @@ export function Home() {
   const [error, setError] = useState<unknown>(null);
   const folderInput = useRef<HTMLInputElement>(null);
   const zipInput = useRef<HTMLInputElement>(null);
+  const imagesInput = useRef<HTMLInputElement>(null);
+  const folders = canPickFolders();
+  const touch = isTouchDevice();
 
   async function onDrop(e: React.DragEvent) {
     e.preventDefault();
@@ -66,6 +111,7 @@ export function Home() {
   return (
     <div className="page">
       <h1>Enviar lote</h1>
+      <DemoBatchCard profile={profile} />
       <div className="warning" role="note">
         <strong>Somente documentos sintéticos ou públicos.</strong> Documento de cliente é proibido neste
         servidor de demonstração. Os lotes são apagados automaticamente após 24 horas.
@@ -89,13 +135,14 @@ export function Home() {
               </>
             ) : (
               <>
-                <strong>Arraste a pasta do lote ou um .zip</strong>
+                <strong>{touch ? "Escolha um .zip ou as imagens do lote" : "Arraste a pasta do lote ou um .zip"}</strong>
                 <span className="muted">TIFF, JPG, PNG ou PDF</span>
               </>
             )}
-            <div className="row">
-              <button type="button" onClick={() => folderInput.current?.click()}>Escolher pasta</button>
+            <div className="row wrap center">
+              {folders && <button type="button" onClick={() => folderInput.current?.click()}>Escolher pasta</button>}
               <button type="button" onClick={() => zipInput.current?.click()}>Escolher .zip</button>
+              <button type="button" onClick={() => imagesInput.current?.click()}>Escolher imagens</button>
             </div>
             <input
               ref={folderInput}
@@ -109,7 +156,15 @@ export function Home() {
               ref={zipInput}
               type="file"
               hidden
-              accept=".zip"
+              accept=".zip,application/zip"
+              onChange={(e) => e.target.files && adopt(filesFromInput(e.target.files))}
+            />
+            <input
+              ref={imagesInput}
+              type="file"
+              hidden
+              multiple
+              accept=".tif,.tiff,.jpg,.jpeg,.png,.pdf,image/*,application/pdf"
               onChange={(e) => e.target.files && adopt(filesFromInput(e.target.files))}
             />
           </div>

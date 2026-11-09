@@ -46,13 +46,15 @@ const TOKEN = process.env.QA_TOKEN ?? 'demo-token';
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   await page.goto(UI);
+  // Entrada: só o nome; o token aparece só se o motor exigir (QA_API_TOKEN, ADR-0010).
+  await page.getByLabel('Seu nome').waitFor({ timeout: 120000 });
   await page.getByLabel('Seu nome').fill('Garantidor 1');
-  await page.getByLabel('Token de acesso').fill(TOKEN);
-  await page.getByRole('button', { name: 'Entrar' }).click();
+  if (await page.getByLabel('Token de acesso').count()) await page.getByLabel('Token de acesso').fill(TOKEN);
+  await page.getByRole('button', { name: 'Começar' }).click();
   await page.getByRole('heading', { name: 'Enviar lote' }).waitFor();
   await page.screenshot({ path: `${S}/1-envio.png` });
-  await page.locator('input[accept=".zip"]').setInputFiles(`${ZIP}`);
-  await page.getByRole('button', { name: 'Analisar lote' }).click();
+  await page.locator('input[accept^=".zip"]').setInputFiles(`${ZIP}`);
+  await page.getByRole('button', { name: 'Analisar lote', exact: true }).click();
   const t0 = Date.now();
   await page.getByText('Dispensam revisão').first().waitFor({ timeout: 120000 });
   console.log('análise até o painel (s):', ((Date.now() - t0) / 1000).toFixed(1));
@@ -151,7 +153,8 @@ const TOKEN = process.env.QA_TOKEN ?? 'demo-token';
       if (await corrected.count()) break;
     }
   }
-  const thumb = (await corrected.count()) ? corrected.first() : page.locator('.strip .seq-page').first();
+  const card = (await corrected.count()) ? corrected.first() : page.locator('.strip .seq-page').first();
+  const thumb = card.locator('.seq-hit');
   await thumb.dblclick();
   await page.getByRole('dialog').waitFor();
   await page.waitForTimeout(400);

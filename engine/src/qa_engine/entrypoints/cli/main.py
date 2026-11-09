@@ -3,6 +3,7 @@
 Exemplos::
 
     qa analyze ./lote --profile profiles/demo.yaml --out ./saida
+    qa analyze ./lote --profile profiles/completo.yaml --out ./saida
     qa rules
     qa validate-profile profiles/demo.yaml
 """

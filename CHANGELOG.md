@@ -8,6 +8,15 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Demonstração no celular (ADR-0010): o motor serve a interface na mesma origem
+  (`QA_UI_DIR`); lote de demonstração pronto no servidor (`QA_DEMO_DIR`,
+  `tools/synth showcase`, rotas `GET /demo-batches` e `POST /demo-batches/{name}`); tela
+  de partida que espera o motor acordar; botão "Ampliar" nas miniaturas; escolha de
+  imagens no celular; roteiro `ui/e2e/celular.cjs` (Pixel 7 e iPhone 13) na CI.
+- Perfil `completo` (todas as regras), usado pela conformidade e pelas métricas.
+- `GET /health` informa `auth_required` e `demo_batches` (contrato 0.4.0).
+- Caso de conformidade "lacuna grande no fim do documento".
+
 - "Corrigir tudo" num documento ou no lote inteiro: decide `correct` em todas as
   sinalizações pendentes com correção automática (endireitar, girar, espelhar, recortar
   bordas, brilho e contraste, pontilhado, cinza, remover página em branco, reordenar pela
@@ -30,6 +39,14 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Alterado
 
+- Entrada só com o nome do revisor; o token fica dormente e aparece quando o motor
+  exige (`QA_API_TOKEN`).
+- Perfil `demo` com foco em página faltando, em branco, torta e sem nitidez; bordas
+  pretas, exposição, resolução e duplicata desligadas (o código continua).
+- Imagem Docker única (interface + motor + lote de demonstração), com `QA_WORKERS=1`; o
+  servidor aceita a porta de `PORT`.
+- Barra de navegação em duas linhas e alvos de toque de 44 px no celular.
+
 - A versão corrigida de uma página passa a ser o original com **todas** as correções de
   imagem decididas, em ordem canônica; antes, cada correção partia do original e a última
   sobrescrevia as outras. O log `corrections.jsonl` ganhou formato novo (cadeia e versão).
@@ -44,6 +61,14 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
   `PUT /documents/{id}/metadata/{name}`, com o esquema `metadata-update`.
 
 ### Corrigido
+
+- "Failed to fetch" no celular: respostas 401 e 500 sem cabeçalho CORS; origem
+  configurada com barra no fim bloqueava tudo; endereço do motor gravado no aparelho
+  sobrepunha o da publicação; motor dormindo no plano gratuito; processos de análise
+  demais para 512 MB.
+- Resolvedor de numeração: lacuna grande no fim do documento era tomada por leitura
+  errada; agora vira página faltando (teto `w_gap_max`, `spec/sequencing.md` 1.1.0).
+- Telas estreitas: faixas de miniaturas alargavam a página inteira.
 
 - Leituras simultâneas na API compartilhavam a conexão SQLite sem lock e falhavam com
   `InterfaceError` sob carga (miniaturas da interface); teste de regressão incluído.

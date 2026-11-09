@@ -30,10 +30,10 @@ REVIEWER = "garantidor1"
 
 
 @pytest.fixture
-def client(tmp_path: Path, demo_profile_path: Path) -> Iterator[TestClient]:
+def client(tmp_path: Path, full_profile_path: Path) -> Iterator[TestClient]:
     profiles = tmp_path / "profiles"
     profiles.mkdir()
-    data = yaml.safe_load(demo_profile_path.read_text("utf-8"))
+    data = yaml.safe_load(full_profile_path.read_text("utf-8"))
     data["id"] = "test"
     data["resolution"] = {"min_dpi": 150}
     (profiles / "test.yaml").write_text(yaml.safe_dump(data, allow_unicode=True), "utf-8")

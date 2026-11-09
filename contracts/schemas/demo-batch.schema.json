@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "demo-batch.schema.json",
+  "title": "DemoBatch",
+  "description": "Lote sintético pronto no servidor (gerado no build da imagem).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "pages",
+    "documents"
+  ],
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "pages": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "documents": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
+}

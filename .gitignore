@@ -30,3 +30,6 @@ site/
 
 # TypeScript
 *.tsbuildinfo
+
+# Lotes de demonstração gerados (tools/synth showcase)
+demo/

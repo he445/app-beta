@@ -5,9 +5,13 @@ Guia para garantidores e conferentes. Para instalar e publicar, veja
 
 ## Fluxo
 
-1. **Entrar** com seu nome (vai em cada decisão) e o token de acesso.
-2. **Enviar lote:** arraste a pasta ou um `.zip`, escolha o perfil e, se houver, o
-   manifesto com a contagem declarada. Só documentos sintéticos ou públicos na PoC.
+1. **Entrar** com seu nome, que vai em cada decisão. Se o motor estiver dormindo, a tela
+   mostra "Acordando o motor de análise…" e segue sozinha (até ~1 minuto no plano
+   gratuito). O token só é pedido quando o motor exige (`QA_API_TOKEN`).
+2. **Lote de demonstração:** "Analisar lote-demonstracao" abre um lote sintético já no
+   servidor, com página faltando, em branco, torta e sem nitidez, sem enviar nada do
+   aparelho. **Enviar lote:** no computador, arraste a pasta ou um `.zip`; no celular,
+   escolha um `.zip` ou as imagens. Só documentos sintéticos ou públicos na PoC.
 3. **Painel:** veredito, percentual que dispensa revisão, defeitos por severidade, por
    tipo e por estação.
 4. **Revisão:** a fila mostra só o que foi sinalizado, do mais grave ao menos grave.
@@ -27,8 +31,8 @@ Guia para garantidores e conferentes. Para instalar e publicar, veja
 | N | Digitar a numeração correta da folha |
 
 5. **Sequência:** miniaturas na ordem do arquivo com a numeração lida e o canto ampliado.
-   Clique numa página (ou Enter) para corrigir a numeração; duplo clique (ou Z) abre a
-   página ampliada, com Original/Corrigida, setas e Esc.
+   Toque ou clique numa página (ou Enter) para corrigir a numeração; **Ampliar**, duplo
+   clique ou Z abre a página inteira, com Original/Corrigida, setas e Esc.
    - **Corrigir tudo** aplica as correções automáticas do documento (no painel e na
      revisão, **Corrigir o lote inteiro**). A tela de carregamento mostra quantas páginas
      já foram corrigidas. Depois aparecem as faixas **Antes** (como está no arquivo) e

@@ -1,5 +1,5 @@
 id: completeness_unverifiable
-version: 1.0.0
+version: 1.1.0
 title: Completude não verificável
 spec: spec/sequencing.md
 input: document_numbering

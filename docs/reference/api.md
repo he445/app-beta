@@ -27,6 +27,8 @@ validado pelo Spectral na CI. Com o motor no ar, a interface interativa fica em
 | `POST /batches/{id}/exports` | Gerar relatório, CSVs e ordem de retrabalho |
 | `GET /batches/{id}/exports/{nome}` | Baixar um arquivo exportado, inclusive `lote-corrigido.zip` |
 | `GET /profiles`, `GET`/`PUT /profiles/{id}` | Perfis validados contra o esquema |
-| `GET /health` | Saúde (sem autenticação) |
+| `GET /health` | Saúde (sem autenticação): versão, se exige token, lotes de demonstração |
+| `GET /demo-batches` | Lotes de demonstração prontos no servidor |
+| `POST /demo-batches/{nome}` | Analisar um lote de demonstração sem enviar arquivos |
 
 Erros seguem o RFC 9457 (`application/problem+json`).

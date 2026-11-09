@@ -1,7 +1,9 @@
-import { useEffect, useSyncExternalStore } from "react";
-import { getSession, logout, onSessionChange } from "./api/client";
-import { href, navigate, useRoute, type Route } from "./router";
+import { useState, useSyncExternalStore } from "react";
+import { getSession, logout, onSessionChange, type Health } from "./api/client";
+import { EngineContext } from "./api/engine";
+import { href, useRoute, type Route } from "./router";
 import { Batch } from "./screens/Batch";
+import { Boot } from "./screens/Boot";
 import { Home } from "./screens/Home";
 import { Login } from "./screens/Login";
 import { Metadata } from "./screens/Metadata";
@@ -15,15 +17,20 @@ function useSession() {
 }
 
 export function App() {
+  const [engine, setEngine] = useState<Health | null>(null);
+  if (!engine) return <Boot onReady={setEngine} />;
+  return (
+    <EngineContext.Provider value={engine}>
+      <Shell engine={engine} />
+    </EngineContext.Provider>
+  );
+}
+
+function Shell({ engine }: { engine: Health }) {
   const route = useRoute();
   const session = useSession();
-  const loggedIn = Boolean(session.token);
-
-  useEffect(() => {
-    if (!loggedIn && route.name !== "login") navigate({ name: "login" });
-  }, [loggedIn, route.name]);
-
-  if (!loggedIn || route.name === "login") return <Login />;
+  const ready = Boolean(session.reviewer) && (!engine.auth_required || Boolean(session.token));
+  if (!ready) return <Login engine={engine} />;
   const batchId = "id" in route ? route.id : null;
 
   return (
@@ -41,8 +48,8 @@ export function App() {
         )}
         <div className="topbar-right">
           <a href={href({ name: "profiles" })}>Perfis</a>
-          <span className="muted">{session.reviewer}</span>
-          <button className="link" onClick={logout}>Sair</button>
+          <span className="muted reviewer-name">{session.reviewer}</span>
+          <button className="link" onClick={logout}>{session.token ? "Sair" : "Trocar"}</button>
         </div>
       </header>
       <Screen route={route} />

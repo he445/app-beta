@@ -91,3 +91,17 @@ def test_finding_example_from_add_validates() -> None:
     validate(finding, "finding.schema.json")
     with pytest.raises(ContractError):
         validate({**finding, "severity": "grave"}, "finding.schema.json")
+
+
+FOCUS = {"missing_page", "blank_page", "skew", "blur"}
+SUPPORT = {"out_of_order", "numbering_review", "completeness_unverifiable", "corrupted_file"}
+
+
+def test_demo_profile_focuses_on_the_four_cases(repo: Path) -> None:
+    """ADR-0010: a demonstração mostra faltando, em branco, torta e sem nitidez."""
+    from qa_engine.detectors.registry import RULES
+
+    demo = load_profile(repo / "profiles/demo.yaml")
+    full = load_profile(repo / "profiles/completo.yaml")
+    assert {r for r in RULES if demo.enabled(r)} == FOCUS | SUPPORT
+    assert {r for r in RULES if full.enabled(r)} == set(RULES)

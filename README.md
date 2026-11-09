@@ -14,15 +14,24 @@ pronto.
 ```bash
 cd engine && uv sync && cd ..
 uv run --project engine python tools/synth/synth.py demo --out lote-demo --pages 200
-uv run --project engine qa analyze lote-demo --profile profiles/demo.yaml --out saida
+uv run --project engine qa analyze lote-demo --profile profiles/completo.yaml --out saida
 uv run --project engine python tools/synth/evaluate.py saida/report.json lote-demo/gabarito.json
 ```
 
-Para revisar pela interface web (detalhes em [ui/README.md](ui/README.md)):
+Para a demonstração (também no celular), uma imagem só serve motor, interface e um lote
+de demonstração com página faltando, em branco, torta e sem nitidez
+([deploy/README.md](deploy/README.md), ADR-0010):
 
 ```bash
-(cd engine && QA_API_TOKEN=demo-token uv run python -m qa_engine.entrypoints.http) &
-cd ui && npm ci && npm run dev    # http://localhost:5173, token demo-token
+docker build -f deploy/Dockerfile -t qa-digitalizacao . && docker run -p 8000:8000 qa-digitalizacao
+# http://localhost:8000 — entrada só com o nome
+```
+
+Para desenvolver a interface (detalhes em [ui/README.md](ui/README.md)):
+
+```bash
+(cd engine && uv run python -m qa_engine.entrypoints.http) &
+cd ui && npm ci && npm run dev    # http://localhost:5173
 ```
 
 Na tela de sequência, **Corrigir tudo** aplica as correções automáticas (endireitar,
@@ -44,7 +53,8 @@ conformance/    gabarito, tolerâncias e executor que qualquer implementação p
 engine/         implementação de referência em Python (domain, detectors, application,
                 ports, adapters, entrypoints/http e cli)
 ui/             interface web (React + TypeScript + Vite), tipos gerados do contrato
-profiles/       perfis de cliente (limiares e regras como configuração)
+profiles/       perfis de cliente: demo (foco em faltando, em branco, torta e sem
+                nitidez) e completo (todas as regras)
 tools/synth/    gerador da base sintética e medidor de taxa de acerto
 deploy/         Dockerfile do motor
 docs/           site MkDocs: ADD, guias, ADRs, C4, referência, glossário

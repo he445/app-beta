@@ -11,6 +11,9 @@ Qualquer implementação do motor, em qualquer linguagem, só substitui outra qu
 | `tolerances.yaml` | Tolerâncias de medida e coocorrências aceitas | sim |
 | `run.py` | Executor da implementação de referência | sim |
 
+A suíte usa o perfil `profiles/completo.yaml` (todas as regras); o perfil `demo` liga só
+os casos da demonstração (ADR-0010).
+
 ## Por que o lote `core` é gerado e não versionado
 
 As páginas têm ruído de papel, que não comprime: o lote ocupa ~58 MB. Ele é gerado de
@@ -20,7 +23,7 @@ gabarito ser atualizado conscientemente no mesmo PR.
 
 ```bash
 uv run --project engine python tools/synth/synth.py conformance --out conformance/fixtures/core
-uv run --project engine qa analyze conformance/fixtures/core --profile profiles/demo.yaml --out /tmp/core-out
+uv run --project engine qa analyze conformance/fixtures/core --profile profiles/completo.yaml --out /tmp/core-out
 uv run --project engine python conformance/run.py /tmp/core-out/report.json
 ```
 

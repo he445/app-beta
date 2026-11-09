@@ -6,12 +6,16 @@
 ```bash
 uv run --project engine python tools/synth/synth.py demo --out lote-demo --pages 200
 uv run --project engine python tools/synth/synth.py conformance --out conformance/fixtures/core
+uv run --project engine python tools/synth/synth.py showcase --out demo/lote-demonstracao
 uv run --project engine python tools/synth/evaluate.py saida/report.json lote-demo/gabarito.json
 ```
 
 - Páginas: texto pseudo-jurídico em DejaVu Serif, ruído de papel, "Página X de Y" e
   "fls. N"; TIFF com deflate e tags de equipamento, data e operador.
 - Estrutura: `CXnnn/DOCnnnn/nnnn.tif` (caixa, documento, página).
+- Modos: `demo` (aleatório, todos os defeitos, para métricas com o perfil `completo`),
+  `conformance` (lote fixo da suíte) e `showcase` (lote da demonstração: os quatro casos
+  em foco no mesmo documento, mais documentos limpos; gerado no build da imagem).
 - Numeração manuscrita: **simulada** em `numbering.json` no formato do leitor (seção 6),
   com leituras erradas de baixa confiança inseridas de propósito.
 - Semente fixa: a mesma linha de comando gera o mesmo gabarito.

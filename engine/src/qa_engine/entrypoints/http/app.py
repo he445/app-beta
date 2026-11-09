@@ -24,6 +24,7 @@ import yaml
 from fastapi import Body, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
 from qa_engine import __version__
@@ -42,6 +43,7 @@ from qa_engine.application.correction_service import (
     NotFoundError,
     SaveBlockedError,
 )
+from qa_engine.application.demo_batches import copy_demo_batch, list_demo_batches
 from qa_engine.application.exports import findings_csv, metadata_csv, rework_csv
 from qa_engine.application.profile import Profile, load_profile, profile_from_dict
 from qa_engine.application.review import (
@@ -53,7 +55,7 @@ from qa_engine.application.review import (
 from qa_engine.application.serialize import analysis_json, iso
 from qa_engine.application.services import run_analysis
 from qa_engine.domain.model import DecisionAction
-from qa_engine.entrypoints.http.settings import Settings
+from qa_engine.entrypoints.http.settings import Settings, normalize_origin
 from qa_engine.entrypoints.http.uploads import (
     UploadError,
     extract_zip,
@@ -62,6 +64,17 @@ from qa_engine.entrypoints.http.uploads import (
 )
 
 log = logging.getLogger("qa_engine.http")
+API_PREFIXES = (
+    "/batches",
+    "/findings",
+    "/bulk-corrections",
+    "/pages",
+    "/documents",
+    "/profiles",
+    "/demo-batches",
+)
+"""Rotas que exigem token quando ``QA_API_TOKEN`` está definido. O resto (saúde,
+documentação e a interface servida na mesma origem) é público."""
 EXPORTS = {
     "report.json": "application/json",
     "findings.csv": "text/csv; charset=utf-8",
@@ -186,24 +199,40 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         openapi_url="/openapi.json",
     )
     app.state.engine = engine
-    if settings.cors_origins:
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=list(settings.cors_origins),
-            allow_methods=["GET", "POST", "PUT", "DELETE"],
-            allow_headers=["Authorization", "Content-Type"],
-        )
 
+    # Ordem das camadas, de fora para dentro: CORS → erros → autenticação → rotas.
+    # Assim toda resposta, inclusive 401 e 500, leva os cabeçalhos CORS; sem eles o
+    # navegador esconde o erro real e mostra só "Failed to fetch".
     @app.middleware("http")
     async def auth(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
-        public = request.url.path in {"/health", "/docs", "/openapi.json"}
-        if settings.api_token and not public and request.method != "OPTIONS":
+        protected = request.url.path.startswith(API_PREFIXES)
+        if settings.api_token and protected and request.method != "OPTIONS":
             header = request.headers.get("authorization", "")
             if header != f"Bearer {settings.api_token}":
                 return problem(401, "Não autorizado", "Envie Authorization: Bearer <token>.")
         return await call_next(request)
+
+    @app.middleware("http")
+    async def errors(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        try:
+            return await call_next(request)
+        except Exception:
+            log.exception("erro não tratado em %s %s", request.method, request.url.path)
+            return problem(500, "Erro interno do motor", "Veja o log do servidor.")
+
+    origins = sorted({normalize_origin(o) for o in settings.cors_origins})
+    if origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=origins,
+            allow_methods=["GET", "POST", "PUT", "DELETE"],
+            allow_headers=["Authorization", "Content-Type"],
+            max_age=600,
+        )
 
     @app.exception_handler(HTTPException)
     async def http_error(_: Request, exc: HTTPException) -> JSONResponse:
@@ -226,8 +255,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return problem(422, "Documento fora do contrato", str(exc))
 
     @app.get("/health")
-    def health() -> dict[str, str]:
-        return {"status": "ok", "version": __version__}
+    def health() -> dict[str, Any]:
+        return {
+            "status": "ok",
+            "version": __version__,
+            "auth_required": settings.api_token is not None,
+            "demo_batches": len(list_demo_batches(settings.demo_dir)),
+        }
 
     # Lotes -----------------------------------------------------------------
 
@@ -282,12 +316,38 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise
         if folder is None and len(names) == 1 and names[0].suffix.lower() == ".zip":
             folder = names[0].stem
-        batch_name = name or folder or f"lote-{batch_id[:8]}"
+        return enqueue(batch_id, root, profile, name or folder or f"lote-{batch_id[:8]}")
+
+    def enqueue(batch_id: str, root: Path, profile: Profile, batch_name: str) -> dict[str, Any]:
         engine.repo.create_batch(batch_id, batch_name, profile.id, root, iso(engine.now()))
         engine.queue.submit(engine.analyze, batch_id, root, profile, batch_name)
         row = engine.repo.get_batch(batch_id)
         assert row is not None
-        return row.status_json()
+        status: dict[str, Any] = row.status_json()
+        return status
+
+    @app.get("/demo-batches")
+    def demo_batches() -> list[dict[str, Any]]:
+        return [
+            {"name": b.name, "pages": b.pages, "documents": b.documents}
+            for b in list_demo_batches(settings.demo_dir)
+        ]
+
+    @app.post("/demo-batches/{name}", status_code=202)
+    def start_demo_batch(
+        name: str, body: Annotated[dict[str, Any] | None, Body()] = None
+    ) -> dict[str, Any]:
+        body = body or {}
+        validate(body, "demo-batch-request.schema.json")
+        profile = engine.profile(body.get("profile_id", "demo"))
+        batch_id = str(uuid.uuid4())
+        root = engine.batch_dir(batch_id) / "input"
+        try:
+            copy_demo_batch(settings.demo_dir, name, root)
+        except LookupError as exc:
+            shutil.rmtree(root.parent, ignore_errors=True)
+            raise HTTPException(404, str(exc)) from exc
+        return enqueue(batch_id, root, profile, name)
 
     def batch_or_404(batch_id: str) -> Any:
         row = engine.repo.get_batch(batch_id)
@@ -544,5 +604,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         path = settings.profiles_dir / f"{profile.id}.yaml"
         path.write_text(yaml.safe_dump(body, allow_unicode=True, sort_keys=False), "utf-8")
         return dict(profile.raw)
+
+    # Interface na mesma origem: sem CORS e sem VITE_API_URL (ADR-0010). Montada por
+    # último, só atende o que nenhuma rota da API atendeu.
+    if settings.ui_dir is not None and (settings.ui_dir / "index.html").is_file():
+        app.mount("/", StaticFiles(directory=settings.ui_dir, html=True), name="ui")
 
     return app

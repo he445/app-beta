@@ -35,7 +35,7 @@ def test_reference_engine_is_conformant(repo: Path, core_batch: Path) -> None:
     sys.path.insert(0, str(repo / "conformance"))
     from run import compare
 
-    report = analysis_json(run_analysis(core_batch, load_profile(repo / "profiles/demo.yaml")))
+    report = analysis_json(run_analysis(core_batch, load_profile(repo / "profiles/completo.yaml")))
     errors = compare(
         report,
         json.loads((repo / "conformance/expected/core.json").read_text("utf-8")),

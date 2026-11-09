@@ -209,7 +209,8 @@ function DocumentSequence({
         <div>
           <h1>{document.name}</h1>
           <p className="muted">
-            {docPages.length} página(s). Clique numa página para corrigir a numeração (Enter); duplo clique ou Z amplia.
+            {docPages.length} página(s). Toque ou clique numa página para corrigir a numeração (Enter);
+            “Ampliar”, duplo clique ou Z abre a página inteira.
           </p>
         </div>
         <div className="row wrap">
@@ -381,48 +382,53 @@ function StripItem({
   ].join(" ");
   return (
     <>
-      <button
-        className={classes}
-        onClick={onClick}
-        onDoubleClick={onDoubleClick}
-        onKeyDown={(e) => {
-          const k = thumbnailKey(e);
-          if (!k) return;
-          e.preventDefault();
-          onKey(k);
-        }}
-        title={findings.map((f) => f.message).join("\n")}
-        aria-label={`Página ${page.index + 1}${removed ? ", removida" : ""}`}
-      >
-        <Thumb pageId={page.id} width={120} variant={variant} />
-        <Corner pageId={page.id} variant={variant} />
-        {mode === "after" ? (
-          <div className="seq-label">{item?.target_file?.split("/").pop()}</div>
-        ) : (
-          <div className="seq-label">
-            {n?.value ?? "—"} {n && <span className={`state-tag st-${n.state}`}>{NUMBERING_STATE_LABEL[n.state]}</span>}
-          </div>
-        )}
-        {mode === "before" && n && n.previous.length > 0 && <div className="small struck">{n.previous.join(", ")}</div>}
-        {removed && <div className="small note-removed">removida: {item?.reason}</div>}
-        {unreadable && <div className="small note-rescan">{item?.reason}</div>}
-        {rescan.length > 0 && (
-          <div className="small note-rescan" title={rescan.map((r) => r.text).join("\n")}>
-            precisa redigitalizar: {rescan.map((r) => ruleLabel(r.rule).toLowerCase()).join(", ")}
-          </div>
-        )}
-        {marks.map((c) => (
-          <div key={`${c.finding_id}-${c.text}`} className="small note-change">✓ {c.text}</div>
-        ))}
-        {mode === "after" && item && !item.moved && item.new_position !== item.old_position && (
-          <div className="small muted">antes: posição {item.old_position}</div>
-        )}
-        {mode === "before" && (
-          <div className="seq-flags">
-            {findings.map((f) => <SeverityBadge key={f.id} severity={f.severity} />)}
-          </div>
-        )}
-      </button>
+      <div className={classes}>
+        <button
+          className="seq-hit"
+          onClick={onClick}
+          onDoubleClick={onDoubleClick}
+          onKeyDown={(e) => {
+            const k = thumbnailKey(e);
+            if (!k) return;
+            e.preventDefault();
+            onKey(k);
+          }}
+          title={findings.map((f) => f.message).join("\n")}
+          aria-label={`Página ${page.index + 1}${removed ? ", removida" : ""}: corrigir numeração`}
+        >
+          <Thumb pageId={page.id} width={120} variant={variant} />
+          <Corner pageId={page.id} variant={variant} />
+          {mode === "after" ? (
+            <div className="seq-label">{item?.target_file?.split("/").pop()}</div>
+          ) : (
+            <div className="seq-label">
+              {n?.value ?? "—"} {n && <span className={`state-tag st-${n.state}`}>{NUMBERING_STATE_LABEL[n.state]}</span>}
+            </div>
+          )}
+          {mode === "before" && n && n.previous.length > 0 && <div className="small struck">{n.previous.join(", ")}</div>}
+          {removed && <div className="small note-removed">removida: {item?.reason}</div>}
+          {unreadable && <div className="small note-rescan">{item?.reason}</div>}
+          {rescan.length > 0 && (
+            <div className="small note-rescan" title={rescan.map((r) => r.text).join("\n")}>
+              precisa redigitalizar: {rescan.map((r) => ruleLabel(r.rule).toLowerCase()).join(", ")}
+            </div>
+          )}
+          {marks.map((c) => (
+            <div key={`${c.finding_id}-${c.text}`} className="small note-change">✓ {c.text}</div>
+          ))}
+          {mode === "after" && item && !item.moved && item.new_position !== item.old_position && (
+            <div className="small muted">antes: posição {item.old_position}</div>
+          )}
+          {mode === "before" && (
+            <div className="seq-flags">
+              {findings.map((f) => <SeverityBadge key={f.id} severity={f.severity} />)}
+            </div>
+          )}
+        </button>
+        <button className="zoom-btn" onClick={() => onKey("zoom")} aria-label={`Ampliar a página ${page.index + 1}`}>
+          Ampliar
+        </button>
+      </div>
       {after}
     </>
   );

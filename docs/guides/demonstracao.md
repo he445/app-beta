@@ -2,6 +2,23 @@
 
 Roteiro técnico da seção 20 do ADD, com a base sintética.
 
+## No celular, em 5 minutos
+
+Com a imagem publicada (ver `deploy/README.md`), abra o endereço no celular:
+
+1. digite seu nome e toque em **Começar**;
+2. toque em **Analisar lote-demonstracao** (33 páginas, 12 documentos);
+3. no painel: veredito e **55%** das páginas dispensando revisão;
+4. **Sequência → CX001/DOC0001 → Corrigir tudo**: a página torta é endireitada, a branca
+   sai, a sem nitidez aparece como "precisa redigitalizar" e a folha 4 faltando pede
+   decisão (**Salvar** fica bloqueado até lá);
+5. decida a página faltando, toque em **Salvar correções** e mostre o zip baixado.
+
+Perfil `demo`: só página faltando, em branco, torta e sem nitidez (ADR-0010). No lote de
+demonstração, os 6 defeitos inseridos são encontrados, sem sinalização a mais.
+
+## Métricas da base completa
+
 ## 1. Gerar o lote
 
 ```bash
@@ -17,7 +34,7 @@ numeração manuscrita.
 ## 2. Analisar
 
 ```bash
-uv run --project engine qa analyze lote-demo --profile profiles/demo.yaml --out saida
+uv run --project engine qa analyze lote-demo --profile profiles/completo.yaml --out saida
 ```
 
 ## 3. Medir contra o gabarito

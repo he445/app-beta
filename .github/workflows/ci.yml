@@ -52,6 +52,53 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  celular:
+    name: Celular (Pixel 7 e iPhone 13, motor servindo a interface)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.11.32"
+          enable-cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Fontes do lote de demonstração
+        run: sudo apt-get update && sudo apt-get install -y fonts-dejavu-core
+      - run: uv sync --frozen --project engine
+      - name: Lote de demonstração (tools/synth showcase)
+        run: uv run --project engine python tools/synth/synth.py showcase --out "$RUNNER_TEMP/demo/lote-demonstracao"
+      - name: Interface na mesma origem e navegador
+        working-directory: ui
+        run: |
+          npm ci
+          VITE_API_URL= npm run build
+          npx playwright install --with-deps chromium
+      - name: Motor servindo a interface
+        working-directory: engine
+        run: |
+          QA_DATA_DIR="$RUNNER_TEMP/data" QA_UI_DIR="$GITHUB_WORKSPACE/ui/dist" \
+          QA_DEMO_DIR="$RUNNER_TEMP/demo" QA_WORKERS=1 \
+            nohup uv run python -m qa_engine.entrypoints.http > "$RUNNER_TEMP/motor.log" 2>&1 &
+          for i in $(seq 1 30); do curl -fsS localhost:8000/health && exit 0; sleep 1; done
+          cat "$RUNNER_TEMP/motor.log"; exit 1
+      - name: Fluxo de demonstração no celular
+        working-directory: ui
+        run: |
+          mkdir -p "$RUNNER_TEMP/capturas"
+          npm run e2e:celular -- http://localhost:8000/ "Pixel 7" "$RUNNER_TEMP/capturas"
+          npm run e2e:celular -- http://localhost:8000/ "iPhone 13" "$RUNNER_TEMP/capturas"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: celular-capturas
+          path: |
+            ${{ runner.temp }}/capturas/*.png
+            ${{ runner.temp }}/motor.log
+
   contract:
     name: Contrato (Spectral + oasdiff)
     runs-on: ubuntu-24.04
@@ -88,9 +135,11 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - run: docker build -f deploy/Dockerfile -t qa-engine:ci .
-      - name: Fumaça
+      - run: docker build -f deploy/Dockerfile -t qa-digitalizacao:ci .
+      - name: Fumaça (saúde, interface na mesma origem e lote de demonstração)
         run: |
-          docker run -d --name qa -p 8000:8000 qa-engine:ci
-          for i in $(seq 1 30); do curl -fsS localhost:8000/health && exit 0; sleep 1; done
-          docker logs qa; exit 1
+          docker run -d --name qa -p 8000:8000 qa-digitalizacao:ci
+          for i in $(seq 1 60); do curl -fsS localhost:8000/health && break; sleep 1; done
+          curl -fsS localhost:8000/ | grep -q '<div id="root">'
+          curl -fsS localhost:8000/demo-batches | grep -q lote-demonstracao
+          curl -fsS localhost:8000/health | grep -q '"auth_required":false' || { docker logs qa; exit 1; }

@@ -142,6 +142,9 @@ class SequenceParams:
     w_step: float = 2.0
     w_intercalation: float = 1.0
     w_gap: float = 1.0
+    w_gap_max: float = 1.5
+    """Teto da penalidade de um salto: uma leitura confiável vence a inferência mesmo
+    numa lacuna grande no fim do documento, onde nenhuma página seguinte a confirma."""
     w_back: float = 4.0
     w_repeat: float = 1.0
     """Numeração repetida é penalizada menos que retrocesso: duplicata ou defeito de origem."""
@@ -225,7 +228,7 @@ def _transition(prev: Folio | None, cur: Folio, p: SequenceParams) -> float:
     if _is_intercalation(prev, cur, p.mode):
         return p.w_intercalation
     if cur > prev:
-        return -p.w_gap * len(missing_between(prev, cur, p.mode))
+        return -min(p.w_gap * len(missing_between(prev, cur, p.mode)), p.w_gap_max)
     if cur == prev:
         return -p.w_repeat
     return -p.w_back

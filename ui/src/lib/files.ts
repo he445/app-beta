@@ -43,6 +43,16 @@ export async function filesFromDrop(items: DataTransferItemList): Promise<Picked
   return out.sort((a, b) => a.path.localeCompare(b.path, "pt-BR", { numeric: true }));
 }
 
+/** Escolha de pasta (webkitdirectory) só existe nos navegadores de computador. */
+export function canPickFolders(): boolean {
+  return typeof document !== "undefined" && "webkitdirectory" in document.createElement("input") && !isTouchDevice();
+}
+
+/** Tela de toque sem mouse (celular, tablet). */
+export function isTouchDevice(): boolean {
+  return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+}
+
 export function filesFromInput(list: FileList): PickedFile[] {
   return Array.from(list)
     .map((file) => ({ file, path: file.webkitRelativePath || file.name }))

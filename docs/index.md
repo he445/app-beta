@@ -22,7 +22,8 @@ arquitetura completo está em [ADD](add.md).
 
 Feito: motor de referência (12 regras), API HTTP, linha de comando, interface web com as
 9 telas da seção 12 e os atalhos de teclado, "Corrigir tudo" com desfazer em lote, lote
-corrigido para baixar (TIFF sem perda e manifesto), contrato, especificação, suíte de
+corrigido para baixar (TIFF sem perda e manifesto), demonstração no celular (imagem única
+com interface e lote de demonstração, entrada só com o nome), contrato, especificação, suíte de
 conformidade, base sintética com medição de acerto, Docker e CI.
 
 Próximo: leitor de numeração

@@ -1,0 +1,15 @@
+# Contexto do build: só o que a imagem precisa. Nunca lotes nem saídas.
+.git
+**/node_modules
+**/.venv
+**/__pycache__
+**/.mypy_cache
+**/.ruff_cache
+**/.pytest_cache
+**/.hypothesis
+ui/dist
+data
+saida
+lote*
+conformance/fixtures/core
+site

@@ -134,7 +134,7 @@ def test_manifest_declared_count(small_batch: Path, test_profile: Profile) -> No
     assert [docs[f["target"]["id"]] for f in missing] == ["CX1/DOC2"]
 
 
-def test_cli(small_batch: Path, tmp_path: Path, demo_profile_path: Path) -> None:
+def test_cli(small_batch: Path, tmp_path: Path, full_profile_path: Path) -> None:
     out = tmp_path / "saida"
     assert (
         cli(
@@ -142,7 +142,7 @@ def test_cli(small_batch: Path, tmp_path: Path, demo_profile_path: Path) -> None
                 "analyze",
                 str(small_batch),
                 "--profile",
-                str(demo_profile_path),
+                str(full_profile_path),
                 "--out",
                 str(out),
                 "--workers",
@@ -153,5 +153,5 @@ def test_cli(small_batch: Path, tmp_path: Path, demo_profile_path: Path) -> None
         == 0
     )
     assert cli(["validate-report", str(out / "report.json")]) == 0
-    assert cli(["validate-profile", str(demo_profile_path)]) == 0
+    assert cli(["validate-profile", str(full_profile_path)]) == 0
     assert cli(["rules"]) == 0

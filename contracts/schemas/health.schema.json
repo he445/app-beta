@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "health.schema.json",
+  "title": "Health",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "version",
+    "auth_required",
+    "demo_batches"
+  ],
+  "properties": {
+    "status": {
+      "const": "ok"
+    },
+    "version": {
+      "type": "string"
+    },
+    "auth_required": {
+      "type": "boolean",
+      "description": "Verdadeiro quando o motor exige token (QA_API_TOKEN). Falso: a interface pede só o nome do revisor."
+    },
+    "demo_batches": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Quantos lotes de demonstração o servidor tem prontos."
+    }
+  }
+}

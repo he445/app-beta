@@ -4,6 +4,7 @@ Uso::
 
     uv run --project engine python tools/synth/synth.py demo --out ./lote-demo --pages 200
     uv run --project engine python tools/synth/synth.py conformance --out conformance/fixtures/core
+    uv run --project engine python tools/synth/synth.py showcase --out ./lote-demonstracao
 
 Cada defeito inserido gera uma linha no gabarito (``gabarito.json``). O
 gerador usa semente fixa: a mesma linha de comando produz os mesmos arquivos
@@ -94,15 +95,18 @@ STATIONS = [
 
 
 def _font(size: int, bold: bool = False, oblique: bool = False) -> ImageFont.FreeTypeFont:
-    name = (
-        "DejaVuSerif-Bold.ttf"
-        if bold
-        else ("DejaVuSansMono-Oblique.ttf" if oblique else "DejaVuSerif.ttf")
-    )
-    for folder in FONT_DIRS:
-        if (folder / name).is_file():
-            return ImageFont.truetype(str(folder / name), size)
-    raise SystemExit(f"fonte {name} não encontrada (instale fonts-dejavu)")
+    """Fonte DejaVu; sem a variante oblíqua (pacote fonts-dejavu-core), usa a reta."""
+    if bold:
+        names = ["DejaVuSerif-Bold.ttf"]
+    elif oblique:
+        names = ["DejaVuSansMono-Oblique.ttf", "DejaVuSansMono.ttf"]
+    else:
+        names = ["DejaVuSerif.ttf"]
+    for name in names:
+        for folder in FONT_DIRS:
+            if (folder / name).is_file():
+                return ImageFont.truetype(str(folder / name), size)
+    raise SystemExit(f"fonte {names[0]} não encontrada (instale fonts-dejavu-core)")
 
 
 @dataclass
@@ -471,12 +475,45 @@ def conformance_plan() -> list[list[dict[str, Any]]]:
     ]
 
 
+def showcase_plan() -> list[list[dict[str, Any]]]:
+    """Lote da demonstração (ADR-0010): os quatro casos em foco no mesmo documento.
+
+    CX001/DOC0001: página torta, folha 4 faltando, página sem nitidez e página em branco.
+    CX001/DOC0002: duas folhas trocadas (ordem pela numeração) e uma página torta.
+    CX001/DOC0003 a CX002/DOC0012: documentos limpos de 2 páginas. Com poucos documentos
+    verdes, a amostragem de 5% (arredondada para cima) sortearia todos; dez deixam a
+    métrica "páginas que dispensam revisão" representativa.
+    """
+    clean: dict[str, Any] = {}
+    return [
+        [
+            dict(clean),
+            {"defect": "skew", "defect_args": {"angle": 2.5}},
+            dict(clean),
+            {"drop": True},
+            dict(clean),
+            {"defect": "blur"},
+            {"kind": "blank"},
+            dict(clean),
+        ],
+        [
+            dict(clean),
+            dict(clean),
+            {"swap_with": 4},
+            {"swap_with": 3},
+            dict(clean),
+            {"defect": "skew", "defect_args": {"angle": -1.8}},
+        ],
+        *([dict(clean), dict(clean)] for _ in range(10)),
+    ]
+
+
 def main() -> None:
     """Linha de comando."""
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("mode", choices=["demo", "conformance"])
+    parser.add_argument("mode", choices=["demo", "conformance", "showcase"])
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--pages", type=int, default=200)
     parser.add_argument("--seed", type=int, default=20261105)
@@ -484,13 +521,14 @@ def main() -> None:
     parser.add_argument("--doc-size", type=int, default=10)
     parser.add_argument("--a5", action="store_true", help="páginas A5 (arquivos menores)")
     args = parser.parse_args()
-    a5 = args.a5 or args.mode == "conformance"
+    a5 = args.a5 or args.mode in {"conformance", "showcase"}
     size = (1748, 2480) if a5 else (2480, 3508)
-    plan = (
-        conformance_plan()
-        if args.mode == "conformance"
-        else demo_plan(args.pages, args.seed, args.defect_rate, args.doc_size)
-    )
+    if args.mode == "conformance":
+        plan = conformance_plan()
+    elif args.mode == "showcase":
+        plan = showcase_plan()
+    else:
+        plan = demo_plan(args.pages, args.seed, args.defect_rate, args.doc_size)
     build(args.out, plan, args.seed, size)
     print(f"lote gerado em {args.out}")
 
