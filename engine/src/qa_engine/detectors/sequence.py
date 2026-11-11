@@ -1,7 +1,7 @@
 """Sinalizações de sequência e completude a partir de :mod:`qa_engine.domain.sequencing`.
 
 Produz as regras ``missing_page``, ``out_of_order``, ``numbering_review`` e
-``completeness_unverifiable`` (``spec/sequencing.md``).
+``completeness_unverifiable`` (``docs/especificacoes/sequencing.md``).
 """
 
 from __future__ import annotations

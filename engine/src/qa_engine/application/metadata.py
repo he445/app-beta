@@ -1,4 +1,4 @@
-"""Metadados do Decreto 10.278/2020 e técnicos (``spec/metadata.md``)."""
+"""Metadados do Decreto 10.278/2020 e técnicos (``docs/especificacoes/metadata.md``)."""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ class MetadataSource(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class MetadataField:
-    """Um metadado com fonte e confiança (tela 7 do ADD)."""
+    """Um metadado com fonte e confiança (tela de metadados)."""
 
     name: str
     value: Any

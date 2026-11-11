@@ -41,7 +41,7 @@ class SerialExecutor:
 
 
 class ProcessPoolExecutor:
-    """Pool de processos que usa todos os núcleos (seção 14: paralelismo)."""
+    """Pool de processos que usa todos os núcleos (porta ``Executor``)."""
 
     def __init__(self, workers: int | None = None) -> None:
         self._workers = workers

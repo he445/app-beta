@@ -1,10 +1,10 @@
-"""Classificação do "Corrigir tudo" (``spec/corrections.md``).
+"""Classificação do "Corrigir tudo" (``docs/especificacoes/corrections.md``).
 
 Só entra o que é automático e seguro: correções de imagem na cópia, remoção
 de página em branco e reordenação pela numeração. Ficam pendentes, com o
 motivo: página faltando (aprovação manual), defeitos que exigem
-redigitalizar (nunca "melhorados" por software, seção 10 do ADD) e o que
-pede decisão humana, como duplicatas (seção 9 do ADD).
+redigitalizar (nunca "melhorados" por software) e o que pede decisão humana,
+como duplicatas (``docs/visao-geral/casos-de-borda.md``).
 """
 
 from __future__ import annotations

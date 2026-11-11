@@ -25,7 +25,7 @@ com a cadeia (`chain`), o arquivo gerado, os SHA-256 de origem e destino, quem d
 quando e a operação em lote, se houver. Uma versão já gravada para a mesma cadeia é
 reaproveitada: desfazer volta ao mesmo arquivo, byte a byte.
 
-**Correções proibidas** (seção 10 do ADD) nunca são oferecidas: aumentar resolução por
+**Correções proibidas** nunca são oferecidas: aumentar resolução por
 interpolação, nitidez artificial, clarear página ilegível, preencher área cortada.
 
 ## "Corrigir tudo"
@@ -43,7 +43,7 @@ para cada sinalização sem decisão no escopo:
         missing_page   → regra missing_page: exige aprovação manual
         needs_rescan   → regra ∈ REDIGITALIZAR ou correção.kind = physical:
                          precisa redigitalizar; vai para a ordem de retrabalho
-        manual         → o resto (duplicata nunca é removida automaticamente: seção 9)
+        manual         → o resto (duplicata nunca é removida automaticamente)
 REDIGITALIZAR = {blur, low_resolution, corrupted_file, cropped_content, truncated_image}
 ```
 

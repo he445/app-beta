@@ -62,7 +62,7 @@ describe("fila de revisão", () => {
 });
 
 describe("atalhos", () => {
-  it("mapeia as teclas do ADD", () => {
+  it("mapeia as teclas da revisão", () => {
     expect(keyToAction({ key: "a" })).toEqual({ type: "decide", action: "approve" });
     expect(keyToAction({ key: "C" })).toEqual({ type: "decide", action: "correct" });
     expect(keyToAction({ key: "r" })).toEqual({ type: "decide", action: "reject" });

@@ -1,4 +1,4 @@
-# Tolerâncias da suíte de conformidade (seção 16 do ADD). Valem para qualquer implementação.
+# Tolerâncias da suíte de conformidade (docs/testes/conformidade.md). Valem para qualquer implementação.
 version: 1
 measures:
   skew:

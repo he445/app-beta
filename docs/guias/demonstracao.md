@@ -1,10 +1,10 @@
 # Rodar a demonstração
 
-Roteiro técnico da seção 20 do ADD, com a base sintética.
+Roteiro técnico da demonstração, com a [base sintética](../testes/base-sintetica.md).
 
 ## No celular, em 5 minutos
 
-Com a imagem publicada (ver `deploy/README.md`), abra o endereço no celular:
+Com a imagem publicada (ver [Publicar a demonstração](publicar-demonstracao.md)), abra o endereço no celular:
 
 1. digite seu nome e toque em **Começar**;
 2. toque em **Analisar lote-demonstracao** (33 páginas, 12 documentos);
@@ -45,7 +45,7 @@ uv run --project engine python tools/synth/evaluate.py saida/report.json lote-de
 
 Resultado de referência (semente padrão, 199 páginas, contêiner de 4 núcleos sem GPU):
 
-| Métrica | Meta (seção 18) | Obtido |
+| Métrica | Meta | Obtido |
 | --- | --- | --- |
 | Defeitos críticos encontrados | ≥ 98% | 100% |
 | Todos os defeitos encontrados | ≥ 95% | 100% |
@@ -58,7 +58,7 @@ As 6 sinalizações "extras" são `exposure` em páginas desfocadas ou de baixa 
 que de fato perderam contraste; a precisão por alvo é 100%.
 
 !!! warning "Números sintéticos são um teto"
-    Os defeitos sintéticos são mais limpos que os reais (seção 19). A leitura da numeração
+    Os defeitos sintéticos são mais limpos que os reais. A leitura da numeração
     manuscrita está simulada. Só o piloto com lotes reais já conferidos decide.
 
 ## 4. Pela API

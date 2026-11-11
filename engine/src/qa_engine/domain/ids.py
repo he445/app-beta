@@ -1,4 +1,4 @@
-"""Identificadores determinísticos (seção 16, item 4: determinismo).
+"""Identificadores determinísticos (determinismo: ``docs/especificacoes/index.md``).
 
 A mesma entrada gera os mesmos identificadores em qualquer máquina, o que
 permite comparar execuções e implementações em linguagens diferentes.

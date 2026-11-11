@@ -1,7 +1,7 @@
 id: black_borders
 version: 1.0.0
 title: Bordas pretas
-spec: spec/detectors/black_borders.md
+spec: docs/especificacoes/detectors/black_borders.md
 input: page_gray_150dpi
 target: page
 severity: low

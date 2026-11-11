@@ -6,8 +6,8 @@ Formato (``contracts/schemas/numbering-sidecar.schema.json``)::
                                      "readings": [{"text": "12", "confidence": 0.93}]}]}}
 
 Na PoC esse arquivo vem do leitor de manuscrito rodando fora do motor, da base
-sintética ou de numeração digitada pelo revisor. O adaptador TrOCR/PaddleOCR-VL
-(seção 6 do ADD) implementará a mesma porta.
+sintética ou de numeração digitada pelo revisor. Um leitor por imagem implementa a
+mesma porta (``docs/especificacoes/sequencing.md``).
 """
 
 from __future__ import annotations

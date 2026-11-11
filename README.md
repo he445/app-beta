@@ -1,13 +1,11 @@
-# QA Automático de Digitalização — PoC
+# QA Automático de Digitalização
 
-Triagem automática de lotes digitalizados: detecta defeitos de imagem, de sequência e de
-completude, propõe uma correção para cada um, extrai os metadados do Decreto 10.278/2020
-e entrega ao revisor só o que precisa de olho humano.
+Triagem automática de lotes digitalizados: encontra defeitos de imagem, de sequência e de
+completude, propõe uma correção para cada um e entrega ao revisor só o que precisa de olho
+humano. O original nunca é alterado e toda decisão é de uma pessoa.
 
-O desenho completo está no [ADD](docs/add.md). Este repositório segue os sete princípios
-dele: o original é intocável, o humano decide, toda detecção explica a si mesma, limiar é
-configuração, contrato e especificação vêm antes do código, e sem documentação não está
-pronto.
+**A documentação fica em [`docs/`](docs/index.md)**: visão geral, instalação, operação,
+arquitetura, especificações, referência e testes.
 
 ## Começo rápido
 
@@ -15,82 +13,21 @@ pronto.
 cd engine && uv sync && cd ..
 uv run --project engine python tools/synth/synth.py demo --out lote-demo --pages 200
 uv run --project engine qa analyze lote-demo --profile profiles/completo.yaml --out saida
-uv run --project engine python tools/synth/evaluate.py saida/report.json lote-demo/gabarito.json
 ```
 
-Para a demonstração (também no celular), uma imagem só serve motor, interface e um lote
-de demonstração com página faltando, em branco, torta e sem nitidez
-([deploy/README.md](deploy/README.md), ADR-0010):
-
-```bash
-docker build -f deploy/Dockerfile -t qa-digitalizacao . && docker run -p 8000:8000 qa-digitalizacao
-# http://localhost:8000 — entrada só com o nome
-```
-
-Para desenvolver a interface (detalhes em [ui/README.md](ui/README.md)):
-
-```bash
-(cd engine && uv run python -m qa_engine.entrypoints.http) &
-cd ui && npm ci && npm run dev    # http://localhost:5173
-```
-
-Na tela de sequência, **Corrigir tudo** aplica as correções automáticas (endireitar,
-recortar bordas, remover página em branco, reordenar pela numeração), mostra o antes e o
-depois e **Salvar correções** baixa o lote corrigido em `.zip` (TIFF sem perda, mesma
-estrutura de pastas e manifesto). Detalhes em [spec/corrections.md](spec/corrections.md).
-
-Na base sintética de referência (199 páginas A4 a 300 dpi, 4 núcleos, sem GPU): 100% dos
-defeitos críticos encontrados, precisão de 88,7%, 67% das páginas dispensam revisão,
-cerca de 7 páginas por segundo. Detalhes e ressalvas em
-[docs/guides/demonstracao.md](docs/guides/demonstracao.md).
+Passo a passo, interface e Docker: [Instalar e rodar](docs/tutoriais/instalar.md).
 
 ## Estrutura
 
 ```text
 contracts/      fonte da verdade: OpenAPI 3.1 + JSON Schema 2020-12
-spec/           especificação independente de linguagem (detectores, sequência, pontuação)
 conformance/    gabarito, tolerâncias e executor que qualquer implementação precisa passar
-engine/         implementação de referência em Python (domain, detectors, application,
-                ports, adapters, entrypoints/http e cli)
-ui/             interface web (React + TypeScript + Vite), tipos gerados do contrato
-profiles/       perfis de cliente: demo (foco em faltando, em branco, torta e sem
-                nitidez) e completo (todas as regras)
-tools/synth/    gerador da base sintética e medidor de taxa de acerto
-deploy/         Dockerfile do motor
-docs/           site MkDocs: ADD, guias, ADRs, C4, referência, glossário
+engine/         motor de referência em Python
+ui/             interface web (React + TypeScript + Vite)
+profiles/       perfis de cliente
+tools/          base sintética, medição de acerto e ferramentas de documentação
+deploy/         empacotamento
+docs/           documentação (site MkDocs)
 ```
 
-## Regras implementadas
-
-| Regra | Severidade | Correção proposta |
-| --- | --- | --- |
-| `corrupted_file` | crítico | regerar ou redigitalizar |
-| `blur` | crítico | redigitalizar |
-| `missing_page` | crítico | localizar a folha (ou o verso) e redigitalizar |
-| `low_resolution` | alto | reconfigurar o scanner e redigitalizar |
-| `exposure` | alto | auto-níveis na cópia ou redigitalizar |
-| `numbering_review` | alto/médio | revisor digita a numeração (tecla N) |
-| `skew` | médio (alto > 3°) | endireitar na cópia |
-| `out_of_order` | médio | reordenar pela numeração |
-| `duplicate_page` | médio | remover a cópia de pior qualidade |
-| `blank_page` | baixo | remover conforme o perfil (quase branca nunca é removida) |
-| `black_borders` | baixo | recortar na cópia |
-| `completeness_unverifiable` | baixo | incluir contagem no manifesto |
-
-`uv run --project engine qa rules` lista versões e títulos.
-
-## Documentação
-
-```bash
-uvx --with mkdocs-material --with mkdocstrings-python --with pymdown-extensions mkdocs serve
-```
-
-- [Instalar e rodar](docs/guides/instalar.md) · [Demonstração](docs/guides/demonstracao.md)
-- [Arquitetura (C4)](docs/architecture/c4.md) · [ADRs](docs/adr/)
-- [Criar um detector](docs/guides/criar-detector.md) · [Portar para outra linguagem](docs/guides/portar-linguagem.md)
-- [Contribuir](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Glossário](docs/glossary.md)
-
-## Dados
-
-Só documentos sintéticos, públicos ou próprios. **Nenhum documento de cliente** antes de
-autorização formal; no piloto, o motor roda em servidor interno (ADR-0001).
+[Como contribuir](CONTRIBUTING.md) · [Histórico de versões](CHANGELOG.md)

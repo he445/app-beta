@@ -1,4 +1,6 @@
-"""Gerador da base sintética com defeitos controlados e gabarito (seção 18 do ADD).
+"""Gerador da base sintética com defeitos controlados e gabarito.
+
+Documentação: ``docs/testes/base-sintetica.md``.
 
 Uso::
 
@@ -9,7 +11,7 @@ Uso::
 Cada defeito inserido gera uma linha no gabarito (``gabarito.json``). O
 gerador usa semente fixa: a mesma linha de comando produz os mesmos arquivos
 na mesma máquina. A numeração manuscrita é simulada em ``numbering.json``,
-no formato que o leitor de manuscrito vai produzir (seção 6).
+no formato que o leitor de manuscrito produz (``docs/especificacoes/sequencing.md``).
 """
 
 from __future__ import annotations

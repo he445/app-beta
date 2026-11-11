@@ -8,6 +8,10 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- `tools/docs/gen_reference.py` gera `docs/referencia/api.md`, `perfis.md` e `cli.md` do
+  contrato, dos manifestos e do analisador de argumentos.
+- `tools/docs/check_docs.py` e lint de Markdown na CI: link relativo quebrado,
+  referência gerada desatualizada ou documentação fora de `docs/` reprovam o build.
 - Demonstração no celular (ADR-0010): o motor serve a interface na mesma origem
   (`QA_UI_DIR`); lote de demonstração pronto no servidor (`QA_DEMO_DIR`,
   `tools/synth showcase`, rotas `GET /demo-batches` e `POST /demo-batches/{name}`); tela
@@ -35,10 +39,18 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 - "Corrigir o lote inteiro" no painel e na revisão; "Baixar lote corrigido" no relatório.
 - Contrato 0.3.0: rotas `bulk-corrections`, `corrected-plan`, `corrected-batch` e os
   esquemas `bulk-correction*`, `corrected-*`; `Decision.operation_id`.
-- Especificação `spec/corrections.md` e ADR-0009.
+- Especificação `docs/especificacoes/corrections.md` e ADR-0009.
 
 ### Alterado
 
+- Documentação reorganizada numa pasta só, em português (ADR-0017): `spec/` virou
+  `docs/especificacoes/`, `docs/guides` virou `docs/guias`, `docs/architecture` virou
+  `docs/arquitetura` (agora no formato arc42), `docs/reference` virou `docs/referencia` e
+  os `README.md` das pastas viraram páginas de `docs/`. Páginas novas: visão geral,
+  princípios, casos de borda, operação, modelos, segurança e privacidade, licenças de
+  terceiros e testes. O `README.md` da raiz ficou curto e aponta para `docs/`.
+- Os manifestos das regras e `detector-manifest.schema.json` apontam para
+  `docs/especificacoes/`.
 - Entrada só com o nome do revisor; o token fica dormente e aparece quando o motor
   exige (`QA_API_TOKEN`).
 - Perfil `demo` com foco em página faltando, em branco, torta e sem nitidez; bordas
@@ -67,7 +79,7 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
   sobrepunha o da publicação; motor dormindo no plano gratuito; processos de análise
   demais para 512 MB.
 - Resolvedor de numeração: lacuna grande no fim do documento era tomada por leitura
-  errada; agora vira página faltando (teto `w_gap_max`, `spec/sequencing.md` 1.1.0).
+  errada; agora vira página faltando (teto `w_gap_max`, `docs/especificacoes/sequencing.md` 1.1.0).
 - Telas estreitas: faixas de miniaturas alargavam a página inteira.
 
 - Leituras simultâneas na API compartilhavam a conexão SQLite sem lock e falhavam com
@@ -75,7 +87,7 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 - Contrato OpenAPI 3.1 e 17 JSON Schemas 2020-12 (`contracts/`).
 - Especificação independente de linguagem: layout do lote, 8 detectores de página,
-  sequência e completude, pontuação e veredito, metadados (`spec/`).
+  sequência e completude, pontuação e veredito, metadados (`docs/especificacoes/`).
 - Motor de referência em Python com arquitetura hexagonal (`engine/`):
   - regras `corrupted_file`, `low_resolution`, `blank_page`, `black_borders`, `blur`,
     `skew`, `exposure`, `duplicate_page`, `missing_page`, `out_of_order`,
@@ -92,6 +104,6 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 - Linha de comando `qa` (`analyze`, `rules`, `validate-profile`, `validate-report`).
 - Gerador da base sintética com gabarito e medidor de taxa de acerto (`tools/synth/`).
 - Suíte de conformidade com gabarito versionado e tolerâncias (`conformance/`).
-- Documentação MkDocs: ADD, ADRs 0001–0007, C4 em Mermaid, guias, glossário.
+- Documentação MkDocs: ADRs 0001–0007, C4 em Mermaid, guias, glossário.
 - Dockerfile do motor e integração contínua (lint, tipos, testes, conformidade,
   Spectral, oasdiff, build da documentação e da imagem).

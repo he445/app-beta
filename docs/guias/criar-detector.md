@@ -1,9 +1,9 @@
 # Criar um detector
 
-A definição de pronto (seção 17 do ADD) vale para cada regra nova; a CI cobra os itens
+A definição de pronto (`CONTRIBUTING.md`) vale para cada regra nova; a CI cobra os itens
 marcados com ✔.
 
-1. **Especificação** ✔: copie `spec/detectors/_TEMPLATE.md` para `spec/detectors/<id>.md`
+1. **Especificação** ✔: copie `docs/especificacoes/detectors/_TEMPLATE.md` para `docs/especificacoes/detectors/<id>.md`
    e escreva o algoritmo em pseudocódigo, sem citar bibliotecas. Documente cada parâmetro.
 2. **Manifesto** ✔: `engine/src/qa_engine/detectors/<id>/manifest.yaml`, validado contra
    `contracts/schemas/detector-manifest.schema.json`. A versão do manifesto e a da
@@ -22,5 +22,5 @@ Regras para o detector:
 
 - compare com a linha de base do lote sempre que possível, não com número fixo;
 - toda sinalização traz `measure`, `threshold`, `confidence`, mensagem em português e
-  uma correção proposta; nunca proponha correção proibida (seção 10);
+  uma correção proposta; nunca proponha [correção proibida](../especificacoes/corrections.md);
 - sem aleatoriedade; empates resolvidos por ordem estável.

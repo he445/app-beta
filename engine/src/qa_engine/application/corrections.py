@@ -3,7 +3,7 @@
 O original nunca é alterado. A versão corrigida de uma página é sempre o
 original com **todas** as correções de imagem decididas (``correct``),
 aplicadas numa ordem canônica que não depende da ordem das decisões
-(``spec/corrections.md``). Cada versão gravada vira um evento no log só de
+(``docs/especificacoes/corrections.md``). Cada versão gravada vira um evento no log só de
 inserção da porta ``PageVersionStore``; a cópia é reanalisada pelos detectores
 de página antes de ir para a saída.
 """

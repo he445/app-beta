@@ -1,6 +1,6 @@
 """``MetadataReader`` com Pillow e pypdfium2.
 
-O ExifTool (seção 14) é a referência para cobertura total de tags e entra como
+O ExifTool (ADR-0004) é a referência para cobertura total de tags e entra como
 outro adaptador, em processo externo, numa fase seguinte.
 """
 

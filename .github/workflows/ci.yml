@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -121,13 +122,19 @@ jobs:
           fi
 
   docs:
-    name: Documentação (mkdocs --strict)
+    name: Documentação (checagens, lint e mkdocs --strict)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
         with:
           version: "0.11.32"
+          enable-cache: true
+      - run: uv sync --frozen --project engine
+      - name: Links, referência gerada em dia e documentação só em docs/
+        run: uv run --project engine python tools/docs/check_docs.py
+      - name: Lint de Markdown
+        run: npx -y markdownlint-cli2@0.14.0
       - run: uvx --with mkdocs-material==9.5.44 --with "mkdocstrings[python]==0.27.0" --with pymdown-extensions==10.12 mkdocs==1.6.1 build --strict
 
   docker:

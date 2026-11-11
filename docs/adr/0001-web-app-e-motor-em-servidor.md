@@ -29,4 +29,4 @@ de `contracts/openapi.yaml`.
 - O envio de documento real ao servidor da PoC é um risco operacional: mitigado por aviso
   na tela de envio, token, retenção de 24 h (`QA_RETENTION_HOURS`) e lotes de demonstração.
 - A opção 1 continua possível no futuro porque o comportamento está no contrato e na
-  especificação (ADR-0002, seção 16 do ADD).
+  especificação (ADR-0002, [guia de portabilidade](../guias/portar-linguagem.md)).

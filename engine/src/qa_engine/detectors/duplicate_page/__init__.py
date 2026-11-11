@@ -1,4 +1,7 @@
-"""Página duplicada: dHash + correlação de miniaturas (``spec/detectors/duplicate_page.md``)."""
+"""Página duplicada: dHash + correlação de miniaturas.
+
+Especificação: ``docs/especificacoes/detectors/duplicate_page.md``.
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-// Atalhos da revisão (seção 12 do ADD), como função pura para poder testar.
+// Atalhos da revisão (docs/operacao/interface.md), como função pura para poder testar.
 import type { DecisionAction, Severity } from "../api/types";
 import { SEVERITIES } from "./format";
 

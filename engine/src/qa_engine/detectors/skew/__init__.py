@@ -1,4 +1,4 @@
-"""Inclinação: perfil de projeção das linhas de texto (``spec/detectors/skew.md``)."""
+"""Inclinação pelo perfil de projeção das linhas (``docs/especificacoes/detectors/skew.md``)."""
 
 from __future__ import annotations
 

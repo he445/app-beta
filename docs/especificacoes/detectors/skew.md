@@ -48,7 +48,7 @@ severidade ← alto se |inclinação| > reject_threshold, senão médio
 
 ## Falhas conhecidas e casos de borda
 
-- Interpretação do ADD: "acima de 3° reprova" vira severidade **alto** (exige revisão),
+- A regra de negócio "acima de 3° reprova" vira severidade **alto** (exige revisão),
   porque a correção automática continua possível. A validar com os garantidores.
 - Tabela girada ou carimbo inclinado numa página reta: vale a orientação dominante.
 - Páginas em paisagem e rotações de 90°/180° são do detector de orientação (fase seguinte).

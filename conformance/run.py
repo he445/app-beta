@@ -2,7 +2,7 @@
 
 Compara um ``report.json`` com o gabarito de ``expected/`` usando
 ``tolerances.yaml``. Outra linguagem implementa o mesmo procedimento (ver
-``conformance/README.md``) e precisa passar 100%.
+``docs/testes/conformidade.md``) e precisa passar 100%.
 
 Uso::
 

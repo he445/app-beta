@@ -4,7 +4,7 @@ Status: aceito · Data: 2026-11-05 · Decisores: Everton Ferreira
 
 ## Contexto
 
-O ADD prevê imagens de teste em `conformance/fixtures/`. Páginas realistas têm ruído de
+A suíte de conformidade prevê imagens de teste em `conformance/fixtures/`. Páginas realistas têm ruído de
 papel, que não comprime: o lote mínimo (30 páginas A5 a 300 dpi) ocupa ~58 MB.
 
 ## Opções consideradas

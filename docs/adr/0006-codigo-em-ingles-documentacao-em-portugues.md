@@ -11,7 +11,7 @@ e outras linguagens esperam identificadores em inglês.
 
 Identificadores, campos do contrato e nomes de regra em inglês (`snake_case` no
 contrato). Documentação, docstrings, mensagens ao revisor e commits em português.
-`docs/glossary.md` liga os dois vocabulários.
+`docs/glossario.md` liga os dois vocabulários.
 
 ## Consequências
 

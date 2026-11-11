@@ -1,4 +1,4 @@
-"""``qa``: os mesmos casos de uso da API, sem interface (seção 15 do ADD).
+"""``qa``: os mesmos casos de uso da API, sem interface (ADR-0002).
 
 Exemplos::
 

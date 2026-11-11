@@ -1,4 +1,4 @@
-"""Resolução abaixo do exigido pelo perfil (``spec/detectors/low_resolution.md``)."""
+"""Resolução abaixo do exigido pelo perfil (``docs/especificacoes/detectors/low_resolution.md``)."""
 
 from __future__ import annotations
 

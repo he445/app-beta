@@ -1,7 +1,7 @@
 # Suíte de conformidade
 
 Qualquer implementação do motor, em qualquer linguagem, só substitui outra quando passa
-**100%** desta suíte (seção 16 do ADD).
+**100%** desta suíte ([guia de portabilidade](../guias/portar-linguagem.md)).
 
 | Caminho | Conteúdo | Versionado |
 | --- | --- | --- |

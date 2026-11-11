@@ -1,6 +1,7 @@
 """Princípio 7: sem documentação, não está pronto. A CI falha se faltar algo."""
 
 import re
+import sys
 from pathlib import Path
 
 import pytest
@@ -60,7 +61,7 @@ def test_adrs_follow_madr(repo: Path) -> None:
 
 
 def test_glossary_covers_domain_terms(repo: Path) -> None:
-    text = (repo / "docs/glossary.md").read_text("utf-8")
+    text = (repo / "docs/glossario.md").read_text("utf-8")
     for term in (
         "Batch",
         "Document",
@@ -85,9 +86,12 @@ def test_mkdocs_nav_files_exist(repo: Path) -> None:
     config = yaml.safe_load((repo / "mkdocs.yml").read_text("utf-8").replace("!!python", "#"))
     docs = repo / "docs"
 
+    seen: set[str] = set()
+
     def walk(node: object) -> None:
         if isinstance(node, str) and node.endswith(".md"):
             assert (docs / node).is_file(), f"mkdocs.yml aponta para {node}, que não existe"
+            seen.add(node)
         elif isinstance(node, dict):
             for value in node.values():
                 walk(value)
@@ -96,22 +100,32 @@ def test_mkdocs_nav_files_exist(repo: Path) -> None:
                 walk(value)
 
     walk(config["nav"])
+    pages = {p.relative_to(docs).as_posix() for p in docs.rglob("*.md")}
+    assert pages - seen == {"especificacoes/detectors/_TEMPLATE.md"}, "página fora do menu"
 
 
-def test_relative_markdown_links_resolve(repo: Path) -> None:
-    pattern = re.compile(r"\]\((?!https?://|#|mailto:)([^)#\s]+)")
-    files = [
-        *repo.glob("*.md"),
-        *repo.glob("docs/**/*.md"),
-        *repo.glob("spec/**/*.md"),
-        *repo.glob("conformance/*.md"),
-        *repo.glob("tools/**/*.md"),
-        *repo.glob("deploy/*.md"),
-        *repo.glob("ui/*.md"),
-    ]
-    broken = []
-    for path in files:
-        for target in pattern.findall(path.read_text("utf-8")):
-            if not (path.parent / target).exists():
-                broken.append(f"{path.relative_to(repo)} → {target}")
-    assert not broken, "links quebrados:\n" + "\n".join(broken)
+def test_docs_checks_pass(repo: Path) -> None:
+    """Links relativos, referência gerada em dia e documentação só em ``docs/`` (ADR-0017)."""
+    sys.path.insert(0, str(repo / "tools" / "docs"))
+    import check_docs
+
+    assert check_docs.run() == []
+
+
+def test_docs_folders_are_in_portuguese(repo: Path) -> None:
+    expected = {
+        "visao-geral",
+        "tutoriais",
+        "guias",
+        "operacao",
+        "arquitetura",
+        "adr",
+        "especificacoes",
+        "referencia",
+        "modelos",
+        "seguranca-e-privacidade",
+        "testes",
+    }
+    found = {p.name for p in (repo / "docs").iterdir() if p.is_dir()}
+    assert found == expected
+    assert not (repo / "spec").exists()

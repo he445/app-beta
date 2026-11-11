@@ -1,6 +1,6 @@
 """Entidades do domínio, espelhando ``contracts/schemas``.
 
-Os nomes seguem o glossário de ``docs/glossary.md``. As unidades são as do
+Os nomes seguem o glossário de ``docs/glossario.md``. As unidades são as do
 contrato: pixels com origem no canto superior esquerdo, graus com positivo no
 sentido horário, resolução em dpi e datas em ISO 8601 UTC.
 """
@@ -15,7 +15,7 @@ from typing import Any
 
 
 class Severity(StrEnum):
-    """Severidade de uma sinalização (seção 11 do ADD)."""
+    """Severidade de uma sinalização (``docs/especificacoes/scoring.md``)."""
 
     CRITICAL = "critical"
     HIGH = "high"
@@ -45,7 +45,7 @@ class TargetKind(StrEnum):
 
 
 class CorrectionClass(StrEnum):
-    """Classe da correção proposta (seção 10 do ADD)."""
+    """Classe da correção proposta (``docs/especificacoes/corrections.md``)."""
 
     AUTOMATIC = "automatic"
     PHYSICAL = "physical"
@@ -75,7 +75,7 @@ class CorrectionAction(StrEnum):
 
 
 class DecisionAction(StrEnum):
-    """Decisão do revisor sobre uma sinalização (seção 12, atalhos A/C/R/O)."""
+    """Decisão do revisor sobre uma sinalização (atalhos A/C/R/O)."""
 
     APPROVE = "approve"
     CORRECT = "correct"

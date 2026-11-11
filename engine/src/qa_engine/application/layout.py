@@ -1,4 +1,7 @@
-"""Descoberta de documentos e páginas numa pasta de lote (``spec/batch-layout.md``)."""
+"""Descoberta de documentos e páginas numa pasta de lote.
+
+Especificação: ``docs/especificacoes/batch-layout.md``.
+"""
 
 from __future__ import annotations
 

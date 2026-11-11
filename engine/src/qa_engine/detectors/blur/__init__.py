@@ -1,4 +1,4 @@
-"""Desfoque: energia do Laplaciano junto à tinta (``spec/detectors/blur.md``)."""
+"""Desfoque: energia do Laplaciano junto à tinta (``docs/especificacoes/detectors/blur.md``)."""
 
 from __future__ import annotations
 

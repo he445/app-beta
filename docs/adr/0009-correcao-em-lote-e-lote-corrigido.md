@@ -20,14 +20,14 @@ corrigido, sem que a ferramenta esconda defeitos que exigem redigitalizar.
 ## Decisão
 
 - **Versão de página = original + correções de imagem decididas, em ordem canônica**
-  (opção 2; `spec/corrections.md`). Independe da ordem das decisões e de desfazer no
+  (opção 2; `docs/especificacoes/corrections.md`). Independe da ordem das decisões e de desfazer no
   meio da cadeia; as cópias e o log só de inserção (porta `PageVersionStore`) são cache
   e auditoria, e desfazer reaproveita a versão anterior byte a byte.
 - **"Corrigir tudo"** é um caso de uso da camada application (`CorrectionService`) que
   decide `correct` só no que é automático e seguro (imagem, remoção de página em branco,
   reordenação). Página faltando exige aprovação manual; defeitos que exigem redigitalizar
   ficam pendentes e vão para a ordem de retrabalho; duplicata nunca é removida
-  automaticamente (seção 9 do ADD).
+  automaticamente ([casos de borda](../visao-geral/casos-de-borda.md)).
 - **Cada decisão em lote carrega `operation_id`** (campo opcional de `Decision`, coluna
   em `decisions`); desfazer em lote remove só as decisões que ainda o carregam.
 - **Progresso real**: a operação roda em segundo plano, numa fila própria, e grava

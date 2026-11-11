@@ -1,6 +1,6 @@
 """Registro das regras: manifestos e detectores de página.
 
-Uma regra só existe se tiver manifesto aqui, especificação em ``spec/`` e
+Uma regra só existe se tiver manifesto aqui, especificação em ``docs/especificacoes/`` e
 casos de conformidade; ``tests/test_documentation.py`` cobra isso.
 """
 

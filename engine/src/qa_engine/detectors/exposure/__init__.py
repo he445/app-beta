@@ -1,4 +1,4 @@
-"""Página escura, clara ou sem contraste (``spec/detectors/exposure.md``)."""
+"""Página escura, clara ou sem contraste (``docs/especificacoes/detectors/exposure.md``)."""
 
 from __future__ import annotations
 

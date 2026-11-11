@@ -34,7 +34,7 @@ proibida); escura ou clara com contraste preservado → `automatic/auto_levels`.
 Confiança: `limitar(0,5 + (medida − z_threshold) / (2 × z_threshold))`.
 
 O papel (percentil 90) e o contraste papel-tinta não dependem da quantidade de texto,
-ao contrário da média e do desvio do histograma citados no ADD.
+ao contrário da média e do desvio do histograma, que variam com ela.
 
 ## Parâmetros
 

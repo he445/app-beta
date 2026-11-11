@@ -1,5 +1,5 @@
 {
-  "description": "Casos do resolvedor de numeração (spec/sequencing.md). Entrada: marcas por página; saída: estado e valor por página, ordem, lacunas e regras.",
+  "description": "Casos do resolvedor de numeração (docs/especificacoes/sequencing.md). Entrada: marcas por página; saída: estado e valor por página, ordem, lacunas e regras.",
   "cases": [
     {
       "id": "leitura-errada-isolada",

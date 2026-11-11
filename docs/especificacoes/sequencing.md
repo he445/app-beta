@@ -6,7 +6,7 @@ Versão: 1.1.0 · Regras: `missing_page` (crítico), `out_of_order` (médio),
 ## Objetivo
 
 Encontrar páginas faltando, fora de ordem e numeração duvidosa a partir da numeração de
-folhas (seção 6 do ADD). Nenhuma leitura isolada é aceita como verdade: o documento
+folhas. Nenhuma leitura isolada é aceita como verdade: o documento
 inteiro decide.
 
 ## Entrada
@@ -67,7 +67,7 @@ Transição de `p` para `c`:
 | `p = nada` | 0 |
 | `c = sucessor(p)` | `+w_step` |
 | `c` é intercalação de `p` | `+w_intercalation` |
-| `c > p` | `−min(w_gap × |faltando(p, c)|, w_gap_max)` |
+| `c > p` | `−min(w_gap × n_faltando(p, c), w_gap_max)`, com `n_faltando` = quantas folhas faltam entre `p` e `c` |
 | `c = p` | `−w_repeat` |
 | `c < p` | `−w_back` |
 

@@ -1,7 +1,7 @@
 # Interface web
 
 Site estático (React + TypeScript + Vite) que fala com o motor só pela API de
-[`contracts/openapi.yaml`](../contracts/openapi.yaml). Nada é instalado nos computadores:
+`contracts/openapi.yaml` ([referência da API](../referencia/api.md)). Nada é instalado nos computadores:
 basta o navegador (ADR-0001).
 
 ## Rodar
@@ -29,7 +29,7 @@ VITE_API_URL=https://motor.exemplo npm run build   # gera dist/
 
 e configure `QA_CORS_ORIGINS` no motor com o domínio do site.
 
-## Telas (seção 12 do ADD)
+## Telas
 
 | # | Tela | Rota |
 | --- | --- | --- |

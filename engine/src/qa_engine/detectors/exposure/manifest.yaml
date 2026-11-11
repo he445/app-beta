@@ -1,7 +1,7 @@
 id: exposure
 version: 1.0.0
 title: Escura, clara ou sem contraste
-spec: spec/detectors/exposure.md
+spec: docs/especificacoes/detectors/exposure.md
 input: page_gray_150dpi
 target: page
 severity: high

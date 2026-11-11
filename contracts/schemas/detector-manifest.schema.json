@@ -30,7 +30,7 @@
     },
     "spec": {
       "type": "string",
-      "pattern": "^spec/.+\\.md$"
+      "pattern": "^docs/especificacoes/.+\\.md$"
     },
     "input": {
       "enum": [

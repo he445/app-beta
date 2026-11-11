@@ -1,4 +1,4 @@
-"""Plano e manifesto do lote corrigido (``spec/corrections.md``).
+"""Plano e manifesto do lote corrigido (``docs/especificacoes/corrections.md``).
 
 Funções puras sobre o relatório: a mesma lógica alimenta a faixa "Depois" da
 interface (``GET /batches/{id}/corrected-plan``) e o ``manifest.json`` do zip.

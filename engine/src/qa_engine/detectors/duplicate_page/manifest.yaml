@@ -1,7 +1,7 @@
 id: duplicate_page
 version: 1.0.0
 title: Página duplicada
-spec: spec/detectors/duplicate_page.md
+spec: docs/especificacoes/detectors/duplicate_page.md
 input: batch_pages
 target: page
 severity: medium

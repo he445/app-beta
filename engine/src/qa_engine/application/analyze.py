@@ -1,4 +1,4 @@
-"""Caso de uso AnalyzeBatch: do diretório do lote ao veredito (seção 4 do ADD)."""
+"""Caso de uso AnalyzeBatch: do diretório do lote ao veredito (``docs/arquitetura/index.md``)."""
 
 from __future__ import annotations
 

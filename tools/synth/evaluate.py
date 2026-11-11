@@ -1,4 +1,4 @@
-"""Mede a taxa de acerto de um relatório contra o gabarito da base sintética (seção 18).
+"""Mede a taxa de acerto de um relatório contra o gabarito da base sintética.
 
 Uso::
 

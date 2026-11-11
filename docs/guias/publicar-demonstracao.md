@@ -48,10 +48,10 @@ cd ui && VITE_API_URL=https://qa-motor.onrender.com npm run build   # publique u
 ```
 
 e no motor `QA_CORS_ORIGINS=https://endereco-da-interface` (a barra no fim é tolerada).
-Variáveis em [docs/guides/instalar.md](../docs/guides/instalar.md).
+Variáveis em [Instalar e rodar](../tutoriais/instalar.md).
 
 ## Plano
 
 O plano gratuito (512 MB, CPU compartilhada) roda a demonstração de 33 páginas A5. Para
-lotes A4 de 300 dpi ou análise mais rápida, use 2 a 4 GB de RAM (ADD, seção 13) e suba
+lotes A4 de 300 dpi ou análise mais rápida, use 2 a 4 GB de RAM e suba
 `QA_WORKERS` para o número de núcleos dedicados.

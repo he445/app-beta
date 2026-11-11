@@ -1,7 +1,7 @@
 # Interface de revisão
 
 Guia para garantidores e conferentes. Para instalar e publicar, veja
-[`ui/README.md`](https://github.com/he445/prova-de-conceito/blob/main/ui/README.md).
+[Desenvolver a interface](../guias/desenvolver-interface.md).
 
 ## Fluxo
 

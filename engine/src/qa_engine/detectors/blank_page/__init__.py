@@ -1,4 +1,4 @@
-"""Página em branco ou quase branca (``spec/detectors/blank_page.md``)."""
+"""Página em branco ou quase branca (``docs/especificacoes/detectors/blank_page.md``)."""
 
 from __future__ import annotations
 

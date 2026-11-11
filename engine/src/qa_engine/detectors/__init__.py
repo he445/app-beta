@@ -2,5 +2,5 @@
 
 Cada regra tem um diretório com ``manifest.yaml`` (validado contra
 ``contracts/schemas/detector-manifest.schema.json``) e uma especificação em
-``spec/detectors/<id>.md``. O registro fica em :mod:`qa_engine.detectors.registry`.
+``docs/especificacoes/detectors/<id>.md``. O registro fica em :mod:`qa_engine.detectors.registry`.
 """

@@ -5,7 +5,7 @@
 ## Definição de pronto
 
 - [ ] Testes
-- [ ] Especificação atualizada (`spec/`)
+- [ ] Especificação atualizada (`docs/especificacoes/`)
 - [ ] Manifesto e versão da regra
 - [ ] Caso de conformidade
 - [ ] Contrato (`contracts/`) e versão, se mudou

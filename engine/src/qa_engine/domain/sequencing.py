@@ -1,4 +1,4 @@
-"""Resolução da numeração de folhas de um documento (``spec/sequencing.md``).
+"""Resolução da numeração de folhas de um documento (``docs/especificacoes/sequencing.md``).
 
 Cada página traz zero ou mais *marcas* (números escritos na região de
 numeração), e cada marca traz até três leituras com confiança. Nenhuma leitura
@@ -31,7 +31,7 @@ class NumberingMode(StrEnum):
 
 
 class PageNumberingState(StrEnum):
-    """Estado da numeração de uma página (tabela da seção 6 do ADD)."""
+    """Estado da numeração de uma página (``docs/especificacoes/sequencing.md``)."""
 
     READ = "read"
     INFERRED = "inferred"
@@ -133,7 +133,7 @@ class PageCandidates:
 
 @dataclass(frozen=True, slots=True)
 class SequenceParams:
-    """Pesos e limiares do resolvedor (``spec/sequencing.md``)."""
+    """Pesos e limiares do resolvedor (``docs/especificacoes/sequencing.md``)."""
 
     mode: NumberingMode = NumberingMode.SIMPLE
     min_confidence: float = 0.5

@@ -46,7 +46,7 @@ Opção 2.
   `GET /health` e a interface só pede o token quando `QA_API_TOKEN` está definido. A
   demonstração roda sem token; o app definitivo liga o token (e, no piloto, login
   individual).
-- **Foco por perfil, não por código** (princípio 5 do ADD). O perfil `demo` liga só
+- **Foco por perfil, não por código** ([princípio 5](../visao-geral/principios.md)). O perfil `demo` liga só
   `missing_page`, `blank_page`, `skew` e `blur`, mais as regras que os sustentam
   (`out_of_order`, `numbering_review`, `completeness_unverifiable`, `corrupted_file`).
   Bordas pretas, exposição e resolução (ajustes da digitalizadora) e duplicata ficam

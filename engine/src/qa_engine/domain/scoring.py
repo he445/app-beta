@@ -1,6 +1,6 @@
 """Estado do documento, veredito do lote e amostragem dos verdes.
 
-Implementa ``spec/scoring.md``. Funções puras, sem E/S.
+Implementa ``docs/especificacoes/scoring.md``. Funções puras, sem E/S.
 """
 
 from __future__ import annotations

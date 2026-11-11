@@ -1,15 +1,20 @@
 site_name: QA Automático de Digitalização
-site_description: Documentação da prova de conceito
-repo_url: https://github.com/he445/prova-de-conceito
+site_description: Documentação do QA automático de digitalização
+repo_url: https://github.com/he445/app-beta
 docs_dir: docs
+# Links relativos entre páginas: o site gerado abre direto do disco, sem servidor.
+use_directory_urls: false
 theme:
   name: material
   language: pt-BR
-  features: [navigation.sections, content.code.copy, search.suggest]
+  features: [navigation.sections, navigation.indexes, content.code.copy, search.suggest]
 markdown_extensions:
   - admonition
   - tables
-  - toc: { permalink: true }
+  - toc:
+      permalink: true
+      # Âncoras com acento, iguais às do GitHub: [contêineres](c4.md#contêineres).
+      slugify: !!python/object/apply:pymdownx.slugs.slugify { kwds: { case: lower } }
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
@@ -22,18 +27,32 @@ plugins:
         python:
           paths: [engine/src]
           options: { docstring_style: google, show_source: false }
+exclude_docs: |
+  especificacoes/detectors/_TEMPLATE.md
+validation:
+  nav: { omitted_files: warn, not_found: warn, absolute_links: warn }
+  links: { not_found: warn, anchors: warn, absolute_links: warn, unrecognized_links: warn }
 nav:
   - Início: index.md
-  - ADD: add.md
+  - Visão geral:
+      - visao-geral/index.md
+      - Princípios: visao-geral/principios.md
+      - Casos de borda: visao-geral/casos-de-borda.md
+  - Tutoriais:
+      - Instalar e rodar: tutoriais/instalar.md
   - Guias:
-      - Instalar: guides/instalar.md
-      - Interface de revisão: guides/interface.md
-      - Demonstração: guides/demonstracao.md
-      - Criar um detector: guides/criar-detector.md
-      - Portar para outra linguagem: guides/portar-linguagem.md
+      - Demonstração: guias/demonstracao.md
+      - Publicar a demonstração: guias/publicar-demonstracao.md
+      - Criar uma regra: guias/criar-detector.md
+      - Portar para outra linguagem: guias/portar-linguagem.md
+      - Desenvolver a interface: guias/desenvolver-interface.md
+  - Operação:
+      - operacao/index.md
+      - Interface de revisão: operacao/interface.md
   - Arquitetura:
-      - C4: architecture/c4.md
-      - ADRs:
+      - arquitetura/index.md
+      - Diagramas C4: arquitetura/c4.md
+      - Decisões (ADRs):
           - "0001 Web app e motor em servidor": adr/0001-web-app-e-motor-em-servidor.md
           - "0002 Contrato OpenAPI + JSON Schema": adr/0002-contrato-openapi-json-schema.md
           - "0003 Arquitetura hexagonal": adr/0003-arquitetura-hexagonal.md
@@ -44,8 +63,35 @@ nav:
           - "0008 Interface web": adr/0008-interface-web.md
           - "0009 Correção em lote e lote corrigido": adr/0009-correcao-em-lote-e-lote-corrigido.md
           - "0010 Demonstração no celular": adr/0010-demonstracao-no-celular.md
+          - "0017 Documentação numa pasta só": adr/0017-documentacao-em-uma-pasta.md
           - Modelo: adr/0000-template.md
+  - Especificações:
+      - especificacoes/index.md
+      - Layout do lote: especificacoes/batch-layout.md
+      - Sequência e completude: especificacoes/sequencing.md
+      - Correções e lote corrigido: especificacoes/corrections.md
+      - Pontuação e veredito: especificacoes/scoring.md
+      - Metadados: especificacoes/metadata.md
+      - Regras de página:
+          - black_borders: especificacoes/detectors/black_borders.md
+          - blank_page: especificacoes/detectors/blank_page.md
+          - blur: especificacoes/detectors/blur.md
+          - corrupted_file: especificacoes/detectors/corrupted_file.md
+          - duplicate_page: especificacoes/detectors/duplicate_page.md
+          - exposure: especificacoes/detectors/exposure.md
+          - low_resolution: especificacoes/detectors/low_resolution.md
+          - skew: especificacoes/detectors/skew.md
   - Referência:
-      - API: reference/api.md
-      - Código: reference/codigo.md
-  - Glossário: glossary.md
+      - API: referencia/api.md
+      - Perfis: referencia/perfis.md
+      - Linha de comando: referencia/cli.md
+      - Código: referencia/codigo.md
+  - Modelos: modelos/index.md
+  - Segurança e privacidade:
+      - seguranca-e-privacidade/index.md
+      - Licenças de terceiros: seguranca-e-privacidade/licencas.md
+  - Testes:
+      - testes/index.md
+      - Suíte de conformidade: testes/conformidade.md
+      - Base sintética: testes/base-sintetica.md
+  - Glossário: glossario.md

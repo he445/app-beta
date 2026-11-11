@@ -1,31 +1,32 @@
 # QA Automático de Digitalização
 
-Prova de conceito de uma triagem automática que reduz em pelo menos 50% as páginas que
-exigem olho humano, sem deixar passar defeitos críticos. O documento de decisão de
-arquitetura completo está em [ADD](add.md).
+Triagem automática de lotes digitalizados: encontra defeitos de imagem, de sequência e de
+completude, propõe uma correção para cada um, extrai os metadados do Decreto 10.278/2020
+e entrega ao revisor só o que precisa de olho humano.
+
+## Por onde começar
+
+| Você é | Comece por |
+| --- | --- |
+| **TI avaliando o sistema** | [Visão geral](visao-geral/index.md), [Segurança e privacidade](seguranca-e-privacidade/index.md), [Licenças de terceiros](seguranca-e-privacidade/licencas.md) e [Arquitetura](arquitetura/index.md) |
+| **Desenvolvimento** | [Instalar e rodar](tutoriais/instalar.md), [Arquitetura](arquitetura/index.md), [Especificações](especificacoes/index.md), [Testes](testes/index.md) e os [guias](guias/criar-detector.md) |
+| **Operação (garantidor, conferente)** | [Interface de revisão](operacao/interface.md) |
+| **Gestão** | [Visão geral](visao-geral/index.md) e [Demonstração](guias/demonstracao.md) |
 
 ## Onde está cada coisa
 
-| Para | Leia |
+| Pasta | Conteúdo |
 | --- | --- |
-| Instalar, rodar a CLI, a API e o Docker | [Instalar](guides/instalar.md) |
-| Usar a interface de revisão | [Interface](guides/interface.md) |
-| Repetir a demonstração e medir a taxa de acerto | [Demonstração](guides/demonstracao.md) |
-| Entender a arquitetura | [C4](architecture/c4.md) e [ADRs](adr/0001-web-app-e-motor-em-servidor.md) |
-| Saber exatamente o que cada regra faz | [Especificação](https://github.com/he445/prova-de-conceito/tree/main/spec) |
-| Criar um detector | [Guia](guides/criar-detector.md) |
-| Portar para outra linguagem | [Guia](guides/portar-linguagem.md) |
-| Rotas da API | [Referência da API](reference/api.md) |
-| Termos | [Glossário](glossary.md) |
+| [Visão geral](visao-geral/index.md) | O que o sistema faz, o problema que resolve, escopo, [princípios](visao-geral/principios.md) e [casos de borda](visao-geral/casos-de-borda.md) |
+| [Tutoriais](tutoriais/instalar.md) | Primeiro uso, passo a passo |
+| Guias | [Demonstração](guias/demonstracao.md), [publicar a demonstração](guias/publicar-demonstracao.md), [criar uma regra](guias/criar-detector.md), [portar para outra linguagem](guias/portar-linguagem.md), [desenvolver a interface](guias/desenvolver-interface.md) |
+| [Operação](operacao/index.md) | Manual de quem usa o programa |
+| [Arquitetura](arquitetura/index.md) | Visão arc42, [diagramas C4](arquitetura/c4.md) e decisões ([ADRs](adr/0001-web-app-e-motor-em-servidor.md)) |
+| [Especificações](especificacoes/index.md) | O comportamento exato de cada regra, da sequência, das correções, da pontuação e dos metadados |
+| Referência | [API](referencia/api.md), [perfis](referencia/perfis.md), [linha de comando](referencia/cli.md) e [código](referencia/codigo.md) |
+| [Modelos](modelos/index.md) | Ficha de cada modelo de aprendizado de máquina embarcado |
+| [Segurança e privacidade](seguranca-e-privacidade/index.md) | Dados guardados, acesso e [licenças de terceiros](seguranca-e-privacidade/licencas.md) |
+| [Testes](testes/index.md) | Estratégia, [suíte de conformidade](testes/conformidade.md) e [base sintética](testes/base-sintetica.md) |
+| [Glossário](glossario.md) | Termos do domínio e o nome de cada um no código |
 
-## Estado do incremento atual
-
-Feito: motor de referência (12 regras), API HTTP, linha de comando, interface web com as
-9 telas da seção 12 e os atalhos de teclado, "Corrigir tudo" com desfazer em lote, lote
-corrigido para baixar (TIFF sem perda e manifesto), demonstração no celular (imagem única
-com interface e lote de demonstração, entrada só com o nome), contrato, especificação, suíte de
-conformidade, base sintética com medição de acerto, Docker e CI.
-
-Próximo: leitor de numeração
-manuscrita (TrOCR ou PaddleOCR-VL atrás da porta `NumberingReader`), OCR (orientação,
-espelhamento, legibilidade, índice), validação PDF/A com veraPDF e gravação de XMP.
+O histórico de versões está no `CHANGELOG.md`, na raiz do repositório.

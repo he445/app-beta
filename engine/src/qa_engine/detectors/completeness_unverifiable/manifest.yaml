@@ -1,7 +1,7 @@
 id: completeness_unverifiable
 version: 1.1.0
 title: Completude não verificável
-spec: spec/sequencing.md
+spec: docs/especificacoes/sequencing.md
 input: document_numbering
 target: document
 severity: low

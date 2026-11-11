@@ -52,7 +52,7 @@ torna a medida independente da quantidade de texto.
 
 - Página quase sem texto é inelegível: desfoque nela passa despercebido.
 - Um lote inteiro desfocado não se destaca da própria mediana; o limiar absoluto só vale
-  para lotes pequenos. A amostragem dos verdes (seção 11) é a defesa.
+  para lotes pequenos. A amostragem dos verdes ([pontuação](../scoring.md)) é a defesa.
 - Desfoque reduz o contraste medido, então a página costuma disparar também
   [`exposure`](exposure.md) (coocorrência aceita na conformidade).
 

@@ -1,7 +1,7 @@
 id: blur
 version: 1.0.0
 title: Desfoque
-spec: spec/detectors/blur.md
+spec: docs/especificacoes/detectors/blur.md
 input: page_gray_150dpi
 target: page
 severity: critical

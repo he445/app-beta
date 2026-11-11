@@ -1,4 +1,4 @@
-"""Bordas pretas nas margens (``spec/detectors/black_borders.md``)."""
+"""Bordas pretas nas margens (``docs/especificacoes/detectors/black_borders.md``)."""
 
 from __future__ import annotations
 

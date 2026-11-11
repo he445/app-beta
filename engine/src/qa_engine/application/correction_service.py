@@ -1,7 +1,7 @@
 """Casos de uso de correção individual, em lote e do lote corrigido (ADR-0009).
 
 Decisão individual, "Corrigir tudo", desfazer em lote, plano do lote corrigido
-e "Salvar correções" (``spec/corrections.md``).
+e "Salvar correções" (``docs/especificacoes/corrections.md``).
 
 A entrada HTTP só traduz requisições para estes métodos.
 """

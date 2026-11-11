@@ -1,7 +1,7 @@
 id: skew
 version: 1.0.0
 title: Inclinação
-spec: spec/detectors/skew.md
+spec: docs/especificacoes/detectors/skew.md
 input: page_gray_150dpi
 target: page
 severity: medium

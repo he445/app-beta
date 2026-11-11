@@ -1,0 +1,16 @@
+# Lint de Markdown da documentação (ADR-0017). Regras desligadas, com o motivo:
+config:
+  default: true
+  MD013: false   # largura de linha: tabelas e links longos são legítimos
+  MD033: false   # HTML embutido: <br/> nos diagramas e o comentário das páginas geradas
+  MD041: false   # páginas geradas começam com o comentário "Gerado por..."
+  MD024: { siblings_only: true }  # títulos repetidos em seções diferentes (changelog)
+  MD046: false   # blocos recuados dentro de admonitions do MkDocs
+  MD029: false   # listas numeradas interrompidas por tabela continuam a contagem
+globs:
+  - "docs/**/*.md"
+  - "*.md"
+ignores:
+  - "**/node_modules/**"
+  - "engine/.venv/**"
+  - "docs/especificacoes/detectors/_TEMPLATE.md"   # modelo: títulos sem corpo

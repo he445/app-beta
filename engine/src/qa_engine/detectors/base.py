@@ -1,7 +1,7 @@
 """Tipos comuns aos detectores de página.
 
 Um detector de página tem duas fases, para permitir comparar cada página com a
-mediana do próprio lote (seção 5 do ADD):
+mediana do próprio lote (``docs/especificacoes/index.md``):
 
 1. ``measure``: calcula as medidas de uma página, isoladamente.
 2. ``evaluate``: compara as medidas com a linha de base do lote e decide se

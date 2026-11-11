@@ -1,4 +1,4 @@
-"""Arquivo corrompido (``spec/detectors/corrupted_file.md``).
+"""Arquivo corrompido (``docs/especificacoes/detectors/corrupted_file.md``).
 
 Não analisa pixels: a aplicação chama :func:`flag_load_error` quando a
 porta ``ImageSource`` não consegue decodificar um arquivo ou uma página.
