@@ -75,6 +75,10 @@
           }
         }
       }
+    },
+    "admin": {
+      "type": "boolean",
+      "description": "Há token de administrador configurado neste computador (área de Diagnóstico ligada)."
     }
   }
 }

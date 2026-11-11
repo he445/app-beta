@@ -138,11 +138,14 @@ jobs:
           QA_WORKERS: "2"
         run: |
           mkdir -p "$HOME" "$RUNNER_TEMP/capturas"
+          # Configuração da máquina numa pasta temporária, com token de administrador.
+          export XDG_CONFIG_DIRS="$RUNNER_TEMP/maquina"
+          admin=$(cd engine && uv run qa admin token --config "$XDG_CONFIG_DIRS/QA/config.toml" | sed -n 2p)
           (cd engine && nohup uv run python -m qa_engine.entrypoints.desktop --headless > "$RUNNER_TEMP/desktop.log" 2>&1 &)
           for i in $(seq 1 60); do grep -q '^acesso:' "$RUNNER_TEMP/desktop.log" && break; sleep 1; done
           cat "$RUNNER_TEMP/desktop.log"
           link=$(grep '^acesso:' "$RUNNER_TEMP/desktop.log" | awk '{print $2}')
-          cd ui && npm run e2e:desktop -- "$link" "$RUNNER_TEMP/Lotes/Caixa 0412" "$RUNNER_TEMP/capturas"
+          cd ui && npm run e2e:desktop -- "$link" "$RUNNER_TEMP/Lotes/Caixa 0412" "$RUNNER_TEMP/capturas" "$admin"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

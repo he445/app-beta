@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QA Automático de Digitalização — API do motor
-  version: 0.8.0
+  version: 0.9.0
   summary: Contrato entre a interface web, a linha de comando e o motor de análise.
   description: |
     Fonte da verdade do sistema (ADR-0002). Modelos de cada linguagem são gerados a partir
@@ -32,7 +32,9 @@ tags:
   - name: profiles
     description: Perfis de cliente
   - name: system
-    description: Saúde do serviço
+    description: Saúde do serviço, sessão e configuração
+  - name: admin
+    description: Diagnóstico, só com token de administrador (cabeçalho X-Admin-Token)
 paths:
   /health:
     get:
@@ -88,6 +90,109 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
+  /diagnostics/client-errors:
+    post:
+      tags: [system]
+      operationId: reportClientError
+      summary: Registrar um erro da interface
+      description: Erros de tela e de JavaScript vão para o diagnóstico, sem imagem nem texto de documento.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "schemas/client-error.schema.json" }
+      responses:
+        "204": { description: Registrado }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /admin/diagnostics:
+    get:
+      tags: [admin]
+      operationId: listDiagnostics
+      summary: Cartões, erros por dia e erros agrupados por assinatura
+      description: |
+        Junta os registros deste computador e, com `diagnostics_dir`, os de todas as máquinas.
+        Sem token de administrador configurado: 404. Token errado: 401; cinco erros seguidos
+        bloqueiam por um minuto (429).
+      parameters:
+        - name: X-Admin-Token
+          in: header
+          required: true
+          schema: { type: string }
+        - { name: version, in: query, schema: { type: string } }
+        - { name: machine, in: query, schema: { type: string } }
+        - { name: severity, in: query, schema: { enum: [critical, error, warning] } }
+        - { name: origin, in: query, schema: { enum: [engine, worker, startup, client] } }
+        - { name: status, in: query, schema: { enum: [open, resolved] } }
+      responses:
+        "200":
+          description: Diagnóstico
+          content:
+            application/json:
+              schema: { $ref: "schemas/diagnostics.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
+  /admin/diagnostics/export:
+    get:
+      tags: [admin]
+      operationId: exportDiagnostics
+      summary: Pacote para anexar num chamado (zip com registros, versão e configuração sem segredos)
+      parameters:
+        - name: X-Admin-Token
+          in: header
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Pacote
+          content:
+            application/zip:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
+  /admin/diagnostics/{signature}:
+    get:
+      tags: [admin]
+      operationId: getDiagnostic
+      summary: Pilha de chamadas e linha do tempo de um grupo de erros
+      parameters:
+        - name: X-Admin-Token
+          in: header
+          required: true
+          schema: { type: string }
+        - { name: signature, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Grupo e ocorrências
+          content:
+            application/json:
+              schema: { $ref: "schemas/diagnostic-detail.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
+  /admin/diagnostics/{signature}/resolve:
+    post:
+      tags: [admin]
+      operationId: resolveDiagnostic
+      summary: Marcar um grupo de erros como resolvido
+      description: Volta a ficar aberto se o erro ocorrer de novo depois da resolução.
+      parameters:
+        - name: X-Admin-Token
+          in: header
+          required: true
+          schema: { type: string }
+        - { name: signature, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Grupo resolvido
+          content:
+            application/json:
+              schema: { $ref: "schemas/diagnostic-detail.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
   /session/exchange:
     post:
       tags: [system]

@@ -6,6 +6,7 @@ Exemplos::
     qa analyze ./lote --profile profiles/completo.yaml --out ./saida
     qa rules
     qa validate-profile profiles/demo.yaml
+    qa admin token                         # gera o token de administrador desta máquina
 """
 
 from __future__ import annotations
@@ -48,6 +49,42 @@ def _analyze(args: argparse.Namespace) -> int:
             f"{s.no_review_ratio:.0%} das páginas dispensam revisão",
         )
         print(f"Saída: {args.out} ({len(paths)} arquivos)")
+    return 0
+
+
+def _admin_token(args: argparse.Namespace) -> int:
+    """Gera o token, mostra uma vez e grava só o hash no arquivo da máquina."""
+    import tomllib
+
+    from qa_engine.adapters.paths import AppPaths
+    from qa_engine.adapters.settings import dump_toml
+    from qa_engine.application.admin import hash_token, new_token
+
+    path: Path = args.config or AppPaths.detect().machine_config
+    try:
+        current = tomllib.loads(path.read_text("utf-8")) if path.is_file() else {}
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        print(f"não foi possível ler {path}: {exc}", file=sys.stderr)
+        return 1
+    token = new_token()
+    current["admin_token_hash"] = hash_token(token)
+    locked = current.pop("locked", None)
+    text = dump_toml(current, "# Configuração desta máquina (TI); o hash vem de qa admin token.")
+    if locked:
+        keys = ", ".join(f'"{k}"' for k in locked.get("keys", []))
+        text += f"\n[locked]\nkeys = [{keys}]\n"
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, "utf-8")
+    except OSError as exc:
+        print(
+            f"não foi possível gravar {path}: {exc}. Rode como administrador ou use --config.",
+            file=sys.stderr,
+        )
+        return 1
+    print("Token de administrador (mostrado só agora; guarde num lugar seguro):")
+    print(token)
+    print(f"Hash gravado em {path}. Reabra o programa para valer.")
     return 0
 
 
@@ -98,6 +135,12 @@ def build_parser() -> argparse.ArgumentParser:
     vp = sub.add_parser("validate-profile", help="validar um perfil contra o contrato")
     vp.add_argument("profile", type=Path)
     vp.set_defaults(func=_validate_profile)
+
+    admin = sub.add_parser("admin", help="administração desta máquina")
+    admin_sub = admin.add_subparsers(dest="admin_command", required=True)
+    token = admin_sub.add_parser("token", help="gerar o token de administrador (diagnóstico)")
+    token.add_argument("--config", type=Path, help="arquivo da máquina (padrão: o do sistema)")
+    token.set_defaults(func=_admin_token)
 
     vr = sub.add_parser("validate-report", help="validar um report.json contra o contrato")
     vr.add_argument("report", type=Path)

@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "client-error.schema.json",
+  "title": "ClientError",
+  "description": "Erro da interface (tela quebrada, erro de JavaScript, promessa rejeitada sem tratamento). Nunca leva imagem nem texto de documento.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "message"
+  ],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "message": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "stack": {
+      "type": "string",
+      "maxLength": 20000
+    },
+    "screen": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "Rota da tela, sem dados (ex.: #/batches/:id/review)."
+    },
+    "batch_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "page_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

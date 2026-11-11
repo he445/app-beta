@@ -54,6 +54,7 @@ nav:
       - operacao/index.md
       - Interface de revisão: operacao/interface.md
       - Configurações: operacao/configuracoes.md
+      - Diagnóstico: operacao/diagnostico.md
   - Arquitetura:
       - arquitetura/index.md
       - Diagramas C4: arquitetura/c4.md
@@ -71,6 +72,7 @@ nav:
           - "0011 Programa desktop": adr/0011-programa-desktop.md
           - "0012 Configuração em camadas": adr/0012-configuracao-em-camadas.md
           - "0013 Lote local lido no lugar": adr/0013-lote-local-lido-no-lugar.md
+          - "0016 Diagnóstico com token de administrador": adr/0016-diagnostico-com-token-de-administrador.md
           - "0017 Documentação numa pasta só": adr/0017-documentacao-em-uma-pasta.md
           - Modelo: adr/0000-template.md
   - Especificações:

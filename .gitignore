@@ -35,4 +35,4 @@ site/
 demo/
 
 # Modelos: baixados no build (tools/models/fetch.py), nunca versionados
-models/
+/models/

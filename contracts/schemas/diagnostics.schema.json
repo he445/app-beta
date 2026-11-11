@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "diagnostics.schema.json",
+  "title": "Diagnostics",
+  "description": "Tela de Diagnóstico: cartões, erros por dia e grupos.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "summary",
+    "groups",
+    "filters"
+  ],
+  "properties": {
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "last_24h",
+        "last_7d",
+        "machines",
+        "open",
+        "per_day"
+      ],
+      "properties": {
+        "last_24h": {
+          "type": "integer"
+        },
+        "last_7d": {
+          "type": "integer"
+        },
+        "machines": {
+          "type": "integer"
+        },
+        "open": {
+          "type": "integer"
+        },
+        "per_day": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "day",
+              "critical",
+              "error",
+              "warning"
+            ],
+            "properties": {
+              "day": {
+                "type": "string"
+              },
+              "critical": {
+                "type": "integer"
+              },
+              "error": {
+                "type": "integer"
+              },
+              "warning": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      }
+    },
+    "groups": {
+      "type": "array",
+      "items": {
+        "$ref": "diagnostic-group.schema.json"
+      }
+    },
+    "filters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "versions",
+        "machines"
+      ],
+      "properties": {
+        "versions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "machines": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

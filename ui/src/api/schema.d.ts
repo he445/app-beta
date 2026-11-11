@@ -56,6 +56,103 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/diagnostics/client-errors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Registrar um erro da interface
+         * @description Erros de tela e de JavaScript vão para o diagnóstico, sem imagem nem texto de documento.
+         */
+        post: operations["reportClientError"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/diagnostics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cartões, erros por dia e erros agrupados por assinatura
+         * @description Junta os registros deste computador e, com `diagnostics_dir`, os de todas as máquinas.
+         *     Sem token de administrador configurado: 404. Token errado: 401; cinco erros seguidos
+         *     bloqueiam por um minuto (429).
+         *
+         */
+        get: operations["listDiagnostics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/diagnostics/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pacote para anexar num chamado (zip com registros, versão e configuração sem segredos) */
+        get: operations["exportDiagnostics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/diagnostics/{signature}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pilha de chamadas e linha do tempo de um grupo de erros */
+        get: operations["getDiagnostic"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/diagnostics/{signature}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Marcar um grupo de erros como resolvido
+         * @description Volta a ficar aberto se o erro ocorrer de novo depois da resolução.
+         */
+        post: operations["resolveDiagnostic"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/session/exchange": {
         parameters: {
             query?: never;
@@ -636,6 +733,14 @@ export interface components {
             mode: "cloud" | "desktop" | "server";
             /** @description O que este motor oferece; a interface mostra só o que está aqui. upload: enviar lote pelo navegador. demo_batches: lotes de demonstração no servidor. local_batches: abrir pasta local ou de rede (POST /local-batches). folder_export: gravar o lote corrigido em pasta. os_session: o revisor vem do usuário do sistema (GET /session), sem tela de entrada. synthetic_only: só documentos sintéticos ou públicos, com apagamento automático. settings: tela de configurações (GET e PUT /settings). */
             capabilities: ("upload" | "demo_batches" | "local_batches" | "folder_export" | "os_session" | "synthetic_only" | "settings")[];
+            /** @description Conferência dos modelos embarcados (SHA-256 contra models.lock.json). Com problema, a análise fica bloqueada. */
+            models?: {
+                checked: boolean;
+                ok: boolean;
+                problems: string[];
+            };
+            /** @description Há token de administrador configurado neste computador (área de Diagnóstico ligada). */
+            admin?: boolean;
         };
         /**
          * Settings
@@ -691,6 +796,11 @@ export interface components {
              */
             demo_dir: string | null;
             /**
+             * @description Pasta dos modelos embarcados, com models.lock.json ao lado. Padrão: models ao lado do programa no desktop; vazio no servidor (sem modelos). Variável: QA_MODELS_DIR.
+             * @default null
+             */
+            models_dir: string | null;
+            /**
              * @description Limite do envio de lote pelo navegador, em MB. Variável: QA_MAX_UPLOAD_MB.
              * @default 2048
              */
@@ -705,10 +815,20 @@ export interface components {
              * @default null
              */
             api_token: string | null;
+            /**
+             * @description Pasta compartilhada da rede onde cada computador grava seus erros, para ver todas as máquinas num lugar só. Vazio = só neste computador. Variável: QA_DIAGNOSTICS_DIR.
+             * @default null
+             */
+            diagnostics_dir: string | null;
+            /**
+             * @description Hash (scrypt) do token de administrador, gravado por `qa admin token`. Só vale no arquivo da máquina. Vazio = área de administração desligada.
+             * @default null
+             */
+            admin_token_hash: string | null;
             /** @description Só no arquivo da máquina: chaves que as camadas seguintes (arquivo do usuário, variáveis e argumentos) não podem mudar. */
             locked?: {
                 /** @description Nomes das chaves travadas. */
-                keys?: ("workers" | "max_memory_mb" | "data_dir" | "output_dir" | "temp_dir" | "allowed_roots" | "default_station" | "batch_settle_seconds" | "retention_days" | "log_level" | "profiles_dir" | "ui_dir" | "demo_dir" | "max_upload_mb" | "cors_origins" | "api_token")[];
+                keys?: ("workers" | "max_memory_mb" | "data_dir" | "output_dir" | "temp_dir" | "allowed_roots" | "default_station" | "batch_settle_seconds" | "retention_days" | "log_level" | "profiles_dir" | "ui_dir" | "demo_dir" | "models_dir" | "max_upload_mb" | "cors_origins" | "api_token" | "diagnostics_dir")[];
             };
         };
         /**
@@ -743,6 +863,89 @@ export interface components {
             };
             /** @description Chaves que voltam a herdar da máquina ou do padrão. */
             reset?: string[];
+        };
+        /**
+         * ClientError
+         * @description Erro da interface (tela quebrada, erro de JavaScript, promessa rejeitada sem tratamento). Nunca leva imagem nem texto de documento.
+         */
+        "client-error.schema": {
+            kind?: string;
+            message: string;
+            stack?: string;
+            /** @description Rota da tela, sem dados (ex.: #/batches/:id/review). */
+            screen?: string;
+            batch_id?: string | null;
+            page_id?: string | null;
+        };
+        /**
+         * DiagnosticGroup
+         * @description Erros iguais (mesma assinatura: tipo, local no código e mensagem sem números variáveis).
+         */
+        "diagnostic-group.schema": {
+            signature: string;
+            kind: string;
+            message: string;
+            location: string;
+            /** @enum {unknown} */
+            severity: "critical" | "error" | "warning";
+            /** @enum {unknown} */
+            origin: "engine" | "worker" | "startup" | "client";
+            count: number;
+            machines: string[];
+            versions: string[];
+            first_at: string;
+            last_at: string;
+            /** @enum {unknown} */
+            status: "open" | "resolved";
+            resolved_by: string | null;
+        };
+        /**
+         * Diagnostics
+         * @description Tela de Diagnóstico: cartões, erros por dia e grupos.
+         */
+        "diagnostics.schema": {
+            summary: {
+                last_24h: number;
+                last_7d: number;
+                machines: number;
+                open: number;
+                per_day: {
+                    day: string;
+                    critical: number;
+                    error: number;
+                    warning: number;
+                }[];
+            };
+            groups: components["schemas"]["diagnostic-group.schema"][];
+            filters: {
+                versions: string[];
+                machines: string[];
+            };
+        };
+        /**
+         * DiagnosticDetail
+         * @description Um grupo de erros com a pilha e a linha do tempo das ocorrências (as 200 mais recentes).
+         */
+        "diagnostic-detail.schema": {
+            group: components["schemas"]["diagnostic-group.schema"];
+            occurrences: {
+                id: string | null;
+                signature: string | null;
+                at: string | null;
+                version: string | null;
+                machine: string | null;
+                os: string | null;
+                user?: string | null;
+                severity: string | null;
+                origin: string | null;
+                kind: string | null;
+                location: string | null;
+                message: string | null;
+                stack: string | null;
+                where?: string | null;
+                batch_id?: string | null;
+                page_id?: string | null;
+            }[];
         };
         /**
          * SessionExchangeRequest
@@ -1439,6 +1642,140 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+        };
+    };
+    reportClientError: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["client-error.schema"];
+            };
+        };
+        responses: {
+            /** @description Registrado */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    listDiagnostics: {
+        parameters: {
+            query?: {
+                version?: string;
+                machine?: string;
+                severity?: "critical" | "error" | "warning";
+                origin?: "engine" | "worker" | "startup" | "client";
+                status?: "open" | "resolved";
+            };
+            header: {
+                "X-Admin-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Diagnóstico */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["diagnostics.schema"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    exportDiagnostics: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Admin-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pacote */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    getDiagnostic: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Admin-Token": string;
+            };
+            path: {
+                signature: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Grupo e ocorrências */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["diagnostic-detail.schema"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    resolveDiagnostic: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Admin-Token": string;
+            };
+            path: {
+                signature: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Grupo resolvido */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["diagnostic-detail.schema"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
         };
     };
     exchangeSessionCode: {

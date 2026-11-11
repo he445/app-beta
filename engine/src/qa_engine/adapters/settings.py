@@ -47,6 +47,7 @@ ENV_KEYS: dict[str, str] = {
     "QA_UI_DIR": "ui_dir",
     "QA_DEMO_DIR": "demo_dir",
     "QA_MODELS_DIR": "models_dir",
+    "QA_DIAGNOSTICS_DIR": "diagnostics_dir",
     "QA_MAX_UPLOAD_MB": "max_upload_mb",
     "QA_CORS_ORIGINS": "cors_origins",
     "QA_API_TOKEN": "api_token",
@@ -147,9 +148,12 @@ def _toml_value(value: Any) -> str:
     return json.dumps(str(value), ensure_ascii=False)
 
 
-def dump_toml(values: Mapping[str, Any]) -> str:
-    """Serializa a configuração do usuário: chaves simples, sem valores vazios."""
-    lines = ["# Gravado pela tela de Configurações. Chave ausente = valor herdado."]
+USER_HEADER = "# Gravado pela tela de Configurações. Chave ausente = valor herdado."
+
+
+def dump_toml(values: Mapping[str, Any], header: str = USER_HEADER) -> str:
+    """Serializa a configuração: chaves simples, sem valores vazios."""
+    lines = [header]
     lines += [f"{key} = {_toml_value(value)}" for key, value in values.items() if value is not None]
     return "\n".join(lines) + "\n"
 
@@ -171,6 +175,8 @@ def server_defaults() -> dict[str, Any]:
         "ui_dir": None,
         "demo_dir": None,
         "models_dir": None,
+        "diagnostics_dir": None,
+        "admin_token_hash": None,
         "max_upload_mb": 2048,
         "cors_origins": [],
         "api_token": None,
@@ -248,6 +254,12 @@ class LayeredSettings:
         env, env_names = env_layer(self.env)
         problems = check_layer(machine, str(self.machine_file))
         problems += check_layer(user, str(self.user_file))
+        machine_only = {"admin_token_hash"}
+        for layer, source in ((user, str(self.user_file)), (self.args, "argumento --set")):
+            problems += [
+                SettingsProblem(key, source, "só no arquivo da máquina", "<oculto>")
+                for key in sorted(machine_only & set(layer))
+            ]
         if LOCKED in user:
             problems.append(
                 SettingsProblem(

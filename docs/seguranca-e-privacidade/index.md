@@ -24,7 +24,11 @@ cliente só é processado dentro da rede da empresa.
   só os cabeçalhos `Host` `127.0.0.1:<porta>` e `localhost:<porta>` passam (contra DNS
   rebinding); nenhum CORS. No plano B pelo navegador, o token é trocado por um código de
   uso único que vale 2 minutos.
-- O log nunca grava imagem nem texto de página, e mascara caminhos absolutos.
+- O log e o diagnóstico nunca gravam imagem nem texto de página, e mascaram caminhos
+  absolutos.
+- **Token de administrador** (ADR-0016): gerado por `qa admin token`, mostrado uma vez;
+  só o hash scrypt fica no arquivo da máquina. Cinco erros bloqueiam por um minuto. Sem
+  hash, a área de administração não existe.
 - `GET /health` e a interface servida na mesma origem são públicos e não expõem dado de
   lote.
 - O CORS só aceita as origens listadas em `QA_CORS_ORIGINS`; servindo a interface na

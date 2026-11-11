@@ -12,6 +12,8 @@ import { Reports } from "./screens/Reports";
 import { Review } from "./screens/Review";
 import { Sequence } from "./screens/Sequence";
 import { Settings } from "./screens/Settings";
+import { Diagnostics } from "./screens/Diagnostics";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 function useSession() {
   return useSyncExternalStore(onSessionChange, getSession);
@@ -54,11 +56,14 @@ function Shell({ engine }: { engine: Health }) {
           ) : (
             <a href={href({ name: "profiles" })}>Perfis</a>
           )}
+          {engine.admin && <a href={href({ name: "diagnostics" })}>Diagnóstico</a>}
           <span className="muted reviewer-name">{session.reviewer}</span>
           {!osSession && <button className="link" onClick={logout}>{session.token ? "Sair" : "Trocar"}</button>}
         </div>
       </header>
-      <Screen route={route} />
+      <ErrorBoundary key={route.name}>
+        <Screen route={route} />
+      </ErrorBoundary>
     </div>
   );
 }
@@ -80,6 +85,8 @@ function Screen({ route }: { route: Route }) {
       return <Profiles />;
     case "settings":
       return <Settings />;
+    case "diagnostics":
+      return <Diagnostics />;
     case "batch":
       return <Batch id={route.id} />;
     case "review":

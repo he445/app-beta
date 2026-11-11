@@ -49,6 +49,12 @@ Atalhos da revisão: **A** aprovar, **C** corrigir, **R** retrabalho, **O** defe
 origem, **← →** navegar, **Espaço** ampliar, **Ctrl+Z** desfazer, **1–4** filtrar por
 severidade, **N** digitar a numeração.
 
+## Erros da interface
+
+Erros de tela (error boundary), `window.onerror` e promessas rejeitadas sem tratamento vão
+para `POST /diagnostics/client-errors` (no máximo 5 vezes a mesma mensagem por aba), com a
+rota da tela sem identificadores. Nada de dado de documento.
+
 ## O mesmo build em todos os modos
 
 A interface descobre o que mostrar em `GET /health`: `mode` (`cloud`, `desktop`,

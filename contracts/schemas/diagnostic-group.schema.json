@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "diagnostic-group.schema.json",
+  "title": "DiagnosticGroup",
+  "description": "Erros iguais (mesma assinatura: tipo, local no código e mensagem sem números variáveis).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "signature",
+    "kind",
+    "message",
+    "location",
+    "severity",
+    "origin",
+    "count",
+    "machines",
+    "versions",
+    "first_at",
+    "last_at",
+    "status",
+    "resolved_by"
+  ],
+  "properties": {
+    "signature": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    },
+    "location": {
+      "type": "string"
+    },
+    "severity": {
+      "enum": [
+        "critical",
+        "error",
+        "warning"
+      ]
+    },
+    "origin": {
+      "enum": [
+        "engine",
+        "worker",
+        "startup",
+        "client"
+      ]
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "machines": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "versions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "first_at": {
+      "type": "string"
+    },
+    "last_at": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "open",
+        "resolved"
+      ]
+    },
+    "resolved_by": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

@@ -434,6 +434,45 @@ class SqliteRepository:
             c.execute("DELETE FROM batches WHERE created_at < ?", (cutoff_iso,))
         return [str(r[0]) for r in rows]
 
+    def add_diagnostic(self, record: Mapping[str, Any]) -> None:
+        """Grava um registro de diagnóstico (repetido pelo mesmo ``id`` é ignorado)."""
+        with self._tx() as c:
+            c.execute(
+                "INSERT OR IGNORE INTO diagnostics (id, signature, at, record_json) "
+                "VALUES (?, ?, ?, ?)",
+                (
+                    record["id"],
+                    record["signature"],
+                    record["at"],
+                    json.dumps(record, ensure_ascii=False),
+                ),
+            )
+
+    def diagnostics(self, since_iso: str | None = None) -> list[dict[str, Any]]:
+        """Registros de diagnóstico, do mais antigo ao mais novo."""
+        if since_iso:
+            rows = self._all(
+                "SELECT record_json FROM diagnostics WHERE at >= ? ORDER BY at", (since_iso,)
+            )
+        else:
+            rows = self._all("SELECT record_json FROM diagnostics ORDER BY at")
+        return [json.loads(r[0]) for r in rows]
+
+    def resolve_diagnostic(self, signature: str, by: str, at: str) -> None:
+        """Marca um grupo de erros como resolvido."""
+        with self._tx() as c:
+            c.execute(
+                "INSERT INTO diagnostic_resolutions VALUES (?, ?, ?) ON CONFLICT(signature) "
+                "DO UPDATE SET resolved_at = excluded.resolved_at, "
+                "resolved_by = excluded.resolved_by",
+                (signature, at, by),
+            )
+
+    def diagnostic_resolutions(self) -> dict[str, dict[str, Any]]:
+        """Resolução por assinatura."""
+        rows = self._all("SELECT signature, resolved_at, resolved_by FROM diagnostic_resolutions")
+        return {r[0]: {"resolved_at": r[1], "resolved_by": r[2]} for r in rows}
+
     def decision_log(self, batch_id: str) -> list[dict[str, Any]]:
         """Histórico de decisões do lote, na ordem em que foram registradas."""
         rows = self._all(

@@ -8,15 +8,16 @@ O comando `qa` usa os mesmos casos de uso da API, sem interface. Rode com
 ## `qa`
 
 ```text
-usage: qa [-h] [--version] {analyze,rules,validate-profile,validate-report} ...
+usage: qa [-h] [--version] {analyze,rules,validate-profile,admin,validate-report} ...
 
 QA automático de digitalização
 
 positional arguments:
-  {analyze,rules,validate-profile,validate-report}
+  {analyze,rules,validate-profile,admin,validate-report}
     analyze             analisar um lote local
     rules               listar as regras registradas
     validate-profile    validar um perfil contra o contrato
+    admin               administração desta máquina
     validate-report     validar um report.json contra o contrato
 
 options:
@@ -59,6 +60,29 @@ positional arguments:
 
 options:
   -h, --help  show this help message and exit
+```
+
+## `qa admin`
+
+```text
+usage: qa admin [-h] {token} ...
+
+positional arguments:
+  {token}
+    token     gerar o token de administrador (diagnóstico)
+
+options:
+  -h, --help  show this help message and exit
+```
+
+## `qa admin token`
+
+```text
+usage: qa admin token [-h] [--config CONFIG]
+
+options:
+  -h, --help       show this help message and exit
+  --config CONFIG  arquivo da máquina (padrão: o do sistema)
 ```
 
 ## `qa validate-report`

@@ -66,6 +66,8 @@ class Settings:
         demo_dir: lotes de demonstração prontos.
         ui_dir: interface compilada para servir na mesma origem.
         models_dir: modelos embarcados (``models.lock.json`` ao lado); vazio = sem modelos.
+        diagnostics_dir: pasta compartilhada de diagnóstico; vazio = só neste computador.
+        admin_token_hash: hash do token de administrador; vazio = administração desligada.
         output_dir: destino do lote corrigido gravado em pasta.
         temp_dir: arquivos temporários de correção.
         allowed_roots: pastas de onde se pode abrir lote; vazio = qualquer uma.
@@ -89,6 +91,8 @@ class Settings:
     demo_dir: Path | None = None
     ui_dir: Path | None = None
     models_dir: Path | None = None
+    diagnostics_dir: Path | None = None
+    admin_token_hash: str | None = None
     output_dir: Path | None = None
     temp_dir: Path | None = None
     allowed_roots: tuple[Path, ...] = ()
@@ -144,6 +148,8 @@ class ResolvedSettings:
         """Formato de ``settings-view.schema.json`` (o token nunca é devolvido)."""
         values = dict(self.values)
         values["api_token"] = None
+        if values.get("admin_token_hash"):
+            values["admin_token_hash"] = None  # nunca devolvido: só se diz que existe
         return {
             "values": values,
             "origins": dict(self.origins),

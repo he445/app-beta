@@ -8,6 +8,13 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Diagnóstico (ADR-0016): erros do motor, dos trabalhos de fundo, da abertura e da
+  interface (error boundary, `window.onerror`, promessas rejeitadas), sem imagem nem texto
+  de documento e com caminhos mascarados; agrupamento por assinatura; pasta compartilhada
+  (`diagnostics_dir`); `qa admin token` (hash scrypt só no arquivo da máquina); rotas
+  `/admin/diagnostics/*` com `X-Admin-Token` e bloqueio após cinco erros; tela com
+  cartões, gráfico por dia, filtros, detalhe, resolver e exportar pacote (contrato 0.9.0,
+  migração 0004).
 - Modelos embarcados: `models.lock.json` (orientação PP-LCNet_x1_0_doc_ori, detector
   PP-OCRv5_mobile_det, reconhecedores trocr-small-handwritten e PP-OCRv5_mobile_rec, com
   origem fixada por commit, licença e SHA-256), `tools/models/fetch.py` (download só no

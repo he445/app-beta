@@ -16,8 +16,12 @@ from pathlib import Path
 LOG_FILE = "qa.log"
 MAX_BYTES = 5 * 1024 * 1024
 BACKUPS = 10
+_SEGMENT = r"[^\\/:*?\"<>|\r\n]*[^\\/:*?\"<>|\s]"  # pasta: pode ter espaço, não no fim
+_LAST = r"[^\\/:*?\"<>|\s]*"
 _ABSOLUTE = re.compile(
-    r"(?:[A-Za-z]:\\|\\\\\?\\|\\\\)[^\s'\"<>|]+"  # C:\..., \\?\..., \\servidor\...
+    # Windows: C:\..., \\?\C:\..., \\servidor\pasta\... Pastas podem ter espaço; o último
+    # trecho (arquivo) termina no primeiro espaço. Mascarar demais é seguro; de menos, não.
+    rf"(?:\\\\\?\\(?:UNC\\)?|[A-Za-z]:\\|\\\\)(?:{_SEGMENT}\\)*{_LAST}"
     r"|(?<![\w.])/(?:home|Users|mnt|media|srv|root|tmp)/[^\s'\"<>|]+"  # /home/..., /Users/...
 )
 

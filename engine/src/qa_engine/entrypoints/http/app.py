@@ -39,8 +39,10 @@ from qa_engine.adapters.images import FileImageSource
 from qa_engine.adapters.local_folder import LocalFolderSource, is_within
 from qa_engine.adapters.metadata import PillowMetadataReader
 from qa_engine.adapters.page_versions import FilePageVersionStore
+from qa_engine.adapters.shared_diagnostics import SharedDiagnosticsFolder
 from qa_engine.adapters.sqlite import SqliteRepository
 from qa_engine.adapters.system import SystemClock, total_memory_mb
+from qa_engine.application.admin import AttemptLimiter, verify_token
 from qa_engine.application.contracts import ContractError, validate
 from qa_engine.application.correction_service import (
     CORRECTED_ZIP,
@@ -52,6 +54,15 @@ from qa_engine.application.correction_service import (
     SourceChangedError,
 )
 from qa_engine.application.demo_batches import copy_demo_batch, list_demo_batches
+from qa_engine.application.diagnostics import (
+    export_package,
+    filtered,
+    groups,
+    record_from_client,
+    record_from_crash_file,
+    record_from_exception,
+)
+from qa_engine.application.diagnostics import summary as diagnostics_summary
 from qa_engine.application.exports import findings_csv, metadata_csv, rework_csv
 from qa_engine.application.local_batch import (
     SNAPSHOT_FILE,
@@ -94,6 +105,8 @@ API_PREFIXES = (
     "/local-batches",
     "/session",
     "/settings",
+    "/diagnostics",
+    "/admin",
 )
 """Rotas que exigem token quando ``QA_API_TOKEN`` está definido. O resto (saúde,
 documentação e a interface servida na mesma origem) é público."""
@@ -130,6 +143,10 @@ class Engine:
         self.corrections = ThreadPoolExecutor(max_workers=1, thread_name_prefix="corrections")
         self.images = FileImageSource()
         self.folder = LocalFolderSource()
+        self.shared = (
+            SharedDiagnosticsFolder(settings.diagnostics_dir) if settings.diagnostics_dir else None
+        )
+        self.admin_attempts = AttemptLimiter()
         self.models = verify_models(settings.models_dir)
         if not self.models.ok:
             log.error("modelos com problema: %s", "; ".join(self.models.problems))
@@ -164,6 +181,53 @@ class Engine:
         if snapshot.is_file():
             return profile_from_dict(json.loads(snapshot.read_text("utf-8")))
         return self.profile(profile_id)
+
+    def record(self, record: dict[str, Any]) -> None:
+        """Grava um registro de diagnóstico no banco e, se houver, na pasta compartilhada."""
+        try:
+            self.repo.add_diagnostic(record)
+        except Exception:
+            log.exception("falha ao gravar diagnóstico")
+        if self.shared is not None:
+            self.shared.append(record)
+
+    def record_error(
+        self,
+        error: BaseException,
+        origin: str,
+        where: str | None,
+        batch_id: str | None = None,
+        severity: str = "error",
+    ) -> None:
+        """Registra uma exceção do motor ou de um processo de análise."""
+        self.record(
+            record_from_exception(
+                error,
+                origin=origin,
+                severity=severity,
+                where=where,
+                version=__version__,
+                user=os_user() if self.settings.mode == "desktop" else None,
+                batch_id=batch_id,
+            )
+        )
+
+    def ingest_crashes(self) -> None:
+        """Lê os arquivos de queda da abertura e os registra uma vez (o id vem do nome)."""
+        folder = self.settings.data_dir / "logs"
+        for path in sorted(folder.glob("crash-*.txt")) if folder.is_dir() else []:
+            try:
+                self.record(record_from_crash_file(path.read_text("utf-8"), path.name, __version__))
+                path.rename(path.with_suffix(".registrado.txt"))
+            except OSError:
+                log.warning("arquivo de queda ilegível: %s", path.name)
+
+    def all_diagnostics(self) -> list[dict[str, Any]]:
+        """Registros deste computador e, se houver, os da pasta compartilhada (sem repetir)."""
+        records = {r["id"]: r for r in self.repo.diagnostics()}
+        if self.shared is not None:
+            records.update({r["id"]: r for r in self.shared.read_all() if "id" in r})
+        return sorted(records.values(), key=lambda r: r["at"])
 
     def issue_code(self) -> str:
         """Código de uso único para abrir a interface no navegador padrão (desktop)."""
@@ -212,8 +276,9 @@ class Engine:
         """Trabalho de fundo do "Corrigir tudo"."""
         try:
             self.service.run_bulk(self.context(batch_id), operation_id)
-        except Exception:
+        except Exception as exc:
             log.exception("falha na correção em lote %s", operation_id)
+            self.record_error(exc, "worker", "correção em lote", batch_id)
 
     def purge(self) -> None:
         """Apaga lotes mais antigos que a retenção.
@@ -270,6 +335,7 @@ class Engine:
             self.repo.save_report(batch_id, report)
         except Exception as exc:
             log.exception("falha na análise do lote %s", batch_id)
+            self.record_error(exc, "worker", "análise do lote", batch_id, "critical")
             self.repo.fail(batch_id, f"{exc.__class__.__name__}: {exc}"[:500])
 
 
@@ -340,6 +406,7 @@ def create_app(
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         engine.purge()
+        engine.ingest_crashes()
         yield
         engine.queue.shutdown(wait=False, cancel_futures=True)
         engine.corrections.shutdown(wait=False, cancel_futures=True)
@@ -387,8 +454,11 @@ def create_app(
     ) -> Response:
         try:
             return await call_next(request)
-        except Exception:
+        except Exception as exc:
             log.exception("erro não tratado em %s %s", request.method, request.url.path)
+            route = request.scope.get("route")
+            where = f"{request.method} {getattr(route, 'path', request.url.path)}"
+            engine.record_error(exc, "engine", where, request.path_params.get("batch_id"))
             return problem(500, "Erro interno do motor", "Veja o log do servidor.")
 
     origins = sorted({normalize_origin(o) for o in settings.cors_origins})
@@ -397,7 +467,7 @@ def create_app(
             CORSMiddleware,
             allow_origins=origins,
             allow_methods=["GET", "POST", "PUT", "DELETE"],
-            allow_headers=["Authorization", "Content-Type"],
+            allow_headers=["Authorization", "Content-Type", "X-Admin-Token"],
             max_age=600,
         )
 
@@ -450,6 +520,7 @@ def create_app(
             "mode": settings.mode,
             "capabilities": capabilities(settings, demos, settings_source is not None),
             "models": engine.models.json(),
+            "admin": settings.admin_token_hash is not None,
         }
 
     @app.post("/desktop/focus", status_code=204)
@@ -887,6 +958,89 @@ def create_app(
         restart["required"] = True
         log.info("configuração do usuário alterada: %s", sorted(set(changes) | set(reset)))
         return settings_view(resolved, True)
+
+    # Diagnóstico ---------------------------------------------------------------------
+
+    @app.post("/diagnostics/client-errors", status_code=204)
+    def client_error(body: Annotated[dict[str, Any], Body()]) -> Response:
+        validate(body, "client-error.schema.json")
+        user = os_user() if settings.mode == "desktop" else None
+        engine.record(record_from_client(body, version=__version__, user=user))
+        return Response(status_code=204)
+
+    def require_admin(request: Request) -> str:
+        """Confere ``X-Admin-Token``; devolve quem é (para o histórico)."""
+        if settings.admin_token_hash is None:
+            raise HTTPException(404, "área de administração desligada neste computador")
+        wait = engine.admin_attempts.blocked_for()
+        if wait > 0:
+            raise HTTPException(429, f"tentativas demais; espere {wait:.0f} s")
+        given = request.headers.get("x-admin-token", "")
+        if not given or not verify_token(given, settings.admin_token_hash):
+            engine.admin_attempts.failure()
+            raise HTTPException(401, "token de administrador inválido")
+        engine.admin_attempts.success()
+        return os_user() if settings.mode == "desktop" else "administrador"
+
+    def diagnostic_filters(
+        version: str | None, machine: str | None, severity: str | None, origin: str | None
+    ) -> dict[str, str | None]:
+        return {"version": version, "machine": machine, "severity": severity, "origin": origin}
+
+    @app.get("/admin/diagnostics")
+    def list_diagnostics(
+        request: Request,
+        version: str | None = None,
+        machine: str | None = None,
+        severity: str | None = None,
+        origin: str | None = None,
+        status: str | None = None,
+    ) -> dict[str, Any]:
+        require_admin(request)
+        records = filtered(
+            engine.all_diagnostics(), diagnostic_filters(version, machine, severity, origin)
+        )
+        grouped = groups(records, engine.repo.diagnostic_resolutions())
+        everything = engine.all_diagnostics()
+        return {
+            "summary": diagnostics_summary(records, grouped, engine.now()),
+            "groups": [g for g in grouped if status is None or g["status"] == status],
+            "filters": {
+                "versions": sorted({r["version"] for r in everything}),
+                "machines": sorted({r["machine"] for r in everything}),
+            },
+        }
+
+    @app.get("/admin/diagnostics/export")
+    def export_diagnostics(request: Request) -> Response:
+        require_admin(request)
+        records = engine.all_diagnostics()
+        grouped = groups(records, engine.repo.diagnostic_resolutions())
+        view = settings_view(settings_source.load(), False) if settings_source else {}
+        data = export_package(records, grouped, view, __version__, engine.now())
+        name = f"diagnostico-qa-{engine.now():%Y%m%d-%H%M%S}.zip"
+        return Response(
+            data,
+            media_type="application/zip",
+            headers={"Content-Disposition": f'attachment; filename="{name}"'},
+        )
+
+    @app.get("/admin/diagnostics/{signature}")
+    def diagnostic_detail(request: Request, signature: str) -> dict[str, Any]:
+        require_admin(request)
+        records = [r for r in engine.all_diagnostics() if r["signature"] == signature]
+        if not records:
+            raise HTTPException(404, "erro não encontrado")
+        (group,) = groups(records, engine.repo.diagnostic_resolutions())
+        return {"group": group, "occurrences": records[-200:]}
+
+    @app.post("/admin/diagnostics/{signature}/resolve")
+    def resolve_diagnostic(request: Request, signature: str) -> dict[str, Any]:
+        who = require_admin(request)
+        if not any(r["signature"] == signature for r in engine.all_diagnostics()):
+            raise HTTPException(404, "erro não encontrado")
+        engine.repo.resolve_diagnostic(signature, who, iso(engine.now()))
+        return diagnostic_detail(request, signature)
 
     @app.get("/profiles/{profile_id}/rules")
     def profile_rules(profile_id: str, station_id: str | None = None) -> list[dict[str, Any]]:

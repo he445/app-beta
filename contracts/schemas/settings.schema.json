@@ -144,6 +144,23 @@
       "description": "Token exigido em `Authorization: Bearer`. Vazio desliga a autenticação (só desenvolvimento e demonstração com dados sintéticos). No desktop é gerado a cada abertura e não é lido de arquivo. Variável: QA_API_TOKEN.",
       "default": null
     },
+    "diagnostics_dir": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Pasta compartilhada da rede onde cada computador grava seus erros, para ver todas as máquinas num lugar só. Vazio = só neste computador. Variável: QA_DIAGNOSTICS_DIR.",
+      "default": null
+    },
+    "admin_token_hash": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^scrypt\\$\\d+\\$\\d+\\$\\d+\\$[A-Za-z0-9_=-]+\\$[A-Za-z0-9_=-]+$",
+      "description": "Hash (scrypt) do token de administrador, gravado por `qa admin token`. Só vale no arquivo da máquina. Vazio = área de administração desligada.",
+      "default": null
+    },
     "locked": {
       "type": "object",
       "additionalProperties": false,
@@ -170,7 +187,8 @@
               "models_dir",
               "max_upload_mb",
               "cors_origins",
-              "api_token"
+              "api_token",
+              "diagnostics_dir"
             ]
           },
           "description": "Nomes das chaves travadas."

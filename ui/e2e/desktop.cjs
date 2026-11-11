@@ -1,10 +1,11 @@
 // Programa desktop sem janela (QA --headless), interface aberta pelo link de acesso de uso
 // único: sem tela de entrada, "Abrir lote" por caminho, análise e "Salvar na pasta de saída".
-// Uso: node e2e/desktop.cjs <link de acesso> <pasta do lote> [pasta de capturas]
+// Com token de administrador, confere também a tela de Diagnóstico com um erro forçado.
+// Uso: node e2e/desktop.cjs <link de acesso> <pasta do lote> [pasta de capturas] [token de admin]
 const { chromium } = require("playwright");
 
 (async () => {
-  const [link, folder, shots] = process.argv.slice(2);
+  const [link, folder, shots, adminToken] = process.argv.slice(2);
   if (!link || !folder) throw new Error("uso: desktop.cjs <link> <pasta do lote> [capturas]");
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1366, height: 860 } });
@@ -68,6 +69,22 @@ const { chromium } = require("playwright");
   await page.getByText(/Gravado em/).waitFor({ timeout: 120_000 });
   console.log((await page.getByText(/Gravado em/).textContent())?.trim());
   if (shots) await page.screenshot({ path: `${shots}/desktop-relatorio.png`, fullPage: true });
+
+  if (adminToken) {
+    // Erro forçado na interface: vai para o diagnóstico pelo window.onerror.
+    await page.evaluate(() => setTimeout(() => { throw new Error("erro forçado pelo teste de ponta a ponta"); }));
+    await page.waitForTimeout(1000);
+    await page.getByRole("link", { name: "Diagnóstico" }).click();
+    await page.getByLabel("Token de administrador").fill(adminToken);
+    await page.getByRole("button", { name: "Entrar" }).click();
+    await page.getByText("Erros nas últimas 24 h").waitFor({ timeout: 30_000 });
+    await page.getByText("erro forçado pelo teste de ponta a ponta").first().waitFor({ timeout: 30_000 });
+    await page.getByText("erro forçado pelo teste de ponta a ponta").first().click();
+    await page.getByRole("button", { name: "Marcar como resolvido" }).click();
+    await page.getByText(/resolvido por/).waitFor({ timeout: 30_000 });
+    if (shots) await page.screenshot({ path: `${shots}/desktop-diagnostico.png`, fullPage: true });
+    console.log("diagnóstico ok");
+  }
   await browser.close();
   console.log("fluxo desktop ok");
 })().catch((err) => {

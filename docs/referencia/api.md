@@ -2,7 +2,7 @@
 
 # Referência da API
 
-Contrato **0.8.0**. A fonte é `contracts/openapi.yaml`, com os
+Contrato **0.9.0**. A fonte é `contracts/openapi.yaml`, com os
 formatos em `contracts/schemas/` (JSON Schema 2020-12), validados pelo Spectral na CI.
 Com o motor no ar, a versão interativa fica em `/docs`.
 
@@ -60,12 +60,22 @@ Erros seguem o RFC 9457 (`application/problem+json`).
 | `GET /profiles/{profile_id}` | Ler um perfil | 200, 401, 404 |
 | `PUT /profiles/{profile_id}` | Criar ou atualizar um perfil (validado contra o esquema) | 200, 401, 422 |
 
-## Saúde do serviço
+## Saúde do serviço, sessão e configuração
 
 | Rota | Função | Respostas |
 | --- | --- | --- |
 | `GET /health` | Saúde do serviço | 200 |
 | `GET /settings` | Configuração deste computador, com a origem de cada valor | 200, 401, 404 |
 | `PUT /settings` | Mudar a configuração do usuário | 200, 401, 404, 422 |
+| `POST /diagnostics/client-errors` | Registrar um erro da interface | 204, 401, 422 |
 | `POST /session/exchange` | Trocar o código de uso único pelo token (programa desktop no navegador) | 200, 403, 404 |
 | `GET /session` | Quem está usando o motor | 200, 401 |
+
+## Diagnóstico, só com token de administrador (cabeçalho X-Admin-Token)
+
+| Rota | Função | Respostas |
+| --- | --- | --- |
+| `GET /admin/diagnostics` | Cartões, erros por dia e erros agrupados por assinatura | 200, 401, 404, 429 |
+| `GET /admin/diagnostics/export` | Pacote para anexar num chamado (zip com registros, versão e configuração sem segredos) | 200, 401, 404, 429 |
+| `GET /admin/diagnostics/{signature}` | Pilha de chamadas e linha do tempo de um grupo de erros | 200, 401, 404, 429 |
+| `POST /admin/diagnostics/{signature}/resolve` | Marcar um grupo de erros como resolvido | 200, 401, 404, 429 |
