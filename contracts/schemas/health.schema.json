@@ -51,6 +51,30 @@
         ]
       },
       "description": "O que este motor oferece; a interface mostra só o que está aqui. upload: enviar lote pelo navegador. demo_batches: lotes de demonstração no servidor. local_batches: abrir pasta local ou de rede (POST /local-batches). folder_export: gravar o lote corrigido em pasta. os_session: o revisor vem do usuário do sistema (GET /session), sem tela de entrada. synthetic_only: só documentos sintéticos ou públicos, com apagamento automático. settings: tela de configurações (GET e PUT /settings)."
+    },
+    "models": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checked",
+        "ok",
+        "problems"
+      ],
+      "description": "Conferência dos modelos embarcados (SHA-256 contra models.lock.json). Com problema, a análise fica bloqueada.",
+      "properties": {
+        "checked": {
+          "type": "boolean"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "problems": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
     }
   }
 }

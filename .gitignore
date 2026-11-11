@@ -33,3 +33,6 @@ site/
 
 # Lotes de demonstração gerados (tools/synth showcase)
 demo/
+
+# Modelos: baixados no build (tools/models/fetch.py), nunca versionados
+models/

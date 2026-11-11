@@ -22,8 +22,9 @@ onde fica cada arquivo: [Configurar este computador](../guias/configurar-computa
 | `profiles_dir` | texto |  |  | Pasta dos perfis YAML. Padrão: `profiles` ao lado do programa. Variável: QA_PROFILES_DIR. |
 | `ui_dir` | texto ou vazio |  |  | Interface compilada para servir na mesma origem. Variável: QA_UI_DIR. |
 | `demo_dir` | texto ou vazio |  |  | Lotes de demonstração, uma subpasta por lote. Variável: QA_DEMO_DIR. |
+| `models_dir` | texto ou vazio |  |  | Pasta dos modelos embarcados, com models.lock.json ao lado. Padrão: models ao lado do programa no desktop; vazio no servidor (sem modelos). Variável: QA_MODELS_DIR. |
 | `max_upload_mb` | inteiro |  | `2048` | Limite do envio de lote pelo navegador, em MB. Variável: QA_MAX_UPLOAD_MB. mín. 1 |
 | `cors_origins` | lista de texto |  | `[]` | Origens de interface publicada noutro endereço. Vazio = nenhuma (interface na mesma origem). Variável: QA_CORS_ORIGINS (separadas por vírgula). |
 | `api_token` | texto ou vazio |  |  | Token exigido em `Authorization: Bearer`. Vazio desliga a autenticação (só desenvolvimento e demonstração com dados sintéticos). No desktop é gerado a cada abertura e não é lido de arquivo. Variável: QA_API_TOKEN. |
 | `locked` | objeto |  |  | Só no arquivo da máquina: chaves que as camadas seguintes (arquivo do usuário, variáveis e argumentos) não podem mudar. |
-| `locked.keys` | lista de `workers` ou `max_memory_mb` ou `data_dir` ou `output_dir` ou `temp_dir` ou `allowed_roots` ou `default_station` ou `batch_settle_seconds` ou `retention_days` ou `log_level` ou `profiles_dir` ou `ui_dir` ou `demo_dir` ou `max_upload_mb` ou `cors_origins` ou `api_token` |  |  | Nomes das chaves travadas. |
+| `locked.keys` | lista de `workers` ou `max_memory_mb` ou `data_dir` ou `output_dir` ou `temp_dir` ou `allowed_roots` ou `default_station` ou `batch_settle_seconds` ou `retention_days` ou `log_level` ou `profiles_dir` ou `ui_dir` ou `demo_dir` ou `models_dir` ou `max_upload_mb` ou `cors_origins` ou `api_token` |  |  | Nomes das chaves travadas. |

@@ -123,6 +123,12 @@ jobs:
           npm ci
           VITE_API_URL= npm run build
           npx playwright install --with-deps chromium
+      - uses: actions/cache@v4
+        with:
+          path: models
+          key: modelos-${{ hashFiles('models.lock.json') }}
+      - name: Modelos (conferidos pelo SHA-256)
+        run: uv run --project engine python tools/models/fetch.py --out models
       - name: Lote de exemplo numa pasta com acento e espaço
         run: uv run --project engine python tools/synth/synth.py showcase --out "$RUNNER_TEMP/Lotes/Caixa 0412"
       - name: Programa sem janela e fluxo no navegador

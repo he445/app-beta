@@ -1,8 +1,10 @@
 """Uma instância do programa por usuário: trava de arquivo em ``data_dir``.
 
-A primeira abertura trava ``instance.lock`` e grava nele a porta e um segredo.
-A segunda não consegue a trava, lê a porta e pede à primeira que traga a janela
-para a frente (``POST /desktop/focus`` com o segredo); depois termina.
+A primeira abertura trava ``instance.lock`` e grava a porta e um segredo em
+``instance.json``. A segunda não consegue a trava, lê ``instance.json`` e pede à
+primeira que traga a janela para a frente (``POST /desktop/focus`` com o segredo);
+depois termina. São dois arquivos porque, no Windows, o trecho travado de um
+arquivo não pode ser lido por outro processo.
 """
 
 from __future__ import annotations
@@ -15,6 +17,7 @@ from types import TracebackType
 from typing import IO, Any
 
 LOCK_FILE = "instance.lock"
+OWNER_FILE = "instance.json"
 
 
 def _try_lock(handle: IO[str]) -> bool:
@@ -39,6 +42,7 @@ class InstanceLock:
     def __init__(self, folder: Path) -> None:
         folder.mkdir(parents=True, exist_ok=True)
         self.path = folder / LOCK_FILE
+        self.owner_path = folder / OWNER_FILE
         self._handle: IO[str] | None = None
 
     def acquire(self) -> bool:
@@ -52,17 +56,18 @@ class InstanceLock:
 
     def publish(self, port: int, secret: str) -> None:
         """Grava a porta e o segredo para a próxima abertura encontrar esta instância."""
-        assert self._handle is not None, "acquire() antes de publish()"
-        # No Windows o primeiro byte fica travado: o conteúdo vai depois dele.
-        self._handle.seek(0)
-        self._handle.truncate()
-        self._handle.write(" " + json.dumps({"port": port, "secret": secret, "pid": os.getpid()}))
-        self._handle.flush()
+        if self._handle is None:
+            raise RuntimeError("acquire() antes de publish()")
+        partial = self.owner_path.with_name(OWNER_FILE + ".part")
+        partial.write_text(
+            json.dumps({"port": port, "secret": secret, "pid": os.getpid()}), encoding="utf-8"
+        )
+        partial.replace(self.owner_path)
 
     def owner(self) -> dict[str, Any] | None:
         """Porta, segredo e processo da instância aberta, se o arquivo tiver."""
         try:
-            text = self.path.read_text("utf-8").strip()
+            text = self.owner_path.read_text("utf-8").strip()
         except OSError:
             return None
         try:

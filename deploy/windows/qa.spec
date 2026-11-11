@@ -23,7 +23,7 @@ hiddenimports = [
     "multipart",
     "python_multipart",
 ]
-for package in ("pypdfium2", "pypdfium2_raw"):
+for package in ("pypdfium2", "pypdfium2_raw", "onnxruntime", "tokenizers"):
     d, b, h = collect_all(package)
     datas += d
     binaries += b

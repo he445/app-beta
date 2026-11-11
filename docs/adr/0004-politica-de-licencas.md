@@ -18,6 +18,11 @@ Dependências atuais do núcleo: NumPy (BSD), OpenCV (Apache-2.0), Pillow (MIT-C
 pypdfium2 (Apache-2.0/BSD-3), PyYAML (MIT), jsonschema (MIT), FastAPI/Starlette (MIT),
 uvicorn (BSD), python-multipart (Apache-2.0), platformdirs (MIT).
 
+Modelos e inferência: onnxruntime (MIT), tokenizers (Apache-2.0); modelos
+PP-LCNet_x1_0_doc_ori, PP-OCRv5_mobile_det e PP-OCRv5_mobile_rec (Apache-2.0) e
+trocr-small-handwritten (MIT), listados com SHA-256 em `models.lock.json`. Nada de
+PyTorch no pacote.
+
 Programa desktop: pywebview (BSD-3-Clause), opcional, só no pacote Windows; no Windows
 ele traz pythonnet e clr-loader (MIT).
 

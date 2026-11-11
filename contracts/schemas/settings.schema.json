@@ -113,6 +113,14 @@
       "description": "Lotes de demonstração, uma subpasta por lote. Variável: QA_DEMO_DIR.",
       "default": null
     },
+    "models_dir": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Pasta dos modelos embarcados, com models.lock.json ao lado. Padrão: models ao lado do programa no desktop; vazio no servidor (sem modelos). Variável: QA_MODELS_DIR.",
+      "default": null
+    },
     "max_upload_mb": {
       "type": "integer",
       "minimum": 1,
@@ -159,6 +167,7 @@
               "profiles_dir",
               "ui_dir",
               "demo_dir",
+              "models_dir",
               "max_upload_mb",
               "cors_origins",
               "api_token"

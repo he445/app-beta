@@ -96,7 +96,11 @@ nav:
       - Configuração: referencia/configuracao.md
       - Linha de comando: referencia/cli.md
       - Código: referencia/codigo.md
-  - Modelos: modelos/index.md
+  - Modelos:
+      - modelos/index.md
+      - Orientação: modelos/orientacao.md
+      - Detector de escritos: modelos/detector-de-escritos.md
+      - Reconhecedores: modelos/reconhecedores.md
   - Segurança e privacidade:
       - seguranca-e-privacidade/index.md
       - Licenças de terceiros: seguranca-e-privacidade/licencas.md

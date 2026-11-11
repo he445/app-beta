@@ -18,10 +18,22 @@ processo externo, atrás de uma porta. Dependência nova entra no ADR-0004 no me
 | Servidor HTTP | uvicorn | BSD-3-Clause |
 | Envio de arquivos | python-multipart | Apache-2.0 |
 | Pastas do sistema operacional | platformdirs | MIT |
+| Inferência dos modelos | onnxruntime | MIT |
+| Tokenização do reconhecedor | tokenizers | Apache-2.0 |
 | Janela do programa desktop | pywebview (e, no Windows, pythonnet e clr-loader) | BSD-3-Clause (MIT) |
 | Armazenamento | SQLite (biblioteca padrão do Python) | Domínio público |
 
 PyMuPDF (AGPL) não é usado.
+
+## Modelos
+
+| Modelo | Licença |
+| --- | --- |
+| PP-LCNet_x1_0_doc_ori | Apache-2.0 |
+| PP-OCRv5_mobile_det e PP-OCRv5_mobile_rec | Apache-2.0 |
+| trocr-small-handwritten | MIT |
+
+Origem, versão e SHA-256 de cada arquivo em `models.lock.json` e nas [fichas](../modelos/index.md).
 
 ## Interface
 

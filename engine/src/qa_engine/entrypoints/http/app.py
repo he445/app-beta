@@ -61,6 +61,7 @@ from qa_engine.application.local_batch import (
     take_snapshot,
     wait_until_stable,
 )
+from qa_engine.application.models import verify_models
 from qa_engine.application.profile import Profile, load_profile, profile_from_dict
 from qa_engine.application.review import (
     baselines_from_json,
@@ -129,6 +130,9 @@ class Engine:
         self.corrections = ThreadPoolExecutor(max_workers=1, thread_name_prefix="corrections")
         self.images = FileImageSource()
         self.folder = LocalFolderSource()
+        self.models = verify_models(settings.models_dir)
+        if not self.models.ok:
+            log.error("modelos com problema: %s", "; ".join(self.models.problems))
         self.last_request = time.monotonic()
         self._codes: dict[str, float] = {}
         self._codes_lock = threading.Lock()
@@ -445,6 +449,7 @@ def create_app(
             "demo_batches": demos,
             "mode": settings.mode,
             "capabilities": capabilities(settings, demos, settings_source is not None),
+            "models": engine.models.json(),
         }
 
     @app.post("/desktop/focus", status_code=204)
@@ -491,6 +496,7 @@ def create_app(
         manifest: Annotated[UploadFile | None, File()] = None,
         numbering: Annotated[UploadFile | None, File()] = None,
     ) -> dict[str, Any]:
+        require_models()
         profile = engine.profile(profile_id)
         batch_id = str(uuid.uuid4())
         root = engine.batch_dir(batch_id) / "input"
@@ -531,6 +537,15 @@ def create_app(
             folder = names[0].stem
         return enqueue(batch_id, root, profile, name or folder or f"lote-{batch_id[:8]}")
 
+    def require_models() -> None:
+        if not engine.models.ok:
+            raise HTTPException(
+                503,
+                "Análise bloqueada: "
+                + "; ".join(engine.models.problems)
+                + ". Reinstale o programa a partir do pacote original.",
+            )
+
     def enqueue(
         batch_id: str,
         root: Path,
@@ -539,6 +554,7 @@ def create_app(
         source: str = "upload",
         station_id: str | None = None,
     ) -> dict[str, Any]:
+        require_models()
         engine.repo.create_batch(batch_id, batch_name, profile.id, root, iso(engine.now()), source)
         engine.queue.submit(
             engine.analyze, batch_id, root, profile, batch_name, station_id, source == "local"
@@ -560,6 +576,7 @@ def create_app(
         name: str, body: Annotated[dict[str, Any] | None, Body()] = None
     ) -> dict[str, Any]:
         body = body or {}
+        require_models()
         validate(body, "demo-batch-request.schema.json")
         profile = engine.profile(body.get("profile_id", "demo"))
         batch_id = str(uuid.uuid4())
@@ -575,6 +592,7 @@ def create_app(
     def open_local(body: Annotated[dict[str, Any], Body()]) -> dict[str, Any]:
         if settings.mode != "desktop":
             raise HTTPException(404, "lote por pasta só existe no programa desktop")
+        require_models()
         validate(body, "local-batch-request.schema.json")
         default = "sos-piloto" if (settings.profiles_dir / "sos-piloto.yaml").is_file() else "demo"
         profile = engine.profile(body.get("profile_id", default))

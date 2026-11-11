@@ -98,6 +98,9 @@ Passo a passo em [Publicar a demonstração](../guias/publicar-demonstracao.md).
   o mesmo relatório em qualquer máquina.
 - **Auditoria**: cada decisão tem revisor, horário e, quando vem do "Corrigir tudo", o
   identificador da operação (ADR-0009).
+- **Modelos embarcados**: ONNX Runtime em CPU, sem rede; conferidos pelo SHA-256 de
+  `models.lock.json` ao abrir, e modelo ausente ou alterado bloqueia a análise
+  ([fichas](../modelos/index.md)).
 - **Persistência**: SQLite com migrações em SQL puro (ADR-0005).
 - **Erros da API**: RFC 9457 (`application/problem+json`).
 - **Privacidade**: [dados guardados e por quanto tempo](../seguranca-e-privacidade/index.md).

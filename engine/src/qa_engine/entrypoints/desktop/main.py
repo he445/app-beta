@@ -215,13 +215,16 @@ def say(*parts: object) -> None:
 
 def self_test(folder: str, budget_ms: float) -> int:
     """Teste de fumaça do pacote: código 0 se tudo conferiu."""
+    from qa_engine.application.models import verify_models
     from qa_engine.application.profile import load_profile
     from qa_engine.application.selftest import run_self_test
 
     program = AppPaths.detect().program_dir
     sample = Path(folder) if folder else program / "samples" / "lote-exemplo"
     ui = program / "ui" if getattr(sys, "frozen", False) else program / "ui" / "dist"
+    models = verify_models(program / "models")
     checks = {
+        "modelos": models.ok,
         "interface": (ui / "index.html").is_file(),
         "perfis": (program / "profiles" / "sos-piloto.yaml").is_file(),
         "lote de exemplo": (sample / "gabarito.json").is_file(),
@@ -235,7 +238,10 @@ def self_test(folder: str, budget_ms: float) -> int:
         budget_ms=budget_ms,
         extra_checks=checks,
     )
-    say(json.dumps(result.json(), ensure_ascii=False))
+    payload = result.json()
+    if models.problems:
+        payload["errors"] = [*payload["errors"], *models.problems]
+    say(json.dumps(payload, ensure_ascii=False))
     return 0 if result.ok else 1
 
 

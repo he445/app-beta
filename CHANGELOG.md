@@ -8,6 +8,13 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Modelos embarcados: `models.lock.json` (orientação PP-LCNet_x1_0_doc_ori, detector
+  PP-OCRv5_mobile_det, reconhecedores trocr-small-handwritten e PP-OCRv5_mobile_rec, com
+  origem fixada por commit, licença e SHA-256), `tools/models/fetch.py` (download só no
+  build), conferência ao abrir com bloqueio da análise (503) e `models` em `/health`,
+  chave `models_dir`, adaptador `OnnxRuntimeModel` (uma sessão e uma thread por
+  processo). Dependências `onnxruntime` (MIT) e `tokenizers` (Apache-2.0). Fichas dos
+  modelos em `docs/modelos/`.
 - Build Windows (`deploy/windows/`): spec do PyInstaller em modo pasta com `QA.exe`
   (janela) e `QA-suporte.exe` (console), script `build.ps1`, workflow em `windows-latest`
   com testes e conformidade em Windows, teste de fumaça e zip com SHA-256.
@@ -123,6 +130,9 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Corrigido
 
+- Windows: a segunda abertura do programa não conseguia ler a porta da primeira (o
+  trecho travado do arquivo não pode ser lido por outro processo); porta e segredo agora
+  ficam em `instance.json`, separado da trava.
 - A retenção apagava a pasta `root` do lote; agora apaga só a pasta de trabalho em
   `data_dir`, e a pasta de origem nunca é tocada.
 - "Failed to fetch" no celular: respostas 401 e 500 sem cabeçalho CORS; origem

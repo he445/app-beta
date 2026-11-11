@@ -13,6 +13,8 @@ QA-SOS-Docs-<versão>\
   _internal\          motor Python, OpenCV, PDFium, contrato
   ui\                 interface compilada
   profiles\           demo.yaml, completo.yaml, sos-piloto.yaml
+  models\             modelos ONNX (orientação, detector de escritos, reconhecedores)
+  models.lock.json    versão, origem, licença e SHA-256 de cada modelo
   samples\            lote de exemplo do teste de fumaça (com gabarito)
   docs\               esta documentação, para ler sem internet
   LEIA-ME.txt

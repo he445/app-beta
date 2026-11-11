@@ -46,6 +46,7 @@ ENV_KEYS: dict[str, str] = {
     "QA_PROFILES_DIR": "profiles_dir",
     "QA_UI_DIR": "ui_dir",
     "QA_DEMO_DIR": "demo_dir",
+    "QA_MODELS_DIR": "models_dir",
     "QA_MAX_UPLOAD_MB": "max_upload_mb",
     "QA_CORS_ORIGINS": "cors_origins",
     "QA_API_TOKEN": "api_token",
@@ -169,6 +170,7 @@ def server_defaults() -> dict[str, Any]:
         "profiles_dir": str(program_dir() / "profiles"),
         "ui_dir": None,
         "demo_dir": None,
+        "models_dir": None,
         "max_upload_mb": 2048,
         "cors_origins": [],
         "api_token": None,
@@ -189,6 +191,7 @@ def desktop_defaults(paths: AppPaths) -> dict[str, Any]:
         "retention_days": 30,
         "profiles_dir": str(paths.program_dir / "profiles"),
         "ui_dir": str(ui) if (ui / "index.html").is_file() else None,
+        "models_dir": str(paths.program_dir / "models"),
     }
 
 

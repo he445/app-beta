@@ -65,6 +65,7 @@ class Settings:
         workers: processos de análise; ``None`` = automático (núcleos − 1, mínimo 1).
         demo_dir: lotes de demonstração prontos.
         ui_dir: interface compilada para servir na mesma origem.
+        models_dir: modelos embarcados (``models.lock.json`` ao lado); vazio = sem modelos.
         output_dir: destino do lote corrigido gravado em pasta.
         temp_dir: arquivos temporários de correção.
         allowed_roots: pastas de onde se pode abrir lote; vazio = qualquer uma.
@@ -87,6 +88,7 @@ class Settings:
     workers: int | None
     demo_dir: Path | None = None
     ui_dir: Path | None = None
+    models_dir: Path | None = None
     output_dir: Path | None = None
     temp_dir: Path | None = None
     allowed_roots: tuple[Path, ...] = ()

@@ -13,6 +13,7 @@ on:
       - engine/src/qa_engine/adapters/**
       - engine/pyproject.toml
       - engine/uv.lock
+      - models.lock.json
       - .github/workflows/windows.yml
   pull_request:
     paths:
@@ -59,6 +60,10 @@ jobs:
       - name: Conformidade em Windows
         working-directory: engine
         run: uv run pytest -m conformance
+      - uses: actions/cache@v4
+        with:
+          path: build/models
+          key: modelos-windows-${{ hashFiles('models.lock.json') }}
       - name: Build, teste de fumaça e zip
         run: ./deploy/windows/build.ps1
       - name: Programa sem janela responde e a segunda abertura não sobe outro motor

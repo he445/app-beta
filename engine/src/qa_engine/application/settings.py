@@ -130,6 +130,7 @@ def settings_from_values(values: Mapping[str, Any]) -> Settings:
         max_upload_mb=int(values.get("max_upload_mb", 2048)),
         workers=None if workers == "auto" else int(workers),
         demo_dir=_path(values.get("demo_dir")),
+        models_dir=_path(values.get("models_dir")),
         ui_dir=_path(values.get("ui_dir")),
         output_dir=_path(values.get("output_dir")),
         temp_dir=_path(values.get("temp_dir")),

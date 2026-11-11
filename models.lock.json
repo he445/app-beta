@@ -1,0 +1,118 @@
+{
+  "version": 1,
+  "description": "Modelos que vão dentro do pacote. Baixados só no build (tools/models/fetch.py) e conferidos pelo SHA-256 ao abrir o programa. Fichas em docs/modelos/.",
+  "models": [
+    {
+      "id": "doc-orientation",
+      "name": "PP-LCNet_x1_0_doc_ori",
+      "version": "7330ab7039123e46af2dc03154b9969aa412c61d",
+      "source": "https://huggingface.co/PaddlePaddle/PP-LCNet_x1_0_doc_ori_onnx",
+      "license": "Apache-2.0",
+      "used_by": "orientação da página (regra orientation)",
+      "files": [
+        {
+          "path": "PP-LCNet_x1_0_doc_ori_onnx/inference.onnx",
+          "url": "https://huggingface.co/PaddlePaddle/PP-LCNet_x1_0_doc_ori_onnx/resolve/7330ab7039123e46af2dc03154b9969aa412c61d/inference.onnx",
+          "sha256": "af9a0a4f317ff0709ce752067807f819cb15d883f8ecad89f28df1c6ee2d9c92",
+          "size": 6788069
+        },
+        {
+          "path": "PP-LCNet_x1_0_doc_ori_onnx/inference.yml",
+          "url": "https://huggingface.co/PaddlePaddle/PP-LCNet_x1_0_doc_ori_onnx/resolve/7330ab7039123e46af2dc03154b9969aa412c61d/inference.yml",
+          "sha256": "9e195eb729a8173588cd0e8a852c8b373aa606e79e77b4ac7d8346f5426caf26",
+          "size": 766
+        }
+      ]
+    },
+    {
+      "id": "text-detector",
+      "name": "PP-OCRv5_mobile_det",
+      "version": "e6f4fa85f00e168c862bc462aebca69eef9b3d3d",
+      "source": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_det_onnx",
+      "license": "Apache-2.0",
+      "used_by": "achar os escritos na região da numeração",
+      "files": [
+        {
+          "path": "PP-OCRv5_mobile_det_onnx/inference.onnx",
+          "url": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_det_onnx/resolve/e6f4fa85f00e168c862bc462aebca69eef9b3d3d/inference.onnx",
+          "sha256": "a431985659dc921974177a95adcfbb90fd9e51989a5e04d70d0b75f597b6e61d",
+          "size": 4826518
+        },
+        {
+          "path": "PP-OCRv5_mobile_det_onnx/inference.yml",
+          "url": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_det_onnx/resolve/e6f4fa85f00e168c862bc462aebca69eef9b3d3d/inference.yml",
+          "sha256": "98069072e1b6b37d727fd9d9f11725faa46d6ea0de012f2ed26caea011c37699",
+          "size": 903
+        }
+      ]
+    },
+    {
+      "id": "text-recognizer-ppocr",
+      "name": "PP-OCRv5_mobile_rec",
+      "version": "ed152b8b495f84de93cda5709d768548a9127622",
+      "source": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_rec_onnx",
+      "license": "Apache-2.0",
+      "used_by": "ler o número escrito (reconhecedor alternativo)",
+      "files": [
+        {
+          "path": "PP-OCRv5_mobile_rec_onnx/inference.onnx",
+          "url": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_rec_onnx/resolve/ed152b8b495f84de93cda5709d768548a9127622/inference.onnx",
+          "sha256": "da72dc72ca4dc220df0dfde68c1dedc31c58d3e76a25871122e5056227d50092",
+          "size": 16534782
+        },
+        {
+          "path": "PP-OCRv5_mobile_rec_onnx/inference.yml",
+          "url": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_rec_onnx/resolve/ed152b8b495f84de93cda5709d768548a9127622/inference.yml",
+          "sha256": "5dfeb2777f6d0db8177d8128a8acfcf6e6276dc4ac73ea3bf0dc06d6a5e85d8e",
+          "size": 148345
+        }
+      ]
+    },
+    {
+      "id": "text-recognizer-trocr",
+      "name": "trocr-small-handwritten (ONNX, quantizado)",
+      "version": "02bea33ca09a70e2e2d91140a7e6e1a729606a5b",
+      "source": "https://huggingface.co/Xenova/trocr-small-handwritten",
+      "license": "MIT",
+      "used_by": "ler o número escrito à mão",
+      "files": [
+        {
+          "path": "trocr-small-handwritten/encoder_model_quantized.onnx",
+          "url": "https://huggingface.co/Xenova/trocr-small-handwritten/resolve/02bea33ca09a70e2e2d91140a7e6e1a729606a5b/onnx/encoder_model_quantized.onnx",
+          "sha256": "2f29edbd925f8a49c9c7d1349895f960cf09d2efdc76fe23f957048d476e0d03",
+          "size": 23082942
+        },
+        {
+          "path": "trocr-small-handwritten/decoder_model_merged_quantized.onnx",
+          "url": "https://huggingface.co/Xenova/trocr-small-handwritten/resolve/02bea33ca09a70e2e2d91140a7e6e1a729606a5b/onnx/decoder_model_merged_quantized.onnx",
+          "sha256": "51076aa396ab5939c4668db9de901ad51765094b4c05c4c8c1f8ae2012ba1e08",
+          "size": 40527613
+        },
+        {
+          "path": "trocr-small-handwritten/tokenizer.json",
+          "url": "https://huggingface.co/Xenova/trocr-small-handwritten/resolve/02bea33ca09a70e2e2d91140a7e6e1a729606a5b/tokenizer.json",
+          "sha256": "68bcb5468c854362a615f3d2ff6a5e4091a85f4c8198993ed9a30afe0b143737",
+          "size": 4494727
+        },
+        {
+          "path": "trocr-small-handwritten/config.json",
+          "url": "https://huggingface.co/Xenova/trocr-small-handwritten/resolve/02bea33ca09a70e2e2d91140a7e6e1a729606a5b/config.json",
+          "sha256": "ab388d889bdead2a554fc77ae4899caabdb279318e660b457afd29394e8ee43d",
+          "size": 4515
+        },
+        {
+          "path": "trocr-small-handwritten/generation_config.json",
+          "url": "https://huggingface.co/Xenova/trocr-small-handwritten/resolve/02bea33ca09a70e2e2d91140a7e6e1a729606a5b/generation_config.json",
+          "sha256": "cce308da91e0d656e07404c70d4b9c9f5839d426f679eff6fda6dcc0e727e3b6",
+          "size": 185
+        },
+        {
+          "path": "trocr-small-handwritten/preprocessor_config.json",
+          "url": "https://huggingface.co/Xenova/trocr-small-handwritten/resolve/02bea33ca09a70e2e2d91140a7e6e1a729606a5b/preprocessor_config.json",
+          "sha256": "70da3434c33eedb3b56caf4067851741dfeed02f67576dcc3c6407c2533bfaf0",
+          "size": 465
+        }
+      ]
+    }
+  ]
+}

@@ -16,6 +16,8 @@ dependencies = [
     "uvicorn>=0.30",
     "python-multipart>=0.0.9",
     "platformdirs>=4.2",
+    "onnxruntime>=1.20",
+    "tokenizers>=0.20",
 ]
 
 [project.optional-dependencies]
@@ -81,5 +83,5 @@ follow_imports = "skip"
 follow_untyped_imports = true
 
 [[tool.mypy.overrides]]
-module = ["pypdfium2.*", "jsonschema.*"]
+module = ["pypdfium2.*", "jsonschema.*", "onnxruntime", "onnxruntime.*"]
 ignore_missing_imports = true
