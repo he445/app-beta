@@ -26,6 +26,9 @@ QA_DATA_DIR=../data uv run python -m qa_engine.entrypoints.http
 # http://localhost:8000/docs
 ```
 
+As variáveis mais usadas (todas as chaves em [Configuração](../referencia/configuracao.md);
+camadas e arquivos em [Configurar este computador](../guias/configurar-computador.md)):
+
 | Variável | Padrão | Uso |
 | --- | --- | --- |
 | `QA_API_TOKEN` | vazio (sem token) | Liga o token: as rotas da API exigem `Authorization: Bearer` e a interface passa a pedi-lo |
@@ -34,9 +37,9 @@ QA_DATA_DIR=../data uv run python -m qa_engine.entrypoints.http
 | `QA_DEMO_DIR` | vazio | Lotes de demonstração, uma subpasta por lote (na imagem: `/app/demo`) |
 | `QA_DATA_DIR` | `./data` | Lotes enviados e banco SQLite |
 | `QA_PROFILES_DIR` | `profiles/` do repositório | Perfis YAML |
-| `QA_RETENTION_HOURS` | 24 | Lotes mais antigos são apagados |
+| `QA_RETENTION_HOURS` ou `QA_RETENTION_DAYS` | 24 h | Lotes mais antigos são apagados |
 | `QA_MAX_UPLOAD_MB` | 2048 | Limite do envio |
-| `QA_WORKERS` | todos os núcleos (imagem: 1) | Processos de análise; use 1 em servidor de 512 MB |
+| `QA_WORKERS` | núcleos − 1 (imagem: 1) | Processos de análise; use 1 em servidor de 512 MB |
 | `QA_PORT` / `PORT` | 8000 | Porta; `PORT` é a que o Render, o Fly.io e o Cloud Run definem |
 
 Perfis: `profiles/demo.yaml` (padrão da interface) tem foco em página faltando, em branco,

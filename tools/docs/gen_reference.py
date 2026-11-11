@@ -77,7 +77,7 @@ def _type(schema: dict[str, Any]) -> str:
         return " ou ".join(_type(s) for s in schema.get("oneOf") or schema["anyOf"])
     kind = schema.get("type", "objeto")
     if isinstance(kind, list):
-        return " ou ".join(str(k) for k in kind)
+        return " ou ".join(_type({**schema, "type": k}) for k in kind)
     if kind == "array":
         return f"lista de {_type(schema.get('items', {}))}"
     names = {

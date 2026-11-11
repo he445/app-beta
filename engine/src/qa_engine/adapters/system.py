@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import concurrent.futures
+import ctypes
 import multiprocessing
+import os
 import sys
 from collections.abc import Callable, Iterable, Iterator
 from datetime import UTC, datetime
@@ -55,3 +57,31 @@ class ProcessPoolExecutor:
             max_workers=self._workers, mp_context=context
         ) as pool:
             yield from pool.map(fn, items, chunksize=4)
+
+
+def total_memory_mb() -> int | None:
+    """Memória física do computador em MB, ou ``None`` se o sistema não informar."""
+    if sys.platform == "win32":
+
+        class _MemoryStatus(ctypes.Structure):
+            _fields_ = (
+                ("length", ctypes.c_ulong),
+                ("load", ctypes.c_ulong),
+                ("total_phys", ctypes.c_ulonglong),
+                ("avail_phys", ctypes.c_ulonglong),
+                ("total_page", ctypes.c_ulonglong),
+                ("avail_page", ctypes.c_ulonglong),
+                ("total_virtual", ctypes.c_ulonglong),
+                ("avail_virtual", ctypes.c_ulonglong),
+                ("avail_extended", ctypes.c_ulonglong),
+            )
+
+        status = _MemoryStatus()
+        status.length = ctypes.sizeof(_MemoryStatus)
+        if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+            return None
+        return int(status.total_phys // (1024 * 1024))
+    try:
+        return int(os.sysconf("SC_PHYS_PAGES") * os.sysconf("SC_PAGE_SIZE") // (1024 * 1024))
+    except (ValueError, OSError, AttributeError):
+        return None

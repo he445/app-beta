@@ -8,6 +8,13 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Configuração em camadas (ADR-0012): padrões, arquivo da máquina, arquivo do usuário,
+  variáveis `QA_*` e argumentos, validada contra `contracts/schemas/settings.schema.json`.
+  Chaves novas: `output_dir`, `temp_dir`, `allowed_roots`, `default_station`,
+  `batch_settle_seconds`, `retention_days`, `max_memory_mb` e `log_level`. O arquivo da
+  máquina pode travar chaves. Configuração inválida para o programa com a chave, a origem
+  e o valor esperado. Porta `SettingsSource`, adaptadores `LayeredSettings` e `AppPaths`.
+- `docs/referencia/configuracao.md`, gerada do esquema.
 - `tools/docs/gen_reference.py` gera `docs/referencia/api.md`, `perfis.md` e `cli.md` do
   contrato, dos manifestos e do analisador de argumentos.
 - `tools/docs/check_docs.py` e lint de Markdown na CI: link relativo quebrado,
@@ -43,6 +50,8 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Alterado
 
+- `workers` automático passa a ser núcleos − 1 (mínimo 1), limitado pelo teto de memória
+  (`max_memory_mb`); antes eram todos os núcleos.
 - Documentação reorganizada numa pasta só, em português (ADR-0017): `spec/` virou
   `docs/especificacoes/`, `docs/guides` virou `docs/guias`, `docs/architecture` virou
   `docs/arquitetura` (agora no formato arc42), `docs/reference` virou `docs/referencia` e

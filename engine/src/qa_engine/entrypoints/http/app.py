@@ -33,7 +33,7 @@ from qa_engine.adapters.images import FileImageSource
 from qa_engine.adapters.metadata import PillowMetadataReader
 from qa_engine.adapters.page_versions import FilePageVersionStore
 from qa_engine.adapters.sqlite import SqliteRepository
-from qa_engine.adapters.system import SystemClock
+from qa_engine.adapters.system import SystemClock, total_memory_mb
 from qa_engine.application.contracts import ContractError, validate
 from qa_engine.application.correction_service import (
     CORRECTED_ZIP,
@@ -55,7 +55,7 @@ from qa_engine.application.review import (
 from qa_engine.application.serialize import analysis_json, iso
 from qa_engine.application.services import run_analysis
 from qa_engine.domain.model import DecisionAction
-from qa_engine.entrypoints.http.settings import Settings, normalize_origin
+from qa_engine.entrypoints.http.settings import Settings, normalize_origin, server_settings
 from qa_engine.entrypoints.http.uploads import (
     UploadError,
     extract_zip,
@@ -160,7 +160,7 @@ class Engine:
             analysis = run_analysis(
                 root,
                 profile,
-                workers=self.settings.workers,
+                workers=self.settings.effective_workers(memory_mb=total_memory_mb()),
                 name=name,
                 batch_id=batch_id,
                 progress=lambda done, total: self.repo.set_progress(batch_id, done, total),
@@ -178,7 +178,7 @@ class Engine:
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     """Monta a aplicação."""
-    settings = settings or Settings.from_env()
+    settings = settings or server_settings()
     engine = Engine(settings)
     if settings.api_token is None:
         log.warning("QA_API_TOKEN não definido: API sem autenticação (só desenvolvimento)")

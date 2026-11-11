@@ -16,7 +16,7 @@ O código pode virar produto fechado no futuro. Algumas ferramentas de referênc
 
 Dependências atuais do núcleo: NumPy (BSD), OpenCV (Apache-2.0), Pillow (MIT-CMU),
 pypdfium2 (Apache-2.0/BSD-3), PyYAML (MIT), jsonschema (MIT), FastAPI/Starlette (MIT),
-uvicorn (BSD).
+uvicorn (BSD), python-multipart (Apache-2.0), platformdirs (MIT).
 
 ## Consequências
 

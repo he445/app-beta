@@ -46,6 +46,7 @@ nav:
       - Criar uma regra: guias/criar-detector.md
       - Portar para outra linguagem: guias/portar-linguagem.md
       - Desenvolver a interface: guias/desenvolver-interface.md
+      - Configurar este computador: guias/configurar-computador.md
   - Operação:
       - operacao/index.md
       - Interface de revisão: operacao/interface.md
@@ -63,6 +64,7 @@ nav:
           - "0008 Interface web": adr/0008-interface-web.md
           - "0009 Correção em lote e lote corrigido": adr/0009-correcao-em-lote-e-lote-corrigido.md
           - "0010 Demonstração no celular": adr/0010-demonstracao-no-celular.md
+          - "0012 Configuração em camadas": adr/0012-configuracao-em-camadas.md
           - "0017 Documentação numa pasta só": adr/0017-documentacao-em-uma-pasta.md
           - Modelo: adr/0000-template.md
   - Especificações:
@@ -84,6 +86,7 @@ nav:
   - Referência:
       - API: referencia/api.md
       - Perfis: referencia/perfis.md
+      - Configuração: referencia/configuracao.md
       - Linha de comando: referencia/cli.md
       - Código: referencia/codigo.md
   - Modelos: modelos/index.md
@@ -95,3 +98,4 @@ nav:
       - Suíte de conformidade: testes/conformidade.md
       - Base sintética: testes/base-sintetica.md
   - Glossário: glossario.md
+  - Questões em aberto: questoes-em-aberto.md

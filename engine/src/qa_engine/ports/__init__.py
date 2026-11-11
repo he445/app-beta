@@ -13,6 +13,7 @@ from numpy.typing import NDArray
 
 from qa_engine.domain.model import ColorMode
 from qa_engine.domain.sequencing import Mark
+from qa_engine.domain.settings import ResolvedSettings
 
 T = TypeVar("T")
 R = TypeVar("R")
@@ -196,4 +197,19 @@ class CorrectedBatchWriter(Protocol):
 
     def abort(self) -> None:
         """Descarta o que foi escrito."""
+        ...
+
+
+class SettingsSource(Protocol):
+    """Configuração deste computador, vinda de uma ou mais camadas."""
+
+    def load(self) -> ResolvedSettings:
+        """Configuração efetiva, com a origem de cada valor.
+
+        Levanta ``SettingsError`` se alguma camada for inválida.
+        """
+        ...
+
+    def save_user(self, changes: Mapping[str, Any], reset: Sequence[str] = ()) -> ResolvedSettings:
+        """Grava mudanças na camada do usuário e devolve a configuração resultante."""
         ...

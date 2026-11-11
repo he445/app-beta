@@ -33,6 +33,8 @@ Quem usa e o que entra e sai: [diagrama de contexto](c4.md#contexto).
   qualquer implementação que passe 100% da suíte substitui a de referência.
 - **Limiar em perfil**: cada regra tem um manifesto com os padrões, e o perfil do cliente
   os sobrescreve.
+- **Configuração em camadas** (ADR-0012): o que descreve o computador fica em TOML,
+  validado por esquema, com as variáveis `QA_*` como uma das camadas.
 
 ## 5. Blocos de construção
 
@@ -41,7 +43,7 @@ Quem usa e o que entra e sai: [diagrama de contexto](c4.md#contexto).
 | `domain` | Entidades, severidade, resolvedor de sequência, pontuação e veredito | Só a linguagem |
 | `detectors` | Uma regra por defeito: `measure` (por página) e `evaluate` (contra o lote) | Domínio, portas e matrizes (NumPy, OpenCV) |
 | `application` | Casos de uso: analisar lote, decidir, corrigir, lote corrigido, exportar | Domínio, detectores e portas |
-| `ports` | Interfaces: `ImageSource`, `MetadataReader`, `NumberingReader`, `Executor`, `Clock`, `ReviewStore`, `PageVersionStore`, `CorrectedBatchWriter` | Domínio |
+| `ports` | Interfaces: `ImageSource`, `MetadataReader`, `NumberingReader`, `Executor`, `Clock`, `ReviewStore`, `PageVersionStore`, `CorrectedBatchWriter`, `SettingsSource` | Domínio |
 | `adapters` | Implementações das portas (Pillow, pypdfium2, SQLite, zip) | Portas e a ferramenta que embrulham |
 | `entrypoints` | API HTTP (FastAPI) e linha de comando `qa` | Aplicação e contrato |
 

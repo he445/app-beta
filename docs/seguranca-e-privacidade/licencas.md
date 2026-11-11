@@ -17,6 +17,7 @@ processo externo, atrás de uma porta. Dependência nova entra no ADR-0004 no me
 | API HTTP | FastAPI, Starlette | MIT |
 | Servidor HTTP | uvicorn | BSD-3-Clause |
 | Envio de arquivos | python-multipart | Apache-2.0 |
+| Pastas do sistema operacional | platformdirs | MIT |
 | Armazenamento | SQLite (biblioteca padrão do Python) | Domínio público |
 
 PyMuPDF (AGPL) não é usado.
