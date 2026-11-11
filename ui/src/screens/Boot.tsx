@@ -3,6 +3,7 @@
 // sem esta espera, o celular mostrava "Failed to fetch".
 import { useCallback, useEffect, useState } from "react";
 import { DEFAULT_BASE, getSession, health, setSession, type Health } from "../api/client";
+import { adoptEngineSession } from "../lib/session";
 import { waitForEngine } from "../lib/wake";
 
 type State =
@@ -23,7 +24,10 @@ export function Boot({ onReady }: { onReady: (engine: Health) => void }) {
       signal: ctrl.signal,
       onAttempt: (attempt, elapsedMs) => !ctrl.signal.aborted && setState({ phase: "waiting", attempt, elapsedMs }),
     })
-      .then((engine) => !ctrl.signal.aborted && onReady(engine))
+      .then(async (engine) => {
+        await adoptEngineSession(engine);
+        if (!ctrl.signal.aborted) onReady(engine);
+      })
       .catch((err: unknown) => !ctrl.signal.aborted && setState({ phase: "failed", message: err instanceof Error ? err.message : String(err) }));
     return () => ctrl.abort();
   }, [run, onReady]);

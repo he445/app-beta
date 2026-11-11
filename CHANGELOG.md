@@ -8,6 +8,11 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- `GET /health` informa `mode` (`cloud`, `desktop`, `server`) e `capabilities`;
+  `GET /session` devolve o usuário do sistema como revisor no programa desktop
+  (contrato 0.6.0). A interface decide o que mostrar pelas capacidades: "Abrir lote" com
+  caminho da pasta e estação, "Salvar na pasta de saída", sem tela de entrada quando o
+  revisor vem do sistema. O mesmo build serve todos os modos.
 - Lote local lido no lugar (ADR-0013): `POST /local-batches` (só no programa desktop),
   raízes permitidas (`allowed_roots`), espera até a pasta parar de mudar, retrato com
   SHA-256 antes da análise e conferência antes de gravar (409 se o original mudou),

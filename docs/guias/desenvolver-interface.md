@@ -49,6 +49,23 @@ Atalhos da revisão: **A** aprovar, **C** corrigir, **R** retrabalho, **O** defe
 origem, **← →** navegar, **Espaço** ampliar, **Ctrl+Z** desfazer, **1–4** filtrar por
 severidade, **N** digitar a numeração.
 
+## O mesmo build em todos os modos
+
+A interface descobre o que mostrar em `GET /health`: `mode` (`cloud`, `desktop`,
+`server`) e `capabilities`. As telas perguntam só pela capacidade
+(`useCapability("local_batches")`), nunca pelo modo. O teste
+`src/lib/no-mode-checks.test.ts` reprova qualquer verificação de modo ou da janela do
+desktop fora de `api/engine.tsx`, `lib/desktop.ts` e `lib/session.ts`.
+
+| Capacidade | O que liga na interface |
+| --- | --- |
+| `upload` | Envio de pasta ou `.zip` pelo navegador e download do lote corrigido em `.zip` |
+| `demo_batches` | Cartão do lote de demonstração |
+| `local_batches` | Cartão "Abrir lote" (caminho da pasta e, na janela do programa, "Escolher pasta…") |
+| `folder_export` | "Salvar na pasta de saída" no relatório |
+| `os_session` | Sem tela de entrada: o token vem da janela (ou de um código de uso único no fragmento da URL) e o revisor de `GET /session` |
+| `synthetic_only` | Aviso de que só documentos sintéticos ou públicos são aceitos |
+
 ## Estrutura
 
 ```text

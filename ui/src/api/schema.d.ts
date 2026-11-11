@@ -14,11 +14,35 @@ export interface paths {
         /**
          * Saúde do serviço
          * @description Público. A interface consulta esta rota ao abrir: espera o motor acordar (no plano
-         *     gratuito do Render leva até 1 minuto) e descobre se precisa pedir token
-         *     (`auth_required`) ou só o nome do revisor.
+         *     gratuito do Render leva até 1 minuto), descobre se precisa pedir token
+         *     (`auth_required`) e, por `mode` e `capabilities`, o que mostrar. O mesmo build da
+         *     interface serve a nuvem, o programa desktop e o servidor interno.
          *
          */
         get: operations["getHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Quem está usando o motor
+         * @description No programa desktop (`os_session` em `/health`), o revisor é o usuário do Windows e
+         *     a interface não mostra tela de entrada. Fora dele, `reviewer` vem vazio e a interface
+         *     pede o nome.
+         *
+         */
+        get: operations["getSession"];
         put?: never;
         post?: never;
         delete?: never;
@@ -529,6 +553,28 @@ export interface components {
             auth_required: boolean;
             /** @description Quantos lotes de demonstração o servidor tem prontos. */
             demo_batches: number;
+            /**
+             * @description Como o motor está rodando: demonstração em nuvem, programa desktop na estação ou servidor interno.
+             * @enum {unknown}
+             */
+            mode: "cloud" | "desktop" | "server";
+            /** @description O que este motor oferece; a interface mostra só o que está aqui. upload: enviar lote pelo navegador. demo_batches: lotes de demonstração no servidor. local_batches: abrir pasta local ou de rede (POST /local-batches). folder_export: gravar o lote corrigido em pasta. os_session: o revisor vem do usuário do sistema (GET /session), sem tela de entrada. synthetic_only: só documentos sintéticos ou públicos, com apagamento automático. settings: tela de configurações (GET e PUT /settings). */
+            capabilities: ("upload" | "demo_batches" | "local_batches" | "folder_export" | "os_session" | "synthetic_only" | "settings")[];
+        };
+        /**
+         * Session
+         * @description Quem está usando o motor. No programa desktop, o revisor é o usuário do Windows: não há senha para digitar.
+         */
+        "session.schema": {
+            /** @description Nome gravado em cada decisão; vazio quando a interface deve pedir. */
+            reviewer: string | null;
+            /** @description Nome do computador. */
+            machine: string | null;
+            /**
+             * @description os: usuário do sistema operacional. none: a interface pede o nome.
+             * @enum {unknown}
+             */
+            source: "os" | "none";
         };
         /** BatchSummary */
         "batch-summary.schema": {
@@ -1131,6 +1177,27 @@ export interface operations {
                     "application/json": components["schemas"]["health.schema"];
                 };
             };
+        };
+    };
+    getSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sessão atual */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["session.schema"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
     listBatches: {

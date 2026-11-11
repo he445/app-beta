@@ -7,9 +7,11 @@ contrato (``application.contracts``), em vez de modelos escritos à mão.
 from __future__ import annotations
 
 import asyncio
+import getpass
 import io
 import json
 import logging
+import platform
 import shutil
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -83,6 +85,8 @@ API_PREFIXES = (
     "/documents",
     "/profiles",
     "/demo-batches",
+    "/local-batches",
+    "/session",
 )
 """Rotas que exigem token quando ``QA_API_TOKEN`` está definido. O resto (saúde,
 documentação e a interface servida na mesma origem) é público."""
@@ -237,6 +241,26 @@ class Engine:
             self.repo.fail(batch_id, f"{exc.__class__.__name__}: {exc}"[:500])
 
 
+def capabilities(settings: Settings, demo_batches: int) -> list[str]:
+    """O que o motor oferece, conforme o modo (``capabilities`` em ``/health``)."""
+    if settings.mode == "desktop":
+        return ["local_batches", "folder_export", "os_session"]
+    caps = ["upload", "folder_export"] if settings.mode == "server" else ["upload"]
+    if demo_batches:
+        caps.append("demo_batches")
+    if settings.mode == "cloud":
+        caps.append("synthetic_only")
+    return caps
+
+
+def os_user() -> str:
+    """Usuário do sistema operacional, gravado como revisor no programa desktop."""
+    try:
+        return getpass.getuser()
+    except (KeyError, OSError):
+        return "usuário"
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     """Monta a aplicação."""
     settings = settings or server_settings()
@@ -325,12 +349,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/health")
     def health() -> dict[str, Any]:
+        demos = len(list_demo_batches(settings.demo_dir))
         return {
             "status": "ok",
             "version": __version__,
             "auth_required": settings.api_token is not None,
-            "demo_batches": len(list_demo_batches(settings.demo_dir)),
+            "demo_batches": demos,
+            "mode": settings.mode,
+            "capabilities": capabilities(settings, demos),
         }
+
+    @app.get("/session")
+    def session() -> dict[str, Any]:
+        if settings.mode == "desktop":
+            return {"reviewer": os_user(), "machine": platform.node() or None, "source": "os"}
+        return {"reviewer": None, "machine": None, "source": "none"}
 
     # Lotes -----------------------------------------------------------------
 

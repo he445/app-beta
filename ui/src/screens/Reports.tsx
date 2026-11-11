@@ -1,6 +1,7 @@
 // Tela 8: relatório do lote e ordem de retrabalho por estação.
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { raw, download } from "../api/client";
+import { useCapability } from "../api/engine";
 import { usePlan, useReport, useSaveCorrected } from "../api/hooks";
 import { Card, ErrorBox, Loading, Stat } from "../components/ui";
 import { csvObjects } from "../lib/csv";
@@ -25,6 +26,9 @@ export function Reports({ id }: { id: string }) {
   const report = useReport(id);
   const plan = usePlan(id, Boolean(report.data));
   const saveCorrected = useSaveCorrected(id, report.data?.batch.name ?? "lote");
+  const saveToFolder = useSaveCorrected(id, report.data?.batch.name ?? "lote", "folder");
+  const folderExport = useCapability("folder_export");
+  const canDownload = useCapability("upload");
   const exports = useMutation({ mutationFn: () => raw(`/batches/${id}/exports`, { method: "POST" }) });
   const rework = useQuery({
     queryKey: ["rework", id, report.dataUpdatedAt],
@@ -78,19 +82,40 @@ export function Reports({ id }: { id: string }) {
             Decida a página faltando antes de baixar: {plan.data.blockers.map((b) => b.document).join(", ")}.
           </div>
         )}
-        <button
-          className="primary"
-          disabled={!plan.data?.can_save || saveCorrected.isPending}
-          onClick={() => saveCorrected.mutate()}
-        >
-          {saveCorrected.isPending ? "Gerando o lote…" : "Baixar lote corrigido"}
-        </button>
-        <ErrorBox error={saveCorrected.error} />
-        {saveCorrected.data && (
-          <p className="small muted">
-            {saveCorrected.data.totals.exported} páginas exportadas, {saveCorrected.data.totals.removed} removida(s),{" "}
-            {saveCorrected.data.totals.corrected} corrigida(s). SHA-256 do zip: <code>{saveCorrected.data.sha256.slice(0, 16)}…</code>
-          </p>
+        <div className="row wrap">
+          {folderExport && (
+            <button
+              className="primary"
+              disabled={!plan.data?.can_save || saveToFolder.isPending}
+              onClick={() => saveToFolder.mutate()}
+            >
+              {saveToFolder.isPending ? "Gravando o lote…" : "Salvar na pasta de saída"}
+            </button>
+          )}
+          {(canDownload || !folderExport) && (
+            <button
+              className={folderExport ? "" : "primary"}
+              disabled={!plan.data?.can_save || saveCorrected.isPending}
+              onClick={() => saveCorrected.mutate()}
+            >
+              {saveCorrected.isPending ? "Gerando o lote…" : "Baixar lote corrigido (.zip)"}
+            </button>
+          )}
+        </div>
+        <ErrorBox error={saveToFolder.error ?? saveCorrected.error} />
+        {[saveToFolder.data, saveCorrected.data].map(
+          (saved) =>
+            saved && (
+              <p key={saved.file} className="small muted">
+                {saved.totals.exported} páginas exportadas, {saved.totals.removed} removida(s),{" "}
+                {saved.totals.corrected} corrigida(s).{" "}
+                {saved.folder ? (
+                  <>Gravado em <code>{saved.folder}</code>.</>
+                ) : (
+                  <>SHA-256 do zip: <code>{saved.sha256.slice(0, 16)}…</code></>
+                )}
+              </p>
+            ),
         )}
       </Card>
 

@@ -1,6 +1,6 @@
 import { useState, useSyncExternalStore } from "react";
 import { getSession, logout, onSessionChange, type Health } from "./api/client";
-import { EngineContext } from "./api/engine";
+import { EngineContext, hasCapability } from "./api/engine";
 import { href, useRoute, type Route } from "./router";
 import { Batch } from "./screens/Batch";
 import { Boot } from "./screens/Boot";
@@ -29,6 +29,7 @@ export function App() {
 function Shell({ engine }: { engine: Health }) {
   const route = useRoute();
   const session = useSession();
+  const osSession = hasCapability(engine, "os_session");
   const ready = Boolean(session.reviewer) && (!engine.auth_required || Boolean(session.token));
   if (!ready) return <Login engine={engine} />;
   const batchId = "id" in route ? route.id : null;
@@ -49,7 +50,7 @@ function Shell({ engine }: { engine: Health }) {
         <div className="topbar-right">
           <a href={href({ name: "profiles" })}>Perfis</a>
           <span className="muted reviewer-name">{session.reviewer}</span>
-          <button className="link" onClick={logout}>{session.token ? "Sair" : "Trocar"}</button>
+          {!osSession && <button className="link" onClick={logout}>{session.token ? "Sair" : "Trocar"}</button>}
         </div>
       </header>
       <Screen route={route} />

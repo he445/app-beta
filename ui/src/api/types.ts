@@ -22,6 +22,10 @@ export type MissingGap = CorrectedDocument["missing"][number];
 export type CorrectedBatch = S["corrected-batch.schema"];
 export type DecisionAction = DecisionRequest["action"];
 export type Severity = Finding["severity"];
+export type Health = S["health.schema"];
+export type Capability = Health["capabilities"][number];
+export type SessionInfo = S["session.schema"];
+export type Station = NonNullable<Profile["stations"]>[number];
 
 export interface DecisionResponse {
   finding: Finding;

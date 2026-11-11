@@ -1,5 +1,8 @@
 // Cliente HTTP fino: base do motor, autenticação Bearer opcional, erros RFC 9457 e de rede.
 import { clearStore, readStore, writeStore } from "../lib/storage";
+import type { Health } from "./types";
+
+export type { Health } from "./types";
 
 // Chaves novas: a versão anterior gravava o endereço do motor e o reusava para sempre,
 // por cima do endereço da publicação; um endereço velho no celular dava "Failed to fetch".
@@ -124,13 +127,6 @@ export async function raw(path: string, init: RequestInit = {}): Promise<Respons
     throw new ApiError(response.status, title, detail);
   }
   return response;
-}
-
-export interface Health {
-  status: "ok";
-  version: string;
-  auth_required: boolean;
-  demo_batches: number;
 }
 
 /** ``GET /health`` (público): o motor está no ar e o que a entrada deve pedir. */

@@ -5,10 +5,16 @@ Guia para garantidores e conferentes. Para instalar e publicar, veja
 
 ## Fluxo
 
-1. **Entrar** com seu nome, que vai em cada decisão. Se o motor estiver dormindo, a tela
+1. **Entrar.** No programa desktop não há tela de entrada: seu usuário do Windows vai em
+   cada decisão. Na demonstração, digite seu nome. Se o motor estiver dormindo, a tela
    mostra "Acordando o motor de análise…" e segue sozinha (até ~1 minuto no plano
    gratuito). O token só é pedido quando o motor exige (`QA_API_TOKEN`).
-2. **Lote de demonstração:** "Analisar lote-demonstracao" abre um lote sintético já no
+2. **Abrir lote** (programa desktop): cole o caminho da pasta, local ou de rede
+   (`\\servidor\digitalizacao\0412`), ou use **Escolher pasta…**. Escolha o perfil e, se
+   os arquivos não disserem de qual digitalizadora vieram, a estação. A pasta é lida no
+   lugar e nunca alterada. Enquanto a digitalizadora ainda grava, o lote aparece como
+   "Esperando a pasta parar de mudar".
+   **Lote de demonstração:** "Analisar lote-demonstracao" abre um lote sintético já no
    servidor, com página faltando, em branco, torta e sem nitidez, sem enviar nada do
    aparelho. **Enviar lote:** no computador, arraste a pasta ou um `.zip`; no celular,
    escolha um `.zip` ou as imagens. Só documentos sintéticos ou públicos na PoC.
@@ -46,7 +52,8 @@ Guia para garantidores e conferentes. Para instalar e publicar, veja
      o que o "Corrigir tudo" aplicou. Até salvar, a tela avisa que as correções não
      foram salvas.
 6. **Metadados:** confirme ou corrija os campos exigidos pelo Decreto 10.278/2020.
-7. **Relatório:** baixe o lote corrigido (com aviso se ainda houver críticos pendentes),
+7. **Relatório:** salve o lote corrigido na pasta de saída (programa desktop) ou baixe o
+   `.zip` (com aviso se ainda houver críticos pendentes),
    o relatório, os CSVs e a ordem de retrabalho por estação.
 
 O original nunca é alterado: toda correção gera uma cópia, registrada com data, hora e

@@ -164,3 +164,34 @@ def test_port_follows_the_hosting_platform() -> None:
     assert port_from_env({}) == 8000
     assert port_from_env({"PORT": "10000"}) == 10000  # Render define PORT
     assert port_from_env({"PORT": "10000", "QA_PORT": "9000"}) == 9000
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected"),
+    [
+        ("cloud", ["upload", "synthetic_only"]),
+        ("desktop", ["local_batches", "folder_export", "os_session"]),
+        ("server", ["upload", "folder_export"]),
+    ],
+)
+def test_health_declares_mode_and_capabilities(
+    tmp_path: Path, full_profile_path: Path, mode: str, expected: list[str]
+) -> None:
+    with make_client(tmp_path, full_profile_path, mode=mode) as c:
+        health = c.get("/health").json()
+        validate(health, "health.schema.json")
+        assert health["mode"] == mode
+        assert health["capabilities"] == expected
+        session = c.get("/session").json()
+        validate(session, "session.schema.json")
+        if mode == "desktop":
+            assert session["source"] == "os" and session["reviewer"]
+        else:
+            assert session == {"reviewer": None, "machine": None, "source": "none"}
+
+
+def test_session_requires_the_token(tmp_path: Path, full_profile_path: Path) -> None:
+    with make_client(tmp_path, full_profile_path, mode="desktop", api_token="t") as c:
+        assert c.get("/session").status_code == 401
+        assert c.get("/session", headers={"Authorization": "Bearer t"}).status_code == 200
+        assert c.post("/local-batches", json={"path": "x"}).status_code == 401

@@ -8,7 +8,9 @@
     "status",
     "version",
     "auth_required",
-    "demo_batches"
+    "demo_batches",
+    "mode",
+    "capabilities"
   ],
   "properties": {
     "status": {
@@ -25,6 +27,30 @@
       "type": "integer",
       "minimum": 0,
       "description": "Quantos lotes de demonstração o servidor tem prontos."
+    },
+    "mode": {
+      "enum": [
+        "cloud",
+        "desktop",
+        "server"
+      ],
+      "description": "Como o motor está rodando: demonstração em nuvem, programa desktop na estação ou servidor interno."
+    },
+    "capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "upload",
+          "demo_batches",
+          "local_batches",
+          "folder_export",
+          "os_session",
+          "synthetic_only",
+          "settings"
+        ]
+      },
+      "description": "O que este motor oferece; a interface mostra só o que está aqui. upload: enviar lote pelo navegador. demo_batches: lotes de demonstração no servidor. local_batches: abrir pasta local ou de rede (POST /local-batches). folder_export: gravar o lote corrigido em pasta. os_session: o revisor vem do usuário do sistema (GET /session), sem tela de entrada. synthetic_only: só documentos sintéticos ou públicos, com apagamento automático. settings: tela de configurações (GET e PUT /settings)."
     }
   }
 }

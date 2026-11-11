@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "session.schema.json",
+  "title": "Session",
+  "description": "Quem está usando o motor. No programa desktop, o revisor é o usuário do Windows: não há senha para digitar.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "reviewer",
+    "machine",
+    "source"
+  ],
+  "properties": {
+    "reviewer": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Nome gravado em cada decisão; vazio quando a interface deve pedir."
+    },
+    "machine": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Nome do computador."
+    },
+    "source": {
+      "enum": [
+        "os",
+        "none"
+      ],
+      "description": "os: usuário do sistema operacional. none: a interface pede o nome."
+    }
+  }
+}

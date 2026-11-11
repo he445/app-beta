@@ -1,10 +1,11 @@
-// Tela 1: enviar lote. Também lista os lotes recentes.
+// Tela 1: abrir ou enviar lote, conforme o que o motor oferece. Também lista os lotes recentes.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { api, json, raw } from "../api/client";
-import { useEngine } from "../api/engine";
+import { useCapability, useEngine } from "../api/engine";
 import { keys, useBatches, useProfiles } from "../api/hooks";
 import type { BatchStatus } from "../api/types";
+import { LocalBatchCard } from "../components/LocalBatchCard";
 import { Card, ErrorBox, Loading } from "../components/ui";
 import { canPickFolders, filesFromDrop, filesFromInput, isTouchDevice, type PickedFile } from "../lib/files";
 import { VERDICT_LABEL } from "../lib/format";
@@ -51,9 +52,72 @@ function DemoBatchCard({ profile }: { profile: string }) {
   );
 }
 
+const STATUS_LABEL: Record<BatchStatus["status"], string> = {
+  queued: "Na fila",
+  processing: "Processando",
+  analyzed: "Analisado",
+  failed: "Falhou",
+};
+
+const STAGE_LABEL: Record<NonNullable<BatchStatus["stage"]>, string> = {
+  settling: "Esperando a pasta parar de mudar",
+  snapshot: "Conferindo os arquivos",
+  analyzing: "Analisando",
+};
+
+export function statusLabel(b: BatchStatus): string {
+  if ((b.status === "queued" || b.status === "processing") && b.stage) return STAGE_LABEL[b.stage];
+  return STATUS_LABEL[b.status];
+}
+
 export function Home() {
-  const profiles = useProfiles();
+  const canUpload = useCapability("upload");
+  const canOpenFolder = useCapability("local_batches");
+  const syntheticOnly = useCapability("synthetic_only");
+  const hasDemos = useCapability("demo_batches");
   const batches = useBatches();
+  return (
+    <div className="page">
+      <h1>{canOpenFolder ? "Abrir lote" : "Enviar lote"}</h1>
+      {canOpenFolder && <LocalBatchCard />}
+      {hasDemos && <DemoBatchCard profile="demo" />}
+      {syntheticOnly && (
+        <div className="warning" role="note">
+          <strong>Somente documentos sintéticos ou públicos.</strong> Documento de cliente é proibido neste
+          servidor de demonstração. Os lotes são apagados automaticamente após 24 horas.
+        </div>
+      )}
+      {canUpload && <UploadForm />}
+
+      <h2>Lotes recentes</h2>
+      {batches.isLoading && <Loading />}
+      <ErrorBox error={batches.error} />
+      <table className="table">
+        <thead>
+          <tr><th>Lote</th><th>Aberto em</th><th>Situação</th><th>Veredito</th><th>Páginas</th></tr>
+        </thead>
+        <tbody>
+          {batches.data?.map((b) => (
+            <tr key={b.id}>
+              <td><a href={href({ name: "batch", id: b.id })}>{b.name}</a></td>
+              <td>{new Date(b.created_at).toLocaleString("pt-BR")}</td>
+              <td>{statusLabel(b)}</td>
+              <td>{b.summary ? VERDICT_LABEL[b.summary.verdict] : "—"}</td>
+              <td>{b.summary?.pages_total ?? b.progress.total}</td>
+            </tr>
+          ))}
+          {batches.data?.length === 0 && (
+            <tr><td colSpan={5} className="muted">Nenhum lote ainda.</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Enviar lote pelo navegador (capacidade upload). */
+function UploadForm() {
+  const profiles = useProfiles();
   const qc = useQueryClient();
   const [files, setFiles] = useState<PickedFile[]>([]);
   const [profile, setProfile] = useState("demo");
@@ -109,14 +173,7 @@ export function Home() {
   const size = files.reduce((n, f) => n + f.file.size, 0);
 
   return (
-    <div className="page">
-      <h1>Enviar lote</h1>
-      <DemoBatchCard profile={profile} />
-      <div className="warning" role="note">
-        <strong>Somente documentos sintéticos ou públicos.</strong> Documento de cliente é proibido neste
-        servidor de demonstração. Os lotes são apagados automaticamente após 24 horas.
-      </div>
-      <div className="grid-2">
+    <div className="grid-2">
         <Card>
           <div
             className={`dropzone ${dragging ? "dragging" : ""}`}
@@ -200,30 +257,6 @@ export function Home() {
             {sending ? "Enviando…" : "Analisar lote"}
           </button>
         </Card>
-      </div>
-
-      <h2>Lotes recentes</h2>
-      {batches.isLoading && <Loading />}
-      <ErrorBox error={batches.error} />
-      <table className="table">
-        <thead>
-          <tr><th>Lote</th><th>Enviado</th><th>Situação</th><th>Veredito</th><th>Páginas</th></tr>
-        </thead>
-        <tbody>
-          {batches.data?.map((b) => (
-            <tr key={b.id}>
-              <td><a href={href({ name: "batch", id: b.id })}>{b.name}</a></td>
-              <td>{new Date(b.created_at).toLocaleString("pt-BR")}</td>
-              <td>{{ queued: "Na fila", processing: "Processando", analyzed: "Analisado", failed: "Falhou" }[b.status]}</td>
-              <td>{b.summary ? VERDICT_LABEL[b.summary.verdict] : "—"}</td>
-              <td>{b.summary?.pages_total ?? b.progress.total}</td>
-            </tr>
-          ))}
-          {batches.data?.length === 0 && (
-            <tr><td colSpan={5} className="muted">Nenhum lote ainda.</td></tr>
-          )}
-        </tbody>
-      </table>
     </div>
   );
 }
