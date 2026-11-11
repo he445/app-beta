@@ -11,8 +11,10 @@ Qualquer implementação do motor, em qualquer linguagem, só substitui outra qu
 | `tolerances.yaml` | Tolerâncias de medida e coocorrências aceitas | sim |
 | `run.py` | Executor da implementação de referência | sim |
 
-A suíte usa o perfil `profiles/completo.yaml` (todas as regras); o perfil `demo` liga só
-os casos da demonstração (ADR-0010).
+A suíte roda com os perfis `completo` (todas as regras), `demo` (foco da demonstração,
+ADR-0010) e `sos-piloto` (ajustes por estação, ADR-0012). Defeito esperado de uma regra
+que o perfil desliga na estação da página não é cobrado; as regras extras aceitas nesse
+caso estão em `when_disabled`, em `tolerances.yaml`.
 
 ## Por que o lote `core` é gerado e não versionado
 

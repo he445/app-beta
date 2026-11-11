@@ -163,6 +163,8 @@ class BatchAnalysis:
     engine_version: str
     baselines: Mapping[str, Mapping[str, Stats]] = field(default_factory=dict)
     """Linha de base de cada detector, usada para reanalisar cópias corrigidas."""
+    station_ids: Mapping[str, str | None] = field(default_factory=dict)
+    """Identificador da estação por página: define os ajustes de regra aplicados a ela."""
 
 
 def _content_key(files: Mapping[str, FileMetadata]) -> str:
@@ -253,6 +255,7 @@ def analyze_batch(
     batch_id: str | None = None,
     progress: ProgressCallback | None = None,
     engine_version: str = "0.1.0",
+    fallback_station: str | None = None,
 ) -> BatchAnalysis:
     """Analisa um lote local: página, documento e lote, nessa ordem.
 
@@ -268,6 +271,9 @@ def analyze_batch(
         batch_id: identificador; por padrão derivado do conteúdo (determinístico).
         progress: chamado com ``(páginas_prontas, total)``.
         engine_version: versão gravada no resultado.
+        fallback_station: identificador da estação usada nas páginas cujo arquivo não
+            identifica a digitalizadora (estação padrão do computador ou escolhida ao
+            abrir o lote). Ignorado se o perfil não tiver essa estação.
     """
     name = name or root.name
     candidates = sorted(p for p in root.rglob("*") if p.is_file())
@@ -292,10 +298,27 @@ def analyze_batch(
     layouts: list[DocumentLayout] = discover(root, multipage)
     declared = read_manifest(root)
 
-    page_rules = tuple(
-        (d.id, profile.params(d.id)) for d in PAGE_DETECTORS if profile.enabled(d.id)
-    )
-    dup_min_ink = float(profile.params("duplicate_page")["min_ink_coverage"])
+    # Estação de cada arquivo: pelo equipamento ou pasta; senão, a estação de reserva.
+    fallback = profile.station(fallback_station)
+    file_station = {
+        rel: match_station(profile.stations, dict(meta.tags), rel) or fallback
+        for rel, meta in file_meta.items()
+    }
+    rules_cache: dict[str | None, tuple[tuple[str, Mapping[str, Any]], ...]] = {}
+
+    def rules_for(station_id: str | None) -> tuple[tuple[str, Mapping[str, Any]], ...]:
+        """Regras de página ligadas e seus parâmetros para uma estação."""
+        if station_id not in rules_cache:
+            rules_cache[station_id] = tuple(
+                (d.id, profile.params(d.id, station_id))
+                for d in PAGE_DETECTORS
+                if profile.enabled(d.id, station_id)
+            )
+        return rules_cache[station_id]
+
+    def station_id_of(rel: str) -> str | None:
+        station = file_station.get(rel)
+        return station.id if station is not None else None
 
     plan: list[tuple[str, str, int, int | None]] = []  # doc, rel, page_in_file, error marker
     for layout in layouts:
@@ -307,7 +330,12 @@ def analyze_batch(
                 plan.extend((layout.name, ref.rel, i, i) for i in range(count))
 
     tasks = [
-        PageTask(root / rel, page_in_file, page_rules, dup_min_ink)
+        PageTask(
+            root / rel,
+            page_in_file,
+            rules_for(station_id_of(rel)),
+            float(profile.params(duplicate_page.ID, station_id_of(rel))["min_ink_coverage"]),
+        )
         for _, rel, page_in_file, ok in plan
         if ok is not None
     ]
@@ -322,13 +350,15 @@ def analyze_batch(
     doc_pages: dict[str, list[str]] = {layout.name: [] for layout in layouts}
     page_keys: dict[str, str] = {}
     stations: dict[str, str] = {}
+    station_ids: dict[str, str | None] = {}
     done = 0
     for doc_name, rel, page_in_file, ok in plan:
         meta = file_meta[rel]
         pid = ids.page_id(batch, rel, page_in_file)
         doc_id = doc_ids[doc_name]
-        station = match_station(profile.stations, dict(meta.tags), rel)
+        station = file_station.get(rel)
         stations[pid] = station.location if station else "não identificada"
+        station_ids[pid] = station.id if station else None
         if ok is None:
             reason = page_counts[rel] if isinstance(page_counts[rel], str) else "sem páginas"
             result = PageResult(error=str(reason))
@@ -364,31 +394,43 @@ def analyze_batch(
             continue
         observations[pid] = dict(result.observations)
         scales[pid] = result.scale
-        if result.fingerprint is not None:
+        if result.fingerprint is not None and profile.enabled(duplicate_page.ID, station_ids[pid]):
             dh, thumb, sharp, eligible = result.fingerprint
             prints.append(duplicate_page.Fingerprint(pid, dh, thumb, sharp, eligible))
 
     # Linha de base do lote e avaliação de cada página.
+    # Cada página é julgada com os parâmetros da estação dela; a linha de base de uma
+    # regra usa todas as páginas em que a regra está ligada.
     baselines: dict[str, dict[str, Stats]] = {}
-    enabled = {d.id: d for d in PAGE_DETECTORS}
-    for rule, params in page_rules:
-        detector = enabled[rule]
-        baseline = baseline_of(o[rule] for o in observations.values())
-        baselines[rule] = baseline
-        for pid, obs in observations.items():
-            flag = detector.evaluate(obs[detector.id], baseline, params)
+    for detector in PAGE_DETECTORS:
+        measured = {
+            pid: obs[detector.id] for pid, obs in observations.items() if detector.id in obs
+        }
+        if not measured:
+            continue
+        baseline = baseline_of(measured.values())
+        baselines[detector.id] = baseline
+        for pid, obs in measured.items():
+            params = dict(rules_for(station_ids[pid]))[detector.id]
+            flag = detector.evaluate(obs, baseline, params)
             if flag is not None:
                 factory.add(detector.id, Target(TargetKind.PAGE, pid), flag, scales[pid])
 
     duplicate_copies: dict[str, str] = {}
-    if profile.enabled(duplicate_page.ID):
-        dup_params = profile.params(duplicate_page.ID)
-        for pair in duplicate_page.find_duplicates(prints, dup_params):
+    if prints:
+
+        def dup_params_of(page_id: str) -> Mapping[str, Any]:
+            return profile.params(duplicate_page.ID, station_ids[page_id])
+
+        pairs = duplicate_page.find_duplicates(
+            prints, profile.params(duplicate_page.ID), dup_params_of
+        )
+        for pair in pairs:
             duplicate_copies[pair.copy] = pair.original
             factory.add(
                 duplicate_page.ID,
                 Target(TargetKind.PAGE, pair.copy),
-                _duplicate_flag(pair, dup_params),
+                _duplicate_flag(pair, dup_params_of(pair.copy)),
             )
 
     # Sequência e completude por documento.
@@ -468,6 +510,7 @@ def analyze_batch(
         summary=summary,
         engine_version=engine_version,
         baselines=baselines,
+        station_ids=station_ids,
     )
 
 

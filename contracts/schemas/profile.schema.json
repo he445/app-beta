@@ -13,10 +13,12 @@
   "properties": {
     "id": {
       "type": "string",
-      "pattern": "^[a-z0-9_-]+$"
+      "pattern": "^[a-z0-9_-]+$",
+      "description": "Identificador do perfil; é o nome do arquivo em `profiles/`."
     },
     "name": {
-      "type": "string"
+      "type": "string",
+      "description": "Nome mostrado na interface."
     },
     "organization": {
       "type": "string",
@@ -28,9 +30,11 @@
       "properties": {
         "min_dpi": {
           "type": "number",
-          "minimum": 1
+          "minimum": 1,
+          "description": "Resolução mínima em dpi (300 no Anexo I do Decreto 10.278/2020)."
         }
-      }
+      },
+      "description": "Resolução exigida."
     },
     "verdict": {
       "type": "object",
@@ -39,39 +43,47 @@
         "max_yellow_ratio": {
           "type": "number",
           "minimum": 0,
-          "maximum": 1
+          "maximum": 1,
+          "description": "Fração máxima de documentos amarelos para aprovar sem ressalvas."
         },
         "green_sample_ratio": {
           "type": "number",
           "minimum": 0,
-          "maximum": 1
+          "maximum": 1,
+          "description": "Fração dos documentos verdes sorteada para revisão humana."
         }
-      }
+      },
+      "description": "Limites do veredito do lote."
     },
     "numbering": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "enabled": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Liga a conferência de sequência pela numeração."
         },
         "mode": {
           "enum": [
             "simple",
             "recto_verso"
-          ]
+          ],
+          "description": "`simple`: cada imagem tem um número. `recto_verso`: frente e verso (12, 12v), com o verso normalmente sem marca."
         },
         "min_confidence": {
           "type": "number",
           "minimum": 0,
-          "maximum": 1
+          "maximum": 1,
+          "description": "Abaixo disso a leitura não conta."
         },
         "high_confidence": {
           "type": "number",
           "minimum": 0,
-          "maximum": 1
+          "maximum": 1,
+          "description": "A partir disso a leitura é confiável: ancora lacunas e a ordem proposta."
         }
-      }
+      },
+      "description": "Numeração de folhas."
     },
     "identifier_pattern": {
       "type": "string",
@@ -86,48 +98,57 @@
         ],
         "additionalProperties": false,
         "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9_-]+$",
+            "description": "Identificador da estação, único no perfil. Necessário para ser a estação padrão de um computador."
+          },
           "location": {
-            "type": "string"
+            "type": "string",
+            "description": "Onde a estação fica; aparece no relatório e na ordem de retrabalho."
           },
           "make": {
-            "type": "string"
+            "type": "string",
+            "description": "Fabricante gravado no arquivo (tag Make)."
           },
           "model": {
-            "type": "string"
+            "type": "string",
+            "description": "Modelo gravado no arquivo (tag Model)."
           },
           "serial": {
-            "type": "string"
+            "type": "string",
+            "description": "Número de série gravado no arquivo."
           },
           "folder": {
-            "type": "string"
+            "type": "string",
+            "description": "Pasta do lote que pertence a esta estação."
+          },
+          "overrides": {
+            "type": "object",
+            "description": "Ajustes desta estação por regra. Ordem de aplicação: padrão do manifesto, depois `detectors` do perfil, depois isto.",
+            "propertyNames": {
+              "$ref": "#/$defs/rule"
+            },
+            "additionalProperties": {
+              "$ref": "#/$defs/station_override"
+            }
           }
         }
-      }
+      },
+      "description": "Estações de digitalização. Uma página é ligada à estação pelo equipamento gravado no arquivo ou pela pasta."
     },
     "detectors": {
       "type": "object",
       "propertyNames": {
-        "enum": [
-          "corrupted_file",
-          "low_resolution",
-          "blank_page",
-          "black_borders",
-          "blur",
-          "skew",
-          "exposure",
-          "duplicate_page",
-          "missing_page",
-          "out_of_order",
-          "numbering_review",
-          "completeness_unverifiable"
-        ]
+        "$ref": "#/$defs/rule"
       },
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "enabled": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Liga ou desliga a regra."
           },
           "severity": {
             "enum": [
@@ -135,11 +156,48 @@
               "high",
               "medium",
               "low"
-            ]
+            ],
+            "description": "Fixa a severidade das sinalizações desta regra."
           },
           "params": {
-            "type": "object"
+            "type": "object",
+            "description": "Parâmetros que o perfil sobrescreve; os nomes são os do manifesto da regra."
           }
+        }
+      },
+      "description": "Configuração por regra. Regra ausente fica ligada com os padrões do manifesto."
+    }
+  },
+  "$defs": {
+    "rule": {
+      "enum": [
+        "corrupted_file",
+        "low_resolution",
+        "blank_page",
+        "black_borders",
+        "blur",
+        "skew",
+        "exposure",
+        "duplicate_page",
+        "missing_page",
+        "out_of_order",
+        "numbering_review",
+        "completeness_unverifiable"
+      ],
+      "description": "Identificador de uma regra registrada."
+    },
+    "station_override": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "O que a estação muda numa regra.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Liga ou desliga a regra só para as páginas desta estação."
+        },
+        "params": {
+          "type": "object",
+          "description": "Parâmetros que esta estação sobrescreve; os nomes são os do manifesto da regra."
         }
       }
     }

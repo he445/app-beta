@@ -19,7 +19,7 @@ e entrega ao revisor só o que precisa de olho humano.
 | --- | --- |
 | [Visão geral](visao-geral/index.md) | O que o sistema faz, o problema que resolve, escopo, [princípios](visao-geral/principios.md) e [casos de borda](visao-geral/casos-de-borda.md) |
 | [Tutoriais](tutoriais/instalar.md) | Primeiro uso, passo a passo |
-| Guias | [Demonstração](guias/demonstracao.md), [publicar a demonstração](guias/publicar-demonstracao.md), [criar uma regra](guias/criar-detector.md), [portar para outra linguagem](guias/portar-linguagem.md), [desenvolver a interface](guias/desenvolver-interface.md), [configurar este computador](guias/configurar-computador.md) |
+| Guias | [Demonstração](guias/demonstracao.md), [publicar a demonstração](guias/publicar-demonstracao.md), [criar uma regra](guias/criar-detector.md), [portar para outra linguagem](guias/portar-linguagem.md), [desenvolver a interface](guias/desenvolver-interface.md), [configurar este computador](guias/configurar-computador.md), [configurar uma estação](guias/configurar-estacao.md) |
 | [Operação](operacao/index.md) | Manual de quem usa o programa |
 | [Arquitetura](arquitetura/index.md) | Visão arc42, [diagramas C4](arquitetura/c4.md) e decisões ([ADRs](adr/0001-web-app-e-motor-em-servidor.md)) |
 | [Especificações](especificacoes/index.md) | O comportamento exato de cada regra, da sequência, das correções, da pontuação e dos metadados |

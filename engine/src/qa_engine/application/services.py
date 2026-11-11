@@ -23,6 +23,7 @@ def run_analysis(
     name: str | None = None,
     batch_id: str | None = None,
     progress: ProgressCallback | None = None,
+    fallback_station: str | None = None,
 ) -> BatchAnalysis:
     """Analisa um lote com os adaptadores de referência.
 
@@ -34,6 +35,7 @@ def run_analysis(
         name: nome do lote.
         batch_id: identificador explícito do lote.
         progress: callback de progresso.
+        fallback_station: estação das páginas cujo arquivo não identifica a digitalizadora.
     """
     executor = SerialExecutor() if workers == 1 else ProcessPoolExecutor(workers)
     return analyze_batch(
@@ -48,4 +50,5 @@ def run_analysis(
         batch_id=batch_id,
         progress=progress,
         engine_version=__version__,
+        fallback_station=fallback_station,
     )

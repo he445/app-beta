@@ -140,6 +140,7 @@ class CorrectionService:
             finding_ids=finding_ids,
             reviewer=reviewer,
             operation_id=operation_id,
+            station_id=page.get("station_id"),
         )
         return {
             "output": record.output,

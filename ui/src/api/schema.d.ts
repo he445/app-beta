@@ -606,6 +606,8 @@ export interface components {
             loaded: boolean;
             station: string | null;
             numbering?: components["schemas"]["numbering.schema"];
+            /** @description Identificador da estação no perfil, quando a página foi ligada a uma (pelo arquivo ou pela estação padrão). Define os ajustes de regra aplicados à página. */
+            station_id?: string | null;
         };
         /**
          * Region
@@ -915,42 +917,100 @@ export interface components {
             reviewer: string;
         };
         /**
+         * @description Identificador de uma regra registrada.
+         * @enum {unknown}
+         */
+        rule: "corrupted_file" | "low_resolution" | "blank_page" | "black_borders" | "blur" | "skew" | "exposure" | "duplicate_page" | "missing_page" | "out_of_order" | "numbering_review" | "completeness_unverifiable";
+        /** @description O que a estação muda numa regra. */
+        station_override: {
+            /** @description Liga ou desliga a regra só para as páginas desta estação. */
+            enabled?: boolean;
+            /** @description Parâmetros que esta estação sobrescreve; os nomes são os do manifesto da regra. */
+            params?: Record<string, never>;
+        };
+        /**
          * Profile
          * @description Perfil do cliente: limiares e regras são configuração, não código.
          */
         "profile.schema": {
+            /** @description Identificador do perfil; é o nome do arquivo em `profiles/`. */
             id: string;
+            /** @description Nome mostrado na interface. */
             name: string;
             /** @description Pessoa jurídica responsável pela digitalização. */
             organization: string;
+            /** @description Resolução exigida. */
             resolution?: {
+                /** @description Resolução mínima em dpi (300 no Anexo I do Decreto 10.278/2020). */
                 min_dpi?: number;
             };
+            /** @description Limites do veredito do lote. */
             verdict?: {
+                /** @description Fração máxima de documentos amarelos para aprovar sem ressalvas. */
                 max_yellow_ratio?: number;
+                /** @description Fração dos documentos verdes sorteada para revisão humana. */
                 green_sample_ratio?: number;
             };
+            /** @description Numeração de folhas. */
             numbering?: {
+                /** @description Liga a conferência de sequência pela numeração. */
                 enabled?: boolean;
-                /** @enum {unknown} */
+                /**
+                 * @description `simple`: cada imagem tem um número. `recto_verso`: frente e verso (12, 12v), com o verso normalmente sem marca.
+                 * @enum {unknown}
+                 */
                 mode?: "simple" | "recto_verso";
+                /** @description Abaixo disso a leitura não conta. */
                 min_confidence?: number;
+                /** @description A partir disso a leitura é confiável: ancora lacunas e a ordem proposta. */
                 high_confidence?: number;
             };
             /** @description Campos: {batch}, {document}, {seq}. */
             identifier_pattern?: string;
+            /** @description Estações de digitalização. Uma página é ligada à estação pelo equipamento gravado no arquivo ou pela pasta. */
             stations?: {
+                /** @description Identificador da estação, único no perfil. Necessário para ser a estação padrão de um computador. */
+                id?: string;
+                /** @description Onde a estação fica; aparece no relatório e na ordem de retrabalho. */
                 location: string;
+                /** @description Fabricante gravado no arquivo (tag Make). */
                 make?: string;
+                /** @description Modelo gravado no arquivo (tag Model). */
                 model?: string;
+                /** @description Número de série gravado no arquivo. */
                 serial?: string;
+                /** @description Pasta do lote que pertence a esta estação. */
                 folder?: string;
+                /** @description Ajustes desta estação por regra. Ordem de aplicação: padrão do manifesto, depois `detectors` do perfil, depois isto. */
+                overrides?: {
+                    [key: string]: components["schemas"]["station_override"];
+                };
             }[];
+            /** @description Configuração por regra. Regra ausente fica ligada com os padrões do manifesto. */
             detectors?: {
                 [key: string]: {
+                    /** @description Liga ou desliga a regra. */
                     enabled?: boolean;
-                    /** @enum {unknown} */
+                    /**
+                     * @description Fixa a severidade das sinalizações desta regra.
+                     * @enum {unknown}
+                     */
                     severity?: "critical" | "high" | "medium" | "low";
+                    /** @description Parâmetros que o perfil sobrescreve; os nomes são os do manifesto da regra. */
+                    params?: Record<string, never>;
+                };
+            };
+            $defs: {
+                /**
+                 * @description Identificador de uma regra registrada.
+                 * @enum {unknown}
+                 */
+                rule: "corrupted_file" | "low_resolution" | "blank_page" | "black_borders" | "blur" | "skew" | "exposure" | "duplicate_page" | "missing_page" | "out_of_order" | "numbering_review" | "completeness_unverifiable";
+                /** @description O que a estação muda numa regra. */
+                station_override: {
+                    /** @description Liga ou desliga a regra só para as páginas desta estação. */
+                    enabled?: boolean;
+                    /** @description Parâmetros que esta estação sobrescreve; os nomes são os do manifesto da regra. */
                     params?: Record<string, never>;
                 };
             };

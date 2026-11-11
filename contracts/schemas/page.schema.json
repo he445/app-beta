@@ -75,6 +75,13 @@
     },
     "numbering": {
       "$ref": "numbering.schema.json"
+    },
+    "station_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Identificador da estação no perfil, quando a página foi ligada a uma (pelo arquivo ou pela estação padrão). Define os ajustes de regra aplicados à página."
     }
   }
 }

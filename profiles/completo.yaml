@@ -15,8 +15,8 @@ numbering:
   high_confidence: 0.85
 identifier_pattern: "{batch}-{document}"
 stations:
-  - { make: Kodak, model: i4250, location: "Unidade Campo Grande, Estação 3" }
-  - { make: Kodak, model: S2085f, location: "Unidade Centro, Estação 1" }
+  - { id: cg-e3, make: Kodak, model: i4250, location: "Unidade Campo Grande, Estação 3" }
+  - { id: centro-e1, make: Kodak, model: S2085f, location: "Unidade Centro, Estação 1" }
 detectors:
   blank_page:
     params: { remove_blank_pages: true }

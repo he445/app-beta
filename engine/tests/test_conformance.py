@@ -31,14 +31,18 @@ def test_generator_matches_expected(repo: Path, core_batch: Path) -> None:
 
 
 @pytest.mark.conformance
-def test_reference_engine_is_conformant(repo: Path, core_batch: Path) -> None:
+@pytest.mark.parametrize("profile_id", ["completo", "demo", "sos-piloto"])
+def test_reference_engine_is_conformant(repo: Path, core_batch: Path, profile_id: str) -> None:
+    """O motor passa a suíte com cada perfil; regra desligada no perfil não é cobrada."""
     sys.path.insert(0, str(repo / "conformance"))
-    from run import compare
+    from run import compare, disabled_rules
 
-    report = analysis_json(run_analysis(core_batch, load_profile(repo / "profiles/completo.yaml")))
+    path = repo / "profiles" / f"{profile_id}.yaml"
+    report = analysis_json(run_analysis(core_batch, load_profile(path)))
     errors = compare(
         report,
         json.loads((repo / "conformance/expected/core.json").read_text("utf-8")),
         yaml.safe_load((repo / "conformance/tolerances.yaml").read_text("utf-8")),
+        disabled_rules(yaml.safe_load(path.read_text("utf-8"))),
     )
     assert errors == []

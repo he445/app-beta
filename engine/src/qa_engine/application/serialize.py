@@ -68,7 +68,12 @@ def numbering_json(numbering: PageNumbering) -> dict[str, Any]:
     }
 
 
-def page_json(page: Page, numbering: PageNumbering | None, station: str | None) -> dict[str, Any]:
+def page_json(
+    page: Page,
+    numbering: PageNumbering | None,
+    station: str | None,
+    station_id: str | None = None,
+) -> dict[str, Any]:
     """Página no formato de ``page.schema.json``."""
     data: dict[str, Any] = {
         "id": page.id,
@@ -83,6 +88,7 @@ def page_json(page: Page, numbering: PageNumbering | None, station: str | None) 
         "sha256": page.sha256,
         "loaded": page.loaded,
         "station": station,
+        "station_id": station_id,
     }
     if numbering is not None:
         data["numbering"] = numbering_json(numbering)
@@ -148,7 +154,12 @@ def analysis_json(
             for d in analysis.documents
         ],
         "pages": [
-            page_json(p, analysis.numbering.get(p.id), analysis.stations.get(p.id))
+            page_json(
+                p,
+                analysis.numbering.get(p.id),
+                analysis.stations.get(p.id),
+                analysis.station_ids.get(p.id),
+            )
             for p in analysis.pages
         ],
         "findings": [finding_json(f) for f in current],

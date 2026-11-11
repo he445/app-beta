@@ -10,27 +10,29 @@ limiares, e como a numeração e as estações são tratadas.
 
 | Campo | Tipo | Obrigatório | Padrão | Descrição |
 | --- | --- | --- | --- | --- |
-| `id` | texto | sim |  | padrão `^[a-z0-9_-]+$` |
-| `name` | texto | sim |  |  |
+| `id` | texto | sim |  | Identificador do perfil; é o nome do arquivo em `profiles/`. padrão `^[a-z0-9_-]+$` |
+| `name` | texto | sim |  | Nome mostrado na interface. |
 | `organization` | texto | sim |  | Pessoa jurídica responsável pela digitalização. |
-| `resolution` | objeto |  |  |  |
-| `resolution.min_dpi` | número |  |  | mín. 1 |
-| `verdict` | objeto |  |  |  |
-| `verdict.max_yellow_ratio` | número |  |  | mín. 0, máx. 1 |
-| `verdict.green_sample_ratio` | número |  |  | mín. 0, máx. 1 |
-| `numbering` | objeto |  |  |  |
-| `numbering.enabled` | sim/não |  |  |  |
-| `numbering.mode` | `simple` ou `recto_verso` |  |  |  |
-| `numbering.min_confidence` | número |  |  | mín. 0, máx. 1 |
-| `numbering.high_confidence` | número |  |  | mín. 0, máx. 1 |
+| `resolution` | objeto |  |  | Resolução exigida. |
+| `resolution.min_dpi` | número |  |  | Resolução mínima em dpi (300 no Anexo I do Decreto 10.278/2020). mín. 1 |
+| `verdict` | objeto |  |  | Limites do veredito do lote. |
+| `verdict.max_yellow_ratio` | número |  |  | Fração máxima de documentos amarelos para aprovar sem ressalvas. mín. 0, máx. 1 |
+| `verdict.green_sample_ratio` | número |  |  | Fração dos documentos verdes sorteada para revisão humana. mín. 0, máx. 1 |
+| `numbering` | objeto |  |  | Numeração de folhas. |
+| `numbering.enabled` | sim/não |  |  | Liga a conferência de sequência pela numeração. |
+| `numbering.mode` | `simple` ou `recto_verso` |  |  | `simple`: cada imagem tem um número. `recto_verso`: frente e verso (12, 12v), com o verso normalmente sem marca. |
+| `numbering.min_confidence` | número |  |  | Abaixo disso a leitura não conta. mín. 0, máx. 1 |
+| `numbering.high_confidence` | número |  |  | A partir disso a leitura é confiável: ancora lacunas e a ordem proposta. mín. 0, máx. 1 |
 | `identifier_pattern` | texto |  |  | Campos: {batch}, {document}, {seq}. |
-| `stations` | lista de objeto |  |  |  |
-| `stations[].location` | texto | sim |  |  |
-| `stations[].make` | texto |  |  |  |
-| `stations[].model` | texto |  |  |  |
-| `stations[].serial` | texto |  |  |  |
-| `stations[].folder` | texto |  |  |  |
-| `detectors` | objeto |  |  |  |
+| `stations` | lista de objeto |  |  | Estações de digitalização. Uma página é ligada à estação pelo equipamento gravado no arquivo ou pela pasta. |
+| `stations[].id` | texto |  |  | Identificador da estação, único no perfil. Necessário para ser a estação padrão de um computador. padrão `^[a-z0-9_-]+$` |
+| `stations[].location` | texto | sim |  | Onde a estação fica; aparece no relatório e na ordem de retrabalho. |
+| `stations[].make` | texto |  |  | Fabricante gravado no arquivo (tag Make). |
+| `stations[].model` | texto |  |  | Modelo gravado no arquivo (tag Model). |
+| `stations[].serial` | texto |  |  | Número de série gravado no arquivo. |
+| `stations[].folder` | texto |  |  | Pasta do lote que pertence a esta estação. |
+| `stations[].overrides` | objeto |  |  | Ajustes desta estação por regra. Ordem de aplicação: padrão do manifesto, depois `detectors` do perfil, depois isto. |
+| `detectors` | objeto |  |  | Configuração por regra. Regra ausente fica ligada com os padrões do manifesto. |
 
 ## Regras e parâmetros
 

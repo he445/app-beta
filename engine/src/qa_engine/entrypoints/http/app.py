@@ -75,6 +75,8 @@ API_PREFIXES = (
 )
 """Rotas que exigem token quando ``QA_API_TOKEN`` está definido. O resto (saúde,
 documentação e a interface servida na mesma origem) é público."""
+PROFILE_SNAPSHOT = "profile.json"
+"""Cópia do perfil efetivo, gravada na pasta de trabalho de cada lote analisado."""
 EXPORTS = {
     "report.json": "application/json",
     "findings.csv": "text/csv; charset=utf-8",
@@ -120,6 +122,16 @@ class Engine:
             raise HTTPException(404, f"perfil {profile_id!r} não encontrado")
         return load_profile(path)
 
+    def batch_profile(self, batch_id: str, profile_id: str) -> Profile:
+        """Perfil com que o lote foi analisado: a cópia gravada com ele, se houver.
+
+        Assim o resultado continua explicável mesmo que o perfil mude depois.
+        """
+        snapshot = self.batch_dir(batch_id) / PROFILE_SNAPSHOT
+        if snapshot.is_file():
+            return profile_from_dict(json.loads(snapshot.read_text("utf-8")))
+        return self.profile(profile_id)
+
     def context(self, batch_id: str) -> BatchContext:
         """Contexto dos casos de uso de correção para um lote."""
         row = self.repo.get_batch(batch_id)
@@ -136,7 +148,7 @@ class Engine:
             batch_id=batch_id,
             name=row.name,
             root=row.root,
-            profile=self.profile(row.profile_id),
+            profile=self.batch_profile(batch_id, row.profile_id),
             baselines=baselines,
             versions=FilePageVersionStore(work / "corrected"),
         )
@@ -157,6 +169,11 @@ class Engine:
     def analyze(self, batch_id: str, root: Path, profile: Profile, name: str) -> None:
         """Trabalho de fundo: analisa e grava o resultado."""
         try:
+            work = self.batch_dir(batch_id)
+            work.mkdir(parents=True, exist_ok=True)
+            (work / PROFILE_SNAPSHOT).write_text(
+                json.dumps(dict(profile.raw), ensure_ascii=False, indent=2), encoding="utf-8"
+            )
             analysis = run_analysis(
                 root,
                 profile,
@@ -164,6 +181,7 @@ class Engine:
                 name=name,
                 batch_id=batch_id,
                 progress=lambda done, total: self.repo.set_progress(batch_id, done, total),
+                fallback_station=self.settings.default_station,
             )
             report = analysis_json(analysis)
             validate(report, "analysis.schema.json")
@@ -482,7 +500,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(404, "página não encontrada")
         batch_id = page["batch_id"]
         row = batch_or_404(batch_id)
-        profile = engine.profile(row.profile_id)
+        profile = engine.batch_profile(batch_id, row.profile_id)
         report = report_or_409(batch_id)
         overrides = dict(engine.repo.numbering_overrides(batch_id))
         overrides[page_id] = body["value"]

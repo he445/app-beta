@@ -45,3 +45,15 @@ UUID v5 determinísticos (`engine/src/qa_engine/domain/ids.py`):
 
 Arquivo que não decodifica (0 byte, truncado, formato inválido) não interrompe o lote:
 vira uma página com `loaded = false` e a regra [`corrupted_file`](detectors/corrupted_file.md).
+
+## Estação de cada página
+
+Cada arquivo é ligado à primeira estação do perfil cujos campos informados (`make`,
+`model`, `serial` comparados sem diferença de maiúsculas com as tags do arquivo; `folder`
+comparada com o caminho relativo) batem todos. Sem estação compatível, vale a estação de
+reserva (`default_station` do computador ou a escolhida ao abrir o lote), se ela existir
+no perfil. Todas as páginas de um arquivo têm a mesma estação.
+
+Os parâmetros de cada regra numa página seguem a ordem: manifesto da regra, `detectors`
+do perfil, `overrides` da estação. A linha de base de uma regra é calculada sobre todas
+as páginas em que ela está ligada, e cada página é avaliada com os seus parâmetros.

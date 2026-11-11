@@ -5,7 +5,7 @@ Especificação: ``docs/especificacoes/detectors/duplicate_page.md``.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 import cv2
@@ -73,10 +73,25 @@ def _ncc(a: NDArray[np.uint8], b: NDArray[np.uint8]) -> float:
     return float((x * y).sum() / denom) if denom > 0 else 0.0
 
 
-def find_duplicates(prints: Sequence[Fingerprint], params: Params) -> list[DuplicatePair]:
-    """Compara todos os pares elegíveis do lote (O(n²) no hash, correlação só nos candidatos)."""
+def find_duplicates(
+    prints: Sequence[Fingerprint],
+    params: Params,
+    params_of: Callable[[str], Params] | None = None,
+) -> list[DuplicatePair]:
+    """Compara todos os pares elegíveis do lote (O(n²) no hash, correlação só nos candidatos).
+
+    Args:
+        prints: impressões digitais das páginas.
+        params: parâmetros do perfil.
+        params_of: parâmetros por página, quando a estação dela ajusta a regra; o par é
+            julgado com os da página que seria a cópia.
+    """
     max_bits = int(params["max_hash_distance"])
     min_sim = float(params["min_similarity"])
+    if params_of is not None:
+        each = [params_of(p.page_id) for p in prints if p.eligible]
+        max_bits = max([max_bits, *(int(e["max_hash_distance"]) for e in each)])
+        min_sim = min([min_sim, *(float(e["min_similarity"]) for e in each)])
     pairs: list[DuplicatePair] = []
     flagged: set[str] = set()
     eligible = [p for p in prints if p.eligible]
@@ -92,6 +107,12 @@ def find_duplicates(prints: Sequence[Fingerprint], params: Params) -> list[Dupli
             copy, original = (
                 (first, second) if first.sharpness < second.sharpness else (second, first)
             )
+            if params_of is not None:
+                own = params_of(copy.page_id)
+                if distance > int(own["max_hash_distance"]):
+                    continue
+                if similarity < float(own["min_similarity"]):
+                    continue
             if copy.page_id in flagged:
                 continue
             flagged.add(copy.page_id)

@@ -128,8 +128,12 @@ def reanalyze(
     dpi: float | None,
     profile: Profile,
     baselines: Mapping[str, Mapping[str, Stats]],
+    station_id: str | None = None,
 ) -> tuple[str, ...]:
-    """Regras de página que ainda disparam numa imagem corrigida."""
+    """Regras de página que ainda disparam numa imagem corrigida.
+
+    Usa os parâmetros da estação da página, como na análise.
+    """
     gray = img if img.ndim == 2 else cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     scale = ANALYSIS_DPI / dpi if dpi else 1240 / min(gray.shape)
     size = (max(1, round(gray.shape[1] * scale)), max(1, round(gray.shape[0] * scale)))
@@ -138,9 +142,9 @@ def reanalyze(
     features = compute_features(small)
     remaining: list[str] = []
     for detector in PAGE_DETECTORS:
-        if not profile.enabled(detector.id):
+        if not profile.enabled(detector.id, station_id):
             continue
-        params = profile.params(detector.id)
+        params = profile.params(detector.id, station_id)
         obs = detector.measure(raster, features, params)
         if detector.evaluate(obs, baselines.get(detector.id, {}), params) is not None:
             remaining.append(detector.id)
@@ -235,6 +239,7 @@ def refresh_page(
     finding_ids: Sequence[str],
     reviewer: str,
     operation_id: str | None = None,
+    station_id: str | None = None,
 ) -> AppliedCorrection:
     """Garante que a versão corrigida da página corresponde à cadeia e registra o evento.
 
@@ -255,6 +260,7 @@ def refresh_page(
         finding_ids: sinalizações que mudaram neste evento.
         reviewer: quem decidiu.
         operation_id: operação em lote, se houver.
+        station_id: estação da página (parâmetros da reanálise).
     """
     ids = [f.id for f in chain]
     output = current_version(store, page_id, ids)
@@ -274,7 +280,7 @@ def refresh_page(
                 ),
                 None,
             )
-        remaining = reanalyze(image, dpi, profile, baselines)
+        remaining = reanalyze(image, dpi, profile, baselines, station_id)
     stored = store.append(
         {
             "event": event,

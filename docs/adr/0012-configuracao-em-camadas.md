@@ -39,6 +39,16 @@ Opção 3.
   mesmo usuário.
 - **Porta `SettingsSource`**, com o adaptador `LayeredSettings`. As pastas do sistema vêm
   de `platformdirs` (adaptador `AppPaths`).
+- **Ajustes da digitalizadora por estação.** No perfil, cada estação ganha um `id` e pode
+  ter `overrides` por regra (`enabled` e `params`). Ordem de aplicação de cada parâmetro:
+  padrão do `manifest.yaml` da regra, depois `detectors` do perfil, depois `overrides` da
+  estação da página. A estação é reconhecida pelo equipamento gravado no arquivo ou pela
+  pasta; sem isso, vale a estação padrão do computador (`default_station`). Cada página é
+  julgada com os parâmetros da sua estação, e a linha de base de uma regra usa todas as
+  páginas em que ela está ligada.
+- **Cópia do perfil por lote.** Cada lote analisado grava o perfil efetivo
+  (`profile.json` na pasta de trabalho); decisões e reanálises posteriores usam essa
+  cópia, para o resultado continuar explicável mesmo que o perfil mude.
 - Segredo não vai em arquivo pela tela: `api_token` só entra por variável ou argumento e
   nunca é devolvido pela API.
 
@@ -48,5 +58,9 @@ Opção 3.
 - TOML é lido com a biblioteca padrão (`tomllib`); a gravação, só de chaves simples, é
   feita pelo próprio adaptador, sem dependência nova.
 - A referência de configuração é gerada do esquema (`docs/referencia/configuracao.md`).
+- Perfil novo `sos-piloto` com duas estações ajustadas. A suíte de conformidade roda com
+  `completo`, `demo` e `sos-piloto`; defeito de regra desligada na estação da página não é
+  cobrado.
 - Testes cobrem a precedência das cinco camadas, as chaves travadas e os erros com
-  origem (`engine/tests/test_settings.py`).
+  origem (`engine/tests/test_settings.py`) e a origem de cada parâmetro de regra
+  (`engine/tests/test_profile_stations.py`).

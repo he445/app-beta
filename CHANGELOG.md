@@ -15,6 +15,13 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
   máquina pode travar chaves. Configuração inválida para o programa com a chave, a origem
   e o valor esperado. Porta `SettingsSource`, adaptadores `LayeredSettings` e `AppPaths`.
 - `docs/referencia/configuracao.md`, gerada do esquema.
+- Ajustes da digitalizadora por estação: `stations[].id` e `stations[].overrides` no
+  perfil (`enabled` e `params` por regra), aplicados depois de `detectors`. Cada página é
+  julgada com os parâmetros da sua estação; `page.station_id` no relatório. Estação padrão
+  do computador para arquivos sem equipamento. Perfil `sos-piloto`.
+- Cada lote grava a cópia do perfil efetivo (`profile.json`); decisões e reanálises usam
+  essa cópia.
+- A suíte de conformidade roda com `completo`, `demo` e `sos-piloto`.
 - `tools/docs/gen_reference.py` gera `docs/referencia/api.md`, `perfis.md` e `cli.md` do
   contrato, dos manifestos e do analisador de argumentos.
 - `tools/docs/check_docs.py` e lint de Markdown na CI: link relativo quebrado,
