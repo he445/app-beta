@@ -43,7 +43,7 @@ Quem usa e o que entra e sai: [diagrama de contexto](c4.md#contexto).
 | `domain` | Entidades, severidade, resolvedor de sequência, pontuação e veredito | Só a linguagem |
 | `detectors` | Uma regra por defeito: `measure` (por página) e `evaluate` (contra o lote) | Domínio, portas e matrizes (NumPy, OpenCV) |
 | `application` | Casos de uso: analisar lote, decidir, corrigir, lote corrigido, exportar | Domínio, detectores e portas |
-| `ports` | Interfaces: `ImageSource`, `MetadataReader`, `NumberingReader`, `Executor`, `Clock`, `ReviewStore`, `PageVersionStore`, `CorrectedBatchWriter`, `SettingsSource`, `BatchFolder` | Domínio |
+| `ports` | Interfaces: `ImageSource`, `MetadataReader`, `NumberingReader`, `Executor`, `Clock`, `ReviewStore`, `PageVersionStore`, `CorrectedBatchWriter`, `SettingsSource`, `BatchFolder`, `OrientationClassifier` | Domínio |
 | `adapters` | Implementações das portas (Pillow, pypdfium2, SQLite, zip e pasta, pastas locais e de rede, configuração em TOML) | Portas e a ferramenta que embrulham |
 | `entrypoints` | API HTTP (FastAPI) e linha de comando `qa` | Aplicação e contrato |
 

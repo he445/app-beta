@@ -1,6 +1,6 @@
 {
  "seed": 20261105,
- "pages": 29,
+ "pages": 35,
  "defects": [
   {
    "rule": "blur",
@@ -94,6 +94,35 @@
   {
    "rule": "corrupted_file",
    "file": "CX001/DOC0006/0005.tif",
+   "page_in_file": 0
+  },
+  {
+   "rule": "orientation",
+   "file": "CX001/DOC0007/0002.tif",
+   "page_in_file": 0,
+   "params": {
+    "angle_deg": 90
+   }
+  },
+  {
+   "rule": "orientation",
+   "file": "CX001/DOC0007/0003.tif",
+   "page_in_file": 0,
+   "params": {
+    "angle_deg": 180
+   }
+  },
+  {
+   "rule": "orientation",
+   "file": "CX001/DOC0007/0004.tif",
+   "page_in_file": 0,
+   "params": {
+    "angle_deg": 270
+   }
+  },
+  {
+   "rule": "blank_page",
+   "file": "CX001/DOC0007/0006.tif",
    "page_in_file": 0
   }
  ]

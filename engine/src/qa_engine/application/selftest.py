@@ -83,6 +83,7 @@ def run_self_test(
     budget_ms: float = 1000.0,
     max_factor: float = 3.0,
     extra_checks: Mapping[str, bool] | None = None,
+    models_dir: Path | None = None,
 ) -> SelfTestResult:
     """Analisa o lote de exemplo e confere com ``gabarito.json``.
 
@@ -94,11 +95,14 @@ def run_self_test(
         max_factor: falha se o custo passar de ``max_factor × budget_ms`` (a máquina do CI
             não é a estação; o limite absoluto é conferido na máquina do piloto).
         extra_checks: outras conferências do pacote (interface, perfis, modelos).
+        models_dir: modelos embarcados (orientação).
     """
     checks = dict(extra_checks or {})
     errors = [f"conferência falhou: {name}" for name, ok in checks.items() if not ok]
     started = time.perf_counter()
-    analysis = run_analysis(sample, profile, workers=workers, name="lote-exemplo")
+    analysis = run_analysis(
+        sample, profile, workers=workers, name="lote-exemplo", models_dir=models_dir
+    )
     seconds = time.perf_counter() - started
     report = analysis_json(analysis)
     validate(report, "analysis.schema.json")

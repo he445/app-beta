@@ -28,7 +28,9 @@ options:
 ## `qa analyze`
 
 ```text
-usage: qa analyze [-h] [--profile PROFILE] --out OUT [--workers WORKERS] [--quiet] batch
+usage: qa analyze [-h] [--profile PROFILE] --out OUT [--workers WORKERS] [--models MODELS]
+                  [--quiet]
+                  batch
 
 positional arguments:
   batch              pasta do lote
@@ -38,6 +40,7 @@ options:
   --profile PROFILE  perfil YAML do cliente
   --out OUT          pasta de saída
   --workers WORKERS  processos (1 = em série)
+  --models MODELS    pasta dos modelos (orientação da página)
   --quiet
 ```
 

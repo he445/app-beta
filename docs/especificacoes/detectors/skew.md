@@ -1,6 +1,6 @@
 # skew: Inclinação
 
-Versão: 1.0.0 · Severidade padrão: médio (alto acima do limite de reprovação)
+Versão: 1.1.0 · Severidade padrão: médio (alto acima do limite de reprovação)
 
 ## Objetivo
 
@@ -39,7 +39,7 @@ severidade ← alto se |inclinação| > reject_threshold, senão médio
 | `flag_threshold` | número (graus) | 0,5 | ≥ 0 |
 | `reject_threshold` | número (graus) | 3,0 | ≥ 0 |
 | `max_angle` | número (graus) | 10 | 1 a 45 |
-| `min_ink_coverage` | número | 0,005 | 0 a 1 |
+| `min_ink_coverage` | número | 0,01 | 0 a 1 |
 
 ## Saída
 
@@ -64,4 +64,7 @@ severidade ← alto se |inclinação| > reject_threshold, senão médio
 
 ## Histórico de versões
 
+- 1.1.0: `min_ink_coverage` sobe para 0,01, o limite de página quase branca: verso só
+  com carimbo ou rubrica não é avaliado por esta regra (a página já vai ao revisor como
+  quase branca).
 - 1.0.0: versão inicial.

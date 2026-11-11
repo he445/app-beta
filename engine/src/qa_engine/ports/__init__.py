@@ -244,3 +244,24 @@ class BatchFolder(Protocol):
     def sha256(self, path: Path) -> str | None:
         """SHA-256 do arquivo, ou ``None`` se ele não pôde ser lido (bloqueado, sem permissão)."""
         ...
+
+
+@dataclass(frozen=True, slots=True)
+class OrientationPrediction:
+    """Orientação do conteúdo de uma página.
+
+    ``angle`` é o giro horário que a página sofreu na digitalização (0, 90, 180 ou 270);
+    para endireitar, gira-se ``(360 - angle) % 360`` no sentido horário.
+    """
+
+    angle: int
+    probability: float
+    probabilities: Mapping[int, float] = field(default_factory=dict)
+
+
+class OrientationClassifier(Protocol):
+    """Classifica a orientação de uma página (0°, 90°, 180° ou 270°)."""
+
+    def classify(self, gray: NDArray[np.uint8]) -> OrientationPrediction:
+        """Orientação mais provável e a probabilidade de cada ângulo."""
+        ...

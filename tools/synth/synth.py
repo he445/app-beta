@@ -191,6 +191,22 @@ def text_page(
     return np.clip(arr, 0, 255).astype(np.uint8)
 
 
+def stamp_page(rng: random.Random, size: tuple[int, int]) -> NDArray[np.uint8]:
+    """Verso só com carimbo: um círculo com texto, levemente inclinado, sobre papel."""
+    w, h = size
+    stamp = Image.new("L", (int(w * 0.32), int(w * 0.32)), 255)
+    draw = ImageDraw.Draw(stamp)
+    s = stamp.size[0]
+    draw.ellipse((4, 4, s - 4, s - 4), outline=60, width=max(3, s // 60))
+    font = _font(int(s * 0.14), bold=True)
+    draw.text((s * 0.13, s * 0.40), "RECEBIDO", font=font, fill=60)
+    stamp = stamp.rotate(rng.uniform(-20, 20), fillcolor=255)
+    page = Image.fromarray(blank_page(rng, size))
+    mask = Image.fromarray((np.asarray(stamp) < 200).astype(np.uint8) * 255)
+    page.paste(Image.new("L", stamp.size, 70), (int(w * 0.55), int(h * 0.62)), mask)
+    return np.asarray(page)
+
+
 def blank_page(rng: random.Random, size: tuple[int, int]) -> NDArray[np.uint8]:
     """Página em branco com ruído de papel."""
     np_rng = np.random.default_rng(rng.randint(0, 2**31))
@@ -256,7 +272,16 @@ def d_lowres(p: Page, rng: random.Random) -> dict[str, Any]:
     return {"dpi": dpi}
 
 
+def d_rotate(p: Page, rng: random.Random, angle: int | None = None) -> dict[str, Any]:
+    """Página digitalizada de lado ou de cabeça para baixo (giro horário de 90, 180 ou 270)."""
+    angle = angle if angle is not None else rng.choice([90, 180, 270])
+    turns = {90: cv2.ROTATE_90_CLOCKWISE, 180: cv2.ROTATE_180, 270: cv2.ROTATE_90_COUNTERCLOCKWISE}
+    p.gray = np.ascontiguousarray(cv2.rotate(p.gray, turns[angle]))
+    return {"angle_deg": angle}
+
+
 PAGE_DEFECTS = {
+    "orientation": d_rotate,
     "blur": d_blur,
     "skew": d_skew,
     "black_borders": d_borders,
@@ -334,6 +359,8 @@ def build(out: Path, plan: list[list[dict[str, Any]]], seed: int, size: tuple[in
             folio = spec.get("folio", i)
             if spec.get("kind") == "blank":
                 page = Page(blank_page(rng, size), folio=None)
+            elif spec.get("kind") == "stamp":
+                page = Page(stamp_page(rng, size), folio=None)
             else:
                 page = Page(
                     text_page(rng, size, folio, len(doc), i, spec.get("density", 1.0)), folio=folio
@@ -359,7 +386,8 @@ def build(out: Path, plan: list[list[dict[str, Any]]], seed: int, size: tuple[in
                 fn = PAGE_DEFECTS[defect]
                 params = fn(page, rng, **spec.get("defect_args", {}))
                 truth.add(defect.split("_faded")[0], file=rel, page_in_file=0, params=params)
-            if spec.get("kind") == "blank":
+            if spec.get("kind") in {"blank", "stamp"}:
+                # Só carimbo: "quase branca", nunca removida (blank_page.md).
                 truth.add("blank_page", file=rel, page_in_file=0)
             if "duplicate_of" in spec:
                 src_rel = f"{name}/{spec['duplicate_of'] + 1:04d}.tif"
@@ -481,6 +509,14 @@ def conformance_plan() -> list[list[dict[str, Any]]]:
             dict(clean),
             {"corrupt": "truncate"},
             {"corrupt": "empty"},
+        ],
+        [
+            dict(clean),
+            {"defect": "orientation", "defect_args": {"angle": 90}},
+            {"defect": "orientation", "defect_args": {"angle": 180}},
+            {"defect": "orientation", "defect_args": {"angle": 270}},
+            {"density": 0.12},
+            {"kind": "stamp"},
         ],
     ]
 

@@ -72,6 +72,7 @@ nav:
           - "0011 Programa desktop": adr/0011-programa-desktop.md
           - "0012 Configuração em camadas": adr/0012-configuracao-em-camadas.md
           - "0013 Lote local lido no lugar": adr/0013-lote-local-lido-no-lugar.md
+          - "0014 Orientação por classificador ONNX": adr/0014-orientacao-por-classificador-onnx.md
           - "0016 Diagnóstico com token de administrador": adr/0016-diagnostico-com-token-de-administrador.md
           - "0017 Documentação numa pasta só": adr/0017-documentacao-em-uma-pasta.md
           - Modelo: adr/0000-template.md
@@ -91,6 +92,7 @@ nav:
           - duplicate_page: especificacoes/detectors/duplicate_page.md
           - exposure: especificacoes/detectors/exposure.md
           - low_resolution: especificacoes/detectors/low_resolution.md
+          - orientation: especificacoes/detectors/orientation.md
           - skew: especificacoes/detectors/skew.md
   - Referência:
       - API: referencia/api.md

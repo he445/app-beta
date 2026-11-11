@@ -22,8 +22,16 @@ para 256, recorte central de 224 × 224, RGB normalizado (média 0,485 0,456 0,4
 
 ## Métricas medidas
 
-Ainda não medidas no programa: entram quando a regra de orientação for ligada, com as
-páginas giradas da base sintética e, no beta, com as confirmações dos garantidores.
+Base sintética (páginas A5 a 300 dpi com texto, `tools/synth`): em 12 páginas (3 de pé e
+3 em cada ângulo), 12 acertos, todos com probabilidade entre 0,92 e 0,93. Página com
+pouco texto (cobertura 0,013): sem sinalização. Página só com carimbo: o modelo dizia
+180° com 0,87; por isso página quase branca não é classificada.
+
+No beta, as rotações confirmadas e desfeitas pelos garantidores medem o acerto na letra
+e no papel reais.
+
+Observação: o modelo raramente passa de 0,93 de probabilidade, então `auto_threshold`
+acima disso desligaria a rotação automática.
 
 ## Limitações conhecidas
 

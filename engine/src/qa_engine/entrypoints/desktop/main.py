@@ -237,6 +237,7 @@ def self_test(folder: str, budget_ms: float) -> int:
         load_profile(program / "profiles" / "completo.yaml"),
         budget_ms=budget_ms,
         extra_checks=checks,
+        models_dir=program / "models" if models.ok else None,
     )
     payload = result.json()
     if models.problems:

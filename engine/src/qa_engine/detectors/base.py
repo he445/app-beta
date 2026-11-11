@@ -20,6 +20,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from qa_engine.domain.model import ColorMode, Correction, Region, Severity
+from qa_engine.ports import OrientationPrediction
 
 ANALYSIS_DPI = 150.0
 """Resolução nominal do raster de análise."""
@@ -37,6 +38,7 @@ class PageRaster:
         dpi: resolução gravada no arquivo original, se houver.
         color_mode: modo de cor do arquivo original.
         mean_saturation: saturação média (0 a 1) quando o original é colorido.
+        orientation: orientação prevista pela porta ``OrientationClassifier``, se calculada.
     """
 
     gray: NDArray[np.uint8]
@@ -44,6 +46,7 @@ class PageRaster:
     dpi: float | None
     color_mode: ColorMode | None = None
     mean_saturation: float | None = None
+    orientation: OrientationPrediction | None = None
 
 
 @dataclass(frozen=True, slots=True)

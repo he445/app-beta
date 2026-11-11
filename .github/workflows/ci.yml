@@ -25,6 +25,12 @@ jobs:
       - name: Fontes da base sintética
         run: sudo apt-get update && sudo apt-get install -y fonts-dejavu-core
       - run: uv sync --frozen --extra desktop
+      - uses: actions/cache@v4
+        with:
+          path: models
+          key: modelos-${{ hashFiles('models.lock.json') }}
+      - name: Modelos (conferidos pelo SHA-256; a conformidade usa a orientação)
+        run: uv run python ../tools/models/fetch.py --out ../models
       - run: uv run ruff check . ../tools ../conformance
       - run: uv run ruff format --check . ../tools ../conformance
       - run: uv run mypy

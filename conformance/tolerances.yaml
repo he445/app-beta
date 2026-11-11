@@ -14,6 +14,11 @@ measures:
     field: measure
     expected: params.fraction
     rel: 0.02
+  orientation:
+    # O ângulo detectado é o giro horário que a página sofreu; a correção desfaz.
+    field: correction.params.detected_deg
+    expected: params.angle_deg
+    abs: 0
 # Regras extras aceitas no mesmo alvo de um defeito esperado, com a justificativa.
 co_occurrence:
   blur: [exposure]            # desfoque reduz o contraste papel-tinta medido

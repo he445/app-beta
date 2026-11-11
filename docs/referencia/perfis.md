@@ -67,6 +67,18 @@ Especificação: [blank_page.md](../especificacoes/detectors/blank_page.md).
 | `mark_min_area` | inteiro | `400` | mín. 0 | Área em pixels a 150 dpi de uma marca isolada (carimbo, rubrica) que impede classificar como branca |
 | `remove_blank_pages` | sim/não | `true` |  | Se a correção proposta para página branca é removê-la |
 
+### `orientation`
+
+Página de lado ou de cabeça para baixo. Versão 1.0.0, severidade `medium`.
+Especificação: [orientation.md](../especificacoes/detectors/orientation.md).
+
+| Parâmetro | Tipo | Padrão | Faixa | Descrição |
+| --- | --- | --- | --- | --- |
+| `auto_threshold` | número | `0.9` | mín. 0, máx. 1 | Probabilidade a partir da qual a rotação entra no Corrigir tudo |
+| `review_threshold` | número | `0.6` | mín. 0, máx. 1 | Probabilidade a partir da qual a rotação é sugerida para revisão |
+| `skip_blank` | sim/não | `true` |  | Não classificar página quase sem tinta |
+| `min_ink_coverage` | número | `0.01` | mín. 0, máx. 1 | Cobertura de tinta abaixo da qual a página é quase branca e não é classificada |
+
 ### `black_borders`
 
 Bordas pretas. Versão 1.0.0, severidade `low`.
@@ -80,7 +92,7 @@ Especificação: [black_borders.md](../especificacoes/detectors/black_borders.md
 
 ### `blur`
 
-Desfoque. Versão 1.0.0, severidade `critical`.
+Desfoque. Versão 1.1.0, severidade `critical`.
 Especificação: [blur.md](../especificacoes/detectors/blur.md).
 
 | Parâmetro | Tipo | Padrão | Faixa | Descrição |
@@ -88,11 +100,11 @@ Especificação: [blur.md](../especificacoes/detectors/blur.md).
 | `relative_threshold` | número | `0.4` | mín. 0, máx. 1 | Fração da mediana do lote abaixo da qual a página é sinalizada |
 | `absolute_threshold` | número | `0.6` | mín. 0 | Limiar usado quando o lote tem menos de min_batch_size páginas elegíveis |
 | `min_batch_size` | inteiro | `5` | mín. 1 | Páginas elegíveis necessárias para usar a mediana do lote |
-| `min_ink_coverage` | número | `0.005` | mín. 0, máx. 1 | Cobertura de tinta mínima para a página ser avaliada |
+| `min_ink_coverage` | número | `0.01` | mín. 0, máx. 1 | Cobertura de tinta mínima para a página ser avaliada |
 
 ### `skew`
 
-Inclinação. Versão 1.0.0, severidade `medium`.
+Inclinação. Versão 1.1.0, severidade `medium`.
 Especificação: [skew.md](../especificacoes/detectors/skew.md).
 
 | Parâmetro | Tipo | Padrão | Faixa | Descrição |
@@ -100,7 +112,7 @@ Especificação: [skew.md](../especificacoes/detectors/skew.md).
 | `flag_threshold` | número | `0.5` | mín. 0 | Ângulo absoluto, em graus, acima do qual a página é sinalizada |
 | `reject_threshold` | número | `3.0` | mín. 0 | Ângulo absoluto acima do qual a severidade sobe para alto |
 | `max_angle` | número | `10.0` | mín. 1, máx. 45 | Faixa de busca, em graus, para cada lado |
-| `min_ink_coverage` | número | `0.005` | mín. 0, máx. 1 | Cobertura mínima para estimar o ângulo |
+| `min_ink_coverage` | número | `0.01` | mín. 0, máx. 1 | Cobertura mínima para estimar o ângulo |
 
 ### `exposure`
 

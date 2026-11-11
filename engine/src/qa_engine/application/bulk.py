@@ -94,6 +94,11 @@ def skip_reason(finding: Mapping[str, Any]) -> tuple[str, str]:
             SkipCategory.MANUAL,
             "Duplicata nunca é removida automaticamente: duas vias podem ser legítimas.",
         )
+    if correction.get("params", {}).get("review"):
+        return (
+            SkipCategory.MANUAL,
+            f"Confiança média: confira e aplique (C). {correction['description']}",
+        )
     return SkipCategory.MANUAL, f"Exige decisão humana: {correction['description']}"
 
 
@@ -102,6 +107,8 @@ def is_automatic(finding: Mapping[str, Any]) -> bool:
     correction = finding["correction"]
     if correction["kind"] != CorrectionClass.AUTOMATIC.value:
         return False
+    if correction.get("params", {}).get("review"):
+        return False  # sugestão com confiança média: o revisor confere antes
     if finding["rule"] in MANUAL_ONLY_RULES | MISSING_PAGE_RULES | RESCAN_RULES:
         return False
     action = CorrectionAction(correction["action"])

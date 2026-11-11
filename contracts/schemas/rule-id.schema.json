@@ -6,6 +6,7 @@
     "corrupted_file",
     "low_resolution",
     "blank_page",
+    "orientation",
     "black_borders",
     "blur",
     "skew",

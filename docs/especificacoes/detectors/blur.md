@@ -1,6 +1,6 @@
 # blur: Desfoque
 
-Versão: 1.0.0 · Severidade padrão: crítico
+Versão: 1.1.0 · Severidade padrão: crítico
 
 ## Objetivo
 
@@ -42,7 +42,7 @@ torna a medida independente da quantidade de texto.
 | `relative_threshold` | número | 0,4 | 0 a 1 |
 | `absolute_threshold` | número | 0,6 | ≥ 0 |
 | `min_batch_size` | inteiro | 5 | ≥ 1 |
-| `min_ink_coverage` | número | 0,005 | 0 a 1 |
+| `min_ink_coverage` | número | 0,01 | 0 a 1 |
 
 ## Saída
 
@@ -67,4 +67,7 @@ torna a medida independente da quantidade de texto.
 
 ## Histórico de versões
 
+- 1.1.0: `min_ink_coverage` sobe para 0,01, o limite de página quase branca: verso só
+  com carimbo ou rubrica não é avaliado por esta regra (a página já vai ao revisor como
+  quase branca).
 - 1.0.0: versão inicial, normalizada pelo contraste.

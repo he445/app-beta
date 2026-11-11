@@ -54,16 +54,19 @@ jobs:
       - name: Dependências (com janela e PyInstaller)
         working-directory: engine
         run: uv sync --frozen --python 3.12 --extra desktop --group build
+      - uses: actions/cache@v4
+        with:
+          path: models
+          key: modelos-windows-${{ hashFiles('models.lock.json') }}
+      - name: Modelos (conferidos pelo SHA-256)
+        working-directory: engine
+        run: uv run python ../tools/models/fetch.py --out ../models
       - name: Testes do motor em Windows
         working-directory: engine
         run: uv run pytest -m "not conformance"
       - name: Conformidade em Windows
         working-directory: engine
         run: uv run pytest -m conformance
-      - uses: actions/cache@v4
-        with:
-          path: build/models
-          key: modelos-windows-${{ hashFiles('models.lock.json') }}
       - name: Build, teste de fumaça e zip
         run: ./deploy/windows/build.ps1
       - name: Programa sem janela responde e a segunda abertura não sobe outro motor

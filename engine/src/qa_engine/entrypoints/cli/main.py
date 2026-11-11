@@ -34,7 +34,9 @@ def _analyze(args: argparse.Namespace) -> int:
         if not args.quiet and (done == total or done % 20 == 0):
             print(f"\r{done}/{total} páginas", end="", file=sys.stderr, flush=True)
 
-    analysis = run_analysis(args.batch, profile, workers=args.workers, progress=progress)
+    analysis = run_analysis(
+        args.batch, profile, workers=args.workers, progress=progress, models_dir=args.models
+    )
     elapsed = time.perf_counter() - started
     report = analysis_json(analysis)
     validate(report, "analysis.schema.json")
@@ -126,6 +128,7 @@ def build_parser() -> argparse.ArgumentParser:
     analyze.add_argument("--profile", type=Path, help="perfil YAML do cliente")
     analyze.add_argument("--out", type=Path, required=True, help="pasta de saída")
     analyze.add_argument("--workers", type=int, default=None, help="processos (1 = em série)")
+    analyze.add_argument("--models", type=Path, help="pasta dos modelos (orientação da página)")
     analyze.add_argument("--quiet", action="store_true")
     analyze.set_defaults(func=_analyze)
 

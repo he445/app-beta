@@ -31,3 +31,5 @@ detectors:
   exposure: { enabled: false }
   low_resolution: { enabled: false }
   duplicate_page: { enabled: false }
+  # Orientação: fora do foco da demonstração (e o servidor de demonstração não tem modelos).
+  orientation: { enabled: false }

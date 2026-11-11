@@ -37,8 +37,11 @@ def test_reference_engine_is_conformant(repo: Path, core_batch: Path, profile_id
     sys.path.insert(0, str(repo / "conformance"))
     from run import compare, disabled_rules
 
+    models = repo / "models"
+    if not (models / "PP-LCNet_x1_0_doc_ori_onnx" / "inference.onnx").is_file():
+        pytest.skip("modelos não baixados: uv run --project engine python tools/models/fetch.py")
     path = repo / "profiles" / f"{profile_id}.yaml"
-    report = analysis_json(run_analysis(core_batch, load_profile(path)))
+    report = analysis_json(run_analysis(core_batch, load_profile(path), models_dir=models))
     errors = compare(
         report,
         json.loads((repo / "conformance/expected/core.json").read_text("utf-8")),

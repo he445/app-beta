@@ -11,7 +11,7 @@ $name = "QA-SOS-Docs-$version"
 $build = Join-Path $root "build"
 $dist = Join-Path $build "dist"
 $out = Join-Path $dist $name
-# build/models fica (cache): fetch.py só baixa o que falta ou não confere.
+# A pasta models (raiz) é o cache: fetch.py só baixa o que falta ou não confere.
 foreach ($dir in "dist", "work", "samples", "site") {
   Remove-Item -Recurse -Force (Join-Path $build $dir) -ErrorAction SilentlyContinue
 }
@@ -36,7 +36,7 @@ Write-Host "2. lote de exemplo do teste de fumaça"
 uv run --project engine python tools/synth/synth.py selftest --out "$build/samples/lote-exemplo"
 
 Write-Host "2b. modelos (baixados e conferidos pelo SHA-256 de models.lock.json)"
-uv run --project engine python tools/models/fetch.py --out "$build/models"
+uv run --project engine python tools/models/fetch.py --out models
 if ($LASTEXITCODE -ne 0) { throw "modelos não conferem" }
 
 Write-Host "3. documentação offline"
@@ -54,7 +54,7 @@ Copy-Item -Recurse "$build/samples/lote-exemplo" (Join-Path $out "samples/lote-e
 Copy-Item -Recurse "$build/site" (Join-Path $out "docs")
 Copy-Item deploy/windows/LEIA-ME.txt $out
 Copy-Item models.lock.json $out
-Copy-Item -Recurse "$build/models" (Join-Path $out "models")
+Copy-Item -Recurse models (Join-Path $out "models")
 
 Write-Host "6. teste de fumaça"
 & (Join-Path $out "QA-suporte.exe") --self-test

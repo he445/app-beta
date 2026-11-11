@@ -20,6 +20,7 @@ from qa_engine.detectors import (
     blur,
     exposure,
     low_resolution,
+    orientation,
     skew,
 )
 from qa_engine.detectors.base import PageDetector
@@ -29,6 +30,7 @@ RULES: tuple[str, ...] = (
     "corrupted_file",
     "low_resolution",
     "blank_page",
+    "orientation",
     "black_borders",
     "blur",
     "skew",
@@ -44,6 +46,7 @@ RULES: tuple[str, ...] = (
 PAGE_DETECTORS: tuple[PageDetector, ...] = (
     low_resolution.DETECTOR,
     blank_page.DETECTOR,
+    orientation.DETECTOR,
     black_borders.DETECTOR,
     blur.DETECTOR,
     skew.DETECTOR,

@@ -6,16 +6,18 @@ import hashlib
 import math
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+import numpy as np
 
 from qa_engine.adapters.metadata import LOSSY_COMPRESSIONS
 from qa_engine.application.layout import DocumentLayout, discover, read_manifest
 from qa_engine.application.metadata import MetadataField, document_metadata, match_station
 from qa_engine.application.profile import Profile
-from qa_engine.detectors import corrupted_file, duplicate_page, sequence
+from qa_engine.detectors import corrupted_file, duplicate_page, orientation, sequence
 from qa_engine.detectors.base import (
     ANALYSIS_DPI,
     Flag,
@@ -53,6 +55,7 @@ from qa_engine.ports import (
     LoadError,
     MetadataReader,
     NumberingReader,
+    OrientationClassifier,
 )
 
 ProgressCallback = Callable[[int, int], None]
@@ -66,6 +69,8 @@ class PageTask:
     page_in_file: int
     rules: tuple[tuple[str, Mapping[str, Any]], ...]
     duplicate_min_ink: float
+    models_dir: Path | None = None
+    """Modelos embarcados; sem eles, a orientação não é classificada."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,8 +87,40 @@ class PageResult:
     error: str | None = None
 
 
-def analyze_page(task: PageTask, source: ImageSource | None = None) -> PageResult:
-    """Decodifica uma página e calcula as medidas de cada detector ligado (função de processo)."""
+def _classifier(models_dir: Path) -> OrientationClassifier:
+    """Classificador de orientação do processo (carregado uma vez por processo)."""
+    from qa_engine.adapters.orientation import PaddleOrientationClassifier
+
+    key = models_dir.resolve()
+    if key not in _CLASSIFIERS:
+        _CLASSIFIERS[key] = PaddleOrientationClassifier(key)
+    return _CLASSIFIERS[key]
+
+
+_CLASSIFIERS: dict[Path, OrientationClassifier] = {}
+
+ORIENTED_RULES = frozenset({"skew"})
+"""Regras que dependem do sentido do texto: medidas na vista já orientada."""
+
+
+def oriented_view(gray: Any, angle: int) -> Any:
+    """Vista em memória girada para ficar de pé (o arquivo original não é tocado)."""
+    turns = {90: 1, 180: 2, 270: 3}  # np.rot90 gira anti-horário: desfaz o giro horário
+    return np.ascontiguousarray(np.rot90(gray, turns[angle])) if angle in turns else gray
+
+
+def analyze_page(
+    task: PageTask,
+    source: ImageSource | None = None,
+    classifier: OrientationClassifier | None = None,
+) -> PageResult:
+    """Decodifica uma página e calcula as medidas de cada detector ligado (função de processo).
+
+    Com a regra ``orientation`` ligada e os modelos disponíveis, classifica a orientação e,
+    se a página estiver de lado ou de cabeça para baixo com probabilidade de pelo menos
+    ``review_threshold``, mede as regras que dependem do sentido do texto (inclinação)
+    numa vista girada em memória. As demais regras medem a imagem original.
+    """
     if source is None:
         from qa_engine.adapters.images import FileImageSource
 
@@ -96,9 +133,25 @@ def analyze_page(task: PageTask, source: ImageSource | None = None) -> PageResul
         loaded.gray, loaded.scale, loaded.dpi, loaded.color_mode, loaded.mean_saturation
     )
     features = compute_features(raster.gray)
+    rules = dict(task.rules)
+    upright_raster, upright_features = raster, features
+    if orientation.ID in rules and not orientation.skips(features, rules[orientation.ID]):
+        if classifier is None and task.models_dir is not None:
+            classifier = _classifier(task.models_dir)
+        if classifier is not None:
+            prediction = classifier.classify(raster.gray)
+            raster = replace(raster, orientation=prediction)
+            review_at = float(rules[orientation.ID]["review_threshold"])
+            if prediction.angle and prediction.probability >= review_at:
+                view = oriented_view(raster.gray, prediction.angle)
+                upright_raster = replace(raster, gray=view)
+                upright_features = compute_features(view)
     detectors = {d.id: d for d in PAGE_DETECTORS}
     observations = {
-        rule: detectors[rule].measure(raster, features, params) for rule, params in task.rules
+        rule: detectors[rule].measure(upright_raster, upright_features, params)
+        if rule in ORIENTED_RULES
+        else detectors[rule].measure(raster, features, params)
+        for rule, params in task.rules
     }
     blur_obs = observations.get("blur")
     sharpness = blur_obs.values["energy"] if blur_obs is not None else 0.0
@@ -256,6 +309,7 @@ def analyze_batch(
     progress: ProgressCallback | None = None,
     engine_version: str = "0.1.0",
     fallback_station: str | None = None,
+    models_dir: Path | None = None,
 ) -> BatchAnalysis:
     """Analisa um lote local: página, documento e lote, nessa ordem.
 
@@ -274,6 +328,8 @@ def analyze_batch(
         fallback_station: identificador da estação usada nas páginas cujo arquivo não
             identifica a digitalizadora (estação padrão do computador ou escolhida ao
             abrir o lote). Ignorado se o perfil não tiver essa estação.
+        models_dir: modelos embarcados (orientação). Sem eles, a regra ``orientation`` não
+            classifica nenhuma página.
     """
     name = name or root.name
     candidates = sorted(p for p in root.rglob("*") if p.is_file())
@@ -335,6 +391,7 @@ def analyze_batch(
             page_in_file,
             rules_for(station_id_of(rel)),
             float(profile.params(duplicate_page.ID, station_id_of(rel))["min_ink_coverage"]),
+            models_dir,
         )
         for _, rel, page_in_file, ok in plan
         if ok is not None

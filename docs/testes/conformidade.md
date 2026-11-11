@@ -11,6 +11,10 @@ Qualquer implementação do motor, em qualquer linguagem, só substitui outra qu
 | `tolerances.yaml` | Tolerâncias de medida e coocorrências aceitas | sim |
 | `run.py` | Executor da implementação de referência | sim |
 
+A suíte precisa dos modelos baixados (`tools/models/fetch.py`): a regra de orientação
+usa o classificador real. Sem eles, os testes de conformidade são pulados com o comando
+para baixar.
+
 A suíte roda com os perfis `completo` (todas as regras), `demo` (foco da demonstração,
 ADR-0010) e `sos-piloto` (ajustes por estação, ADR-0012). Defeito esperado de uma regra
 que o perfil desliga na estação da página não é cobrado; as regras extras aceitas nesse

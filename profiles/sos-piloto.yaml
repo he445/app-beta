@@ -34,6 +34,7 @@ stations:
     overrides:
       duplicate_page: { enabled: false }
 detectors:
+  orientation: { params: { auto_threshold: 0.90, review_threshold: 0.60 } }
   black_borders: { enabled: true }
   exposure: { enabled: true }
   low_resolution: { enabled: true, params: { min_dpi: 300 } }

@@ -8,6 +8,12 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Orientação da página (ADR-0014): regra `orientation` com o classificador
+  PP-LCNet_x1_0_doc_ori (porta `OrientationClassifier`); rotação automática acima de 0,90
+  e sugerida para revisão entre 0,60 e 0,90 (fora do "Corrigir tudo"); inclinação medida
+  numa vista girada em memória; página quase branca não é classificada. Base sintética com
+  páginas giradas, com pouco texto e só com carimbo; conformidade com os modelos.
+  `qa analyze --models`.
 - Diagnóstico (ADR-0016): erros do motor, dos trabalhos de fundo, da abertura e da
   interface (error boundary, `window.onerror`, promessas rejeitadas), sem imagem nem texto
   de documento e com caminhos mascarados; agrupamento por assinatura; pasta compartilhada
@@ -102,6 +108,7 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Alterado
 
+- `skew` e `blur` 1.1.0: página quase branca (cobertura abaixo de 0,01) não é avaliada.
 - `corrupted_file` 1.1.0: arquivo bloqueado por outro programa, sem permissão ou em rede
   que caiu vira "arquivo inacessível", com a correção "abrir o lote de novo".
 - `workers` automático passa a ser núcleos − 1 (mínimo 1), limitado pelo teto de memória

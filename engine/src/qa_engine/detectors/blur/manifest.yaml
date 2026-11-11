@@ -1,5 +1,5 @@
 id: blur
-version: 1.0.0
+version: 1.1.0
 title: Desfoque
 spec: docs/especificacoes/detectors/blur.md
 input: page_gray_150dpi
@@ -9,5 +9,5 @@ params:
   relative_threshold: { type: number, default: 0.4, minimum: 0, maximum: 1, description: "Fração da mediana do lote abaixo da qual a página é sinalizada" }
   absolute_threshold: { type: number, default: 0.6, minimum: 0, description: "Limiar usado quando o lote tem menos de min_batch_size páginas elegíveis" }
   min_batch_size: { type: integer, default: 5, minimum: 1, description: "Páginas elegíveis necessárias para usar a mediana do lote" }
-  min_ink_coverage: { type: number, default: 0.005, minimum: 0, maximum: 1, description: "Cobertura de tinta mínima para a página ser avaliada" }
+  min_ink_coverage: { type: number, default: 0.01, minimum: 0, maximum: 1, description: "Cobertura de tinta mínima para a página ser avaliada" }
 output: finding

@@ -1434,7 +1434,7 @@ export interface components {
          * @description Identificador de uma regra registrada.
          * @enum {unknown}
          */
-        "rule-id.schema": "corrupted_file" | "low_resolution" | "blank_page" | "black_borders" | "blur" | "skew" | "exposure" | "duplicate_page" | "missing_page" | "out_of_order" | "numbering_review" | "completeness_unverifiable";
+        "rule-id.schema": "corrupted_file" | "low_resolution" | "blank_page" | "orientation" | "black_borders" | "blur" | "skew" | "exposure" | "duplicate_page" | "missing_page" | "out_of_order" | "numbering_review" | "completeness_unverifiable";
         /**
          * StationOverride
          * @description O que a estação muda numa regra.

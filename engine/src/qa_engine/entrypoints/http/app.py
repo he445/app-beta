@@ -326,6 +326,7 @@ class Engine:
                 batch_id=batch_id,
                 progress=lambda done, total: self.repo.set_progress(batch_id, done, total),
                 fallback_station=station_id or self.settings.default_station,
+                models_dir=self.settings.models_dir if self.models.checked else None,
             )
             report = analysis_json(analysis)
             validate(report, "analysis.schema.json")
