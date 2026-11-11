@@ -8,6 +8,10 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Numeração manuscrita sintética (`tools/synth/numbering.py`): oito cenários do leitor por
+  imagem e recortes rotulados, com fontes manuscritas OFL versionadas; bench dos
+  reconhecedores (`tools/bench_numbering.py`: acerto exato, entre as três leituras,
+  ambíguo e tempo).
 - Rotação na revisão: botões e atalhos Q, E e W giram a cópia da página (somando ao giro
   já aplicado); cada giro é decisão auditada numa sinalização `orientation` (a do modelo
   ou uma nova) e vai para o lote corrigido. `PUT /pages/{id}/rotation` (contrato 0.10.0).

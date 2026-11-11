@@ -1,0 +1,47 @@
+{
+  "description": "Fontes manuscritas (SIL Open Font License 1.1) só para gerar números escritos à mão na base sintética. Não vão no programa.",
+  "fonts": [
+    {
+      "file": "Caveat-Variable.ttf",
+      "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/caveat/Caveat[wght].ttf",
+      "license": "OFL-1.1",
+      "sha256": "0bdb6b660482d31531b3945849fba5916b3ef8695da7024a9e6b9ee3c4157988"
+    },
+    {
+      "file": "Kalam-Regular.ttf",
+      "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/kalam/Kalam-Regular.ttf",
+      "license": "OFL-1.1",
+      "sha256": "57cecb63d4608019371954274ae1d8c397764debd5b19d4a33c1efa4dc923c0b"
+    },
+    {
+      "file": "PatrickHand-Regular.ttf",
+      "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/patrickhand/PatrickHand-Regular.ttf",
+      "license": "OFL-1.1",
+      "sha256": "0f173b3e6cb6d1af25babf7f0057c5ac4ee11f9992b0469bb817e967ef4ad0fc"
+    },
+    {
+      "file": "IndieFlower-Regular.ttf",
+      "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/indieflower/IndieFlower-Regular.ttf",
+      "license": "OFL-1.1",
+      "sha256": "ccc94b22b156e9c5dfe50fd051f01b097600b252c24473e624bb43a143140a94"
+    },
+    {
+      "file": "GochiHand-Regular.ttf",
+      "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/gochihand/GochiHand-Regular.ttf",
+      "license": "OFL-1.1",
+      "sha256": "c46b029ab4846b2935e301af0b2cf85a1d74d2858e6a33636a3e64cf3cc4696b"
+    },
+    {
+      "file": "ShadowsIntoLight.ttf",
+      "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/shadowsintolight/ShadowsIntoLight.ttf",
+      "license": "OFL-1.1",
+      "sha256": "1347863151acdc00fa281daaba1a3543dbce5870b55f9cf7479a15bb84007681"
+    },
+    {
+      "file": "ReenieBeanie.ttf",
+      "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/reeniebeanie/ReenieBeanie.ttf",
+      "license": "OFL-1.1",
+      "sha256": "0ea608aa325bf9e11c9590cc0b63dcf7cd215e270784f1ebbe6fad4927b31ff8"
+    }
+  ]
+}

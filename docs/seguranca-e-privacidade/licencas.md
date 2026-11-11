@@ -48,7 +48,10 @@ Origem, versão e SHA-256 de cada arquivo em `models.lock.json` e nas [fichas](.
 pytest e Hypothesis (MIT, MPL-2.0), Ruff e mypy (MIT), Vite, Vitest e TypeScript (MIT,
 Apache-2.0), openapi-typescript (MIT), Playwright (Apache-2.0), MkDocs Material e
 mkdocstrings (MIT, ISC), Spectral e oasdiff (Apache-2.0). PyInstaller (GPL-2.0+ com
-exceção para o executável gerado) só monta o pacote.
+exceção para o executável gerado) só monta o pacote. As fontes manuscritas da base
+sintética (Caveat, Kalam, Patrick Hand, Indie Flower, Gochi Hand, Shadows Into Light e
+Reenie Beanie, todas SIL OFL 1.1) ficam em `tools/synth/fonts` com a licença de cada uma
+e não vão no programa.
 
 As licenças precisam ser revistas por alguém do jurídico antes de qualquer distribuição
 comercial.

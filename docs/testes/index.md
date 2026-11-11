@@ -11,6 +11,7 @@
 | Contrato | Esquemas válidos, manifestos e perfis contra o contrato | `test_contracts.py`, Spectral e oasdiff na CI |
 | Arquitetura | A dependência aponta para dentro | `test_architecture.py` |
 | Documentação | Toda regra tem especificação e caso de conformidade; links; referência gerada em dia | `test_documentation.py`, `tools/docs/check_docs.py` |
+| Bench de numeração | Acerto exato, acerto entre as três leituras, taxa de ambíguo e tempo de cada reconhecedor | `tools/bench_numbering.py` |
 | Conformidade | O lote `core` gerado tem de casar com o gabarito versionado | [Suíte de conformidade](conformidade.md) |
 | Interface | Funções puras (fila, atalhos, correções) e cliente HTTP | `ui/src/**/*.test.ts` (Vitest) |
 | Ponta a ponta | Fluxo completo no navegador, no celular e no programa desktop sem janela | `ui/e2e/` (Playwright) |

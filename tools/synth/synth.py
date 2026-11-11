@@ -146,8 +146,12 @@ def text_page(
     doc_pages: int,
     position: int,
     density: float = 1.0,
+    print_folio: bool = True,
 ) -> NDArray[np.uint8]:
-    """Página limpa: título, parágrafos, rodapé "Página X de Y" e "fls." no canto."""
+    """Página limpa: título, parágrafos, rodapé "Página X de Y" e "fls." no canto.
+
+    Com ``print_folio`` falso, o canto fica livre para a numeração escrita à mão.
+    """
     w, h = size
     img = Image.new("L", size, 255)
     draw = ImageDraw.Draw(img)
@@ -177,12 +181,13 @@ def text_page(
         font=_font(int(h * 0.01)),
         fill=40,
     )
-    draw.text(
-        (int(0.80 * w), int(0.03 * h)),
-        f"fls. {folio}",
-        font=_font(int(h * 0.016), oblique=True),
-        fill=60,
-    )
+    if print_folio:
+        draw.text(
+            (int(0.80 * w), int(0.03 * h)),
+            f"fls. {folio}",
+            font=_font(int(h * 0.016), oblique=True),
+            fill=60,
+        )
     arr = np.asarray(img).astype(np.float32)
     paper = rng.uniform(236, 246)
     arr = arr / 255.0 * paper
