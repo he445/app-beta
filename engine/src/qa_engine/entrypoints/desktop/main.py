@@ -15,6 +15,7 @@ import argparse
 import contextlib
 import dataclasses
 import html
+import json
 import logging
 import secrets
 import socket
@@ -25,6 +26,7 @@ import urllib.error
 import urllib.request
 import webbrowser
 from collections.abc import Callable, Sequence
+from pathlib import Path
 from typing import Any
 
 import uvicorn
@@ -165,7 +167,8 @@ def error_page(problems: Sequence[str], hint: str) -> str:
 
 def show_error(problems: Sequence[str], hint: str, headless: bool) -> None:
     """Mostra o erro numa janela; sem janela, na saída de erro."""
-    print(hint, *problems, sep="\n", file=sys.stderr)
+    if sys.stderr is not None:
+        print(hint, *problems, sep="\n", file=sys.stderr)
     if headless:
         return
     try:
@@ -193,7 +196,47 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--headless", action="store_true", help="sem janela: só o motor")
     parser.add_argument("--browser", action="store_true", help="abrir no navegador padrão")
     parser.add_argument("--port", type=int, default=0, help="porta fixa (padrão: livre)")
+    parser.add_argument(
+        "--self-test",
+        nargs="?",
+        const="",
+        metavar="PASTA",
+        help="analisa o lote de exemplo do pacote (ou PASTA, com gabarito.json) e sai",
+    )
+    parser.add_argument("--budget-ms", type=float, default=1000.0, help="orçamento por página")
     return parser
+
+
+def say(*parts: object) -> None:
+    """Escreve na saída padrão, se houver (no executável com janela ela não existe)."""
+    if sys.stdout is not None:
+        print(*parts, flush=True)
+
+
+def self_test(folder: str, budget_ms: float) -> int:
+    """Teste de fumaça do pacote: código 0 se tudo conferiu."""
+    from qa_engine.application.profile import load_profile
+    from qa_engine.application.selftest import run_self_test
+
+    program = AppPaths.detect().program_dir
+    sample = Path(folder) if folder else program / "samples" / "lote-exemplo"
+    ui = program / "ui" if getattr(sys, "frozen", False) else program / "ui" / "dist"
+    checks = {
+        "interface": (ui / "index.html").is_file(),
+        "perfis": (program / "profiles" / "sos-piloto.yaml").is_file(),
+        "lote de exemplo": (sample / "gabarito.json").is_file(),
+    }
+    if not checks["lote de exemplo"]:
+        say(json.dumps({"ok": False, "checks": checks}, ensure_ascii=False))
+        return 1
+    result = run_self_test(
+        sample,
+        load_profile(program / "profiles" / "completo.yaml"),
+        budget_ms=budget_ms,
+        extra_checks=checks,
+    )
+    say(json.dumps(result.json(), ensure_ascii=False))
+    return 0 if result.ok else 1
 
 
 def open_window(server: EngineServer, bridge: Bridge, on_closed: Callable[[], None]) -> bool:
@@ -206,8 +249,15 @@ def open_window(server: EngineServer, bridge: Bridge, on_closed: Callable[[], No
         window = webview.create_window(
             TITLE, server.url, js_api=bridge, width=1366, height=860, min_size=(900, 600)
         )
+        if window is None:
+            return False
         bridge.window = window
-        server.app.state.focus_handler = lambda: (window.restore(), window.show())
+
+        def focus() -> None:
+            window.restore()
+            window.show()
+
+        server.app.state.focus_handler = focus
         window.events.closed += on_closed
         webview.start(private_mode=False)
     except Exception:
@@ -232,6 +282,8 @@ def open_browser(server: EngineServer) -> None:
 def main(argv: Sequence[str] | None = None) -> int:
     """Abre o programa. Código de saída 0 ao fechar; 2 se a configuração for inválida."""
     args = build_parser().parse_args(argv)
+    if args.self_test is not None:
+        return self_test(args.self_test, args.budget_ms)
     paths = AppPaths.detect()
     try:
         source = LayeredSettings.for_desktop(paths, args=parse_overrides(args.set))
@@ -267,10 +319,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         lock.publish(port, server.app.state.focus_secret)
         log.info("programa aberto na porta %s (versão %s)", port, __version__)
         if args.headless:
-            print(f"motor em {server.url}", flush=True)
+            say(f"motor em {server.url}")
             # Para suporte: abre a interface num navegador desta máquina, uma vez.
             code = server.app.state.engine.issue_code()
-            print(f"acesso: {server.url}/#code={code}", flush=True)
+            say(f"acesso: {server.url}/#code={code}")
             with contextlib.suppress(KeyboardInterrupt):
                 server.thread.join()
         elif args.browser or not open_window(server, Bridge(token), server.stop):

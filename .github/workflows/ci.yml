@@ -24,7 +24,7 @@ jobs:
           enable-cache: true
       - name: Fontes da base sintética
         run: sudo apt-get update && sudo apt-get install -y fonts-dejavu-core
-      - run: uv sync --frozen
+      - run: uv sync --frozen --extra desktop
       - run: uv run ruff check . ../tools ../conformance
       - run: uv run ruff format --check . ../tools ../conformance
       - run: uv run mypy

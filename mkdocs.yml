@@ -49,6 +49,7 @@ nav:
       - Desenvolver a interface: guias/desenvolver-interface.md
       - Configurar este computador: guias/configurar-computador.md
       - Configurar uma estação: guias/configurar-estacao.md
+      - Gerar o build Windows: guias/build-windows.md
   - Operação:
       - operacao/index.md
       - Interface de revisão: operacao/interface.md

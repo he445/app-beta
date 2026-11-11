@@ -8,6 +8,11 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Build Windows (`deploy/windows/`): spec do PyInstaller em modo pasta com `QA.exe`
+  (janela) e `QA-suporte.exe` (console), script `build.ps1`, workflow em `windows-latest`
+  com testes e conformidade em Windows, teste de fumaça e zip com SHA-256.
+  `--self-test` analisa o lote de exemplo do pacote (`tools/synth selftest`), confere o
+  gabarito e mede o custo por página. `QA_SYNTH_FONT_DIR` para gerar lotes fora do Linux.
 - Tela de Configurações no programa desktop (capacidade `settings`): aba
   **Digitalizadoras** com cada regra por perfil e estação, a origem de cada valor e
   "voltar ao herdado"; aba **Este computador** com pastas, estação padrão, recursos e log.

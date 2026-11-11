@@ -37,6 +37,8 @@ dev = [
     "mypy>=1.11",
     "types-PyYAML>=6.0",
 ]
+# Só para montar o pacote Windows (deploy/windows): não vai como biblioteca no programa.
+build = ["pyinstaller>=6.20"]
 
 [build-system]
 requires = ["hatchling>=1.25"]
@@ -79,5 +81,5 @@ follow_imports = "skip"
 follow_untyped_imports = true
 
 [[tool.mypy.overrides]]
-module = ["pypdfium2.*", "jsonschema.*", "webview", "webview.*"]
+module = ["pypdfium2.*", "jsonschema.*"]
 ignore_missing_imports = true

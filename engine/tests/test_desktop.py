@@ -288,3 +288,28 @@ def test_profile_params_out_of_range_are_refused(
     assert "black_borders.dark_level: esperado ≥ 0" in r.json()["title"] + r.json().get(
         "detail", ""
     )
+
+
+def test_self_test_finds_the_known_defects(tmp_path: Path, repo: Path) -> None:
+    import synth
+
+    from qa_engine.application.profile import load_profile
+    from qa_engine.application.selftest import compare_with_key, run_self_test
+
+    sample = tmp_path / "lote-exemplo"
+    synth.build(sample, synth.selftest_plan(), 20261105, (1240, 1748))
+    result = run_self_test(sample, load_profile(repo / "profiles/completo.yaml"), workers=1)
+    assert result.ok, result.errors
+    assert result.pages == 7 and result.ms_per_page > 0
+
+    key = json.loads((sample / "gabarito.json").read_text("utf-8"))
+    key["defects"].append({"rule": "skew", "file": "CX001/DOC0002/0001.tif"})
+    report = {"pages": [], "documents": [], "findings": []}
+    assert "faltou skew em CX001/DOC0002/0001.tif" in compare_with_key(report, key)
+    failing = run_self_test(
+        sample,
+        load_profile(repo / "profiles/completo.yaml"),
+        workers=1,
+        extra_checks={"interface": False},
+    )
+    assert not failing.ok and "conferência falhou: interface" in failing.errors

@@ -13,7 +13,8 @@
 | Documentação | Toda regra tem especificação e caso de conformidade; links; referência gerada em dia | `test_documentation.py`, `tools/docs/check_docs.py` |
 | Conformidade | O lote `core` gerado tem de casar com o gabarito versionado | [Suíte de conformidade](conformidade.md) |
 | Interface | Funções puras (fila, atalhos, correções) e cliente HTTP | `ui/src/**/*.test.ts` (Vitest) |
-| Ponta a ponta | Fluxo completo no navegador e no celular | `ui/e2e/` (Playwright) |
+| Ponta a ponta | Fluxo completo no navegador, no celular e no programa desktop sem janela | `ui/e2e/` (Playwright) |
+| Pacote Windows | Testes e conformidade em Windows; teste de fumaça do executável com o lote de exemplo e custo por página | `.github/workflows/windows.yml`, `QA-suporte.exe --self-test` |
 
 ## Como rodar
 

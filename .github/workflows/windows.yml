@@ -1,0 +1,81 @@
+name: Windows
+
+# Programa desktop: testes e conformidade em Windows, build com PyInstaller, teste de fumaça
+# do executável e zip com SHA-256 (ADR-0011). Roda em tag de versão, à mão e quando muda o
+# que afeta o pacote.
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+    paths:
+      - deploy/windows/**
+      - engine/src/qa_engine/entrypoints/desktop/**
+      - engine/src/qa_engine/adapters/**
+      - engine/pyproject.toml
+      - engine/uv.lock
+      - .github/workflows/windows.yml
+  pull_request:
+    paths:
+      - deploy/windows/**
+      - engine/**
+      - ui/**
+      - .github/workflows/windows.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Testes, build e teste de fumaça (windows-latest)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.11.32"
+          enable-cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Fontes DejaVu (lotes sintéticos)
+        run: |
+          $zip = Join-Path $env:RUNNER_TEMP "dejavu.zip"
+          Invoke-WebRequest "https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-fonts-ttf-2.37.zip" -OutFile $zip
+          Expand-Archive $zip -DestinationPath $env:RUNNER_TEMP
+          "QA_SYNTH_FONT_DIR=$env:RUNNER_TEMP\dejavu-fonts-ttf-2.37\ttf" >> $env:GITHUB_ENV
+      - name: Dependências (com janela e PyInstaller)
+        working-directory: engine
+        run: uv sync --frozen --python 3.12 --extra desktop --group build
+      - name: Testes do motor em Windows
+        working-directory: engine
+        run: uv run pytest -m "not conformance"
+      - name: Conformidade em Windows
+        working-directory: engine
+        run: uv run pytest -m conformance
+      - name: Build, teste de fumaça e zip
+        run: ./deploy/windows/build.ps1
+      - name: Programa sem janela responde e a segunda abertura não sobe outro motor
+        run: |
+          $exe = Get-ChildItem build/dist -Recurse -Filter QA-suporte.exe | Select-Object -First 1
+          $log = Join-Path $env:RUNNER_TEMP "headless.log"
+          $p = Start-Process $exe.FullName -ArgumentList "--headless" -RedirectStandardOutput $log -PassThru
+          for ($i = 0; $i -lt 60 -and -not (Select-String -Path $log -Pattern "^motor em" -Quiet); $i++) { Start-Sleep 1 }
+          $url = ((Select-String -Path $log -Pattern "^motor em (.*)$").Matches[0].Groups[1].Value)
+          $health = Invoke-RestMethod "$url/health"
+          if ($health.mode -ne "desktop") { throw "modo errado: $($health.mode)" }
+          $second = Start-Process $exe.FullName -ArgumentList "--headless" -PassThru -Wait
+          if ($second.ExitCode -ne 0) { throw "segunda abertura saiu com $($second.ExitCode)" }
+          Stop-Process $p
+      - uses: actions/upload-artifact@v4
+        with:
+          name: QA-SOS-Docs-windows
+          path: |
+            build/dist/*.zip
+            build/dist/*.zip.sha256

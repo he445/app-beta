@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import shutil
 from dataclasses import dataclass, field
@@ -30,7 +31,12 @@ from numpy.typing import NDArray
 from PIL import Image, ImageDraw, ImageFont
 
 DPI = 300
-FONT_DIRS = [Path("/usr/share/fonts/truetype/dejavu"), Path("/usr/share/fonts/dejavu")]
+FONT_DIRS = [
+    *([Path(os.environ["QA_SYNTH_FONT_DIR"])] if os.environ.get("QA_SYNTH_FONT_DIR") else []),
+    Path("/usr/share/fonts/truetype/dejavu"),
+    Path("/usr/share/fonts/dejavu"),
+]
+"""Onde procurar as fontes DejaVu; ``QA_SYNTH_FONT_DIR`` vem primeiro (Windows, macOS)."""
 WORDS = [
     "processo",
     "contrato",
@@ -108,7 +114,9 @@ def _font(size: int, bold: bool = False, oblique: bool = False) -> ImageFont.Fre
         for folder in FONT_DIRS:
             if (folder / name).is_file():
                 return ImageFont.truetype(str(folder / name), size)
-    raise SystemExit(f"fonte {names[0]} não encontrada (instale fonts-dejavu-core)")
+    raise SystemExit(
+        f"fonte {names[0]} não encontrada (instale fonts-dejavu-core ou defina QA_SYNTH_FONT_DIR)"
+    )
 
 
 @dataclass
@@ -510,12 +518,31 @@ def showcase_plan() -> list[list[dict[str, Any]]]:
     ]
 
 
+def selftest_plan() -> list[list[dict[str, Any]]]:
+    """Lote pequeno do teste de fumaça do executável: um defeito de cada tipo robusto.
+
+    CX001/DOC0001: página torta, folha 3 faltando e página em branco.
+    CX001/DOC0002: página sem nitidez.
+    """
+    clean: dict[str, Any] = {}
+    return [
+        [
+            dict(clean),
+            {"defect": "skew", "defect_args": {"angle": 3.0}},
+            {"drop": True},
+            dict(clean),
+            {"kind": "blank"},
+        ],
+        [dict(clean), {"defect": "blur"}, dict(clean)],
+    ]
+
+
 def main() -> None:
     """Linha de comando."""
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("mode", choices=["demo", "conformance", "showcase"])
+    parser.add_argument("mode", choices=["demo", "conformance", "showcase", "selftest"])
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--pages", type=int, default=200)
     parser.add_argument("--seed", type=int, default=20261105)
@@ -525,7 +552,10 @@ def main() -> None:
     args = parser.parse_args()
     a5 = args.a5 or args.mode in {"conformance", "showcase"}
     size = (1748, 2480) if a5 else (2480, 3508)
-    if args.mode == "conformance":
+    if args.mode == "selftest":
+        size = (1240, 1748)  # A6 a 300 dpi: o lote vai dentro do pacote
+        plan = selftest_plan()
+    elif args.mode == "conformance":
         plan = conformance_plan()
     elif args.mode == "showcase":
         plan = showcase_plan()

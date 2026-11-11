@@ -1,0 +1,29 @@
+QA de Digitalização — programa desktop
+======================================
+
+Como abrir
+  1. Extraia esta pasta em qualquer lugar onde você tenha permissão de escrita
+     (por exemplo, Documentos). Não precisa de administrador.
+  2. Abra QA.exe.
+
+O programa roda inteiro neste computador, sem internet. Os documentos nunca saem
+da máquina: a pasta do lote é lida no lugar e o lote corrigido vai para
+Documentos\QA\Saída.
+
+Se o programa já estiver aberto, abrir de novo só traz a janela para a frente.
+Sem o WebView2 do Windows, a interface abre no navegador padrão.
+
+Onde ficam os dados
+  %LOCALAPPDATA%\SOSDocs\QA            banco, cópias corrigidas, log
+  %LOCALAPPDATA%\SOSDocs\QA\config.toml   sua configuração
+  %PROGRAMDATA%\SOSDocs\QA\config.toml    configuração da máquina (TI)
+
+Suporte
+  QA-suporte.exe --self-test     confere o pacote com o lote de exemplo
+  QA-suporte.exe --headless      só o motor, com um link de acesso de uso único
+  QA-suporte.exe --version
+
+Atualizar: extraia a versão nova em outra pasta e renomeie a antiga para
+"...-anterior". Os dados ficam em %LOCALAPPDATA% e continuam valendo.
+
+Documentação completa: pasta docs\ deste pacote (abra docs\index.html).
