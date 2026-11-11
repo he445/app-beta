@@ -37,7 +37,7 @@ def download(url: str, target: Path) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     partial = target.with_name(target.name + ".part")
     request = urllib.request.Request(url, headers={"User-Agent": "qa-build"})
-    with urllib.request.urlopen(request, timeout=120) as response, partial.open("wb") as out:  # noqa: S310
+    with urllib.request.urlopen(request, timeout=120) as response, partial.open("wb") as out:
         while chunk := response.read(CHUNK):
             out.write(chunk)
     partial.replace(target)
