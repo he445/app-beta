@@ -41,7 +41,7 @@ abaixo vêm do `manifest.yaml` de cada regra; o perfil só precisa citar o que m
 
 ### `corrupted_file`
 
-Arquivo corrompido. Versão 1.0.0, severidade `critical`.
+Arquivo corrompido. Versão 1.1.0, severidade `critical`.
 Especificação: [corrupted_file.md](../especificacoes/detectors/corrupted_file.md).
 
 Sem parâmetros.

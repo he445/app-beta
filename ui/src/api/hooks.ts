@@ -137,13 +137,16 @@ export function useUndoBulk(batchId: string) {
   });
 }
 
-/** "Salvar correções": gera o lote corrigido e baixa o .zip. */
-export function useSaveCorrected(batchId: string, batchName: string) {
+/** "Salvar correções": gera o lote corrigido; no .zip, baixa o arquivo; em pasta, grava em output_dir. */
+export function useSaveCorrected(batchId: string, batchName: string, destination: "zip" | "folder" = "zip") {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      const saved = await json<CorrectedBatch>(`/batches/${batchId}/corrected-batch`, "POST", { reviewer: reviewer() });
-      await download(saved.download, `${batchName}-${saved.file}`);
+      const saved = await json<CorrectedBatch>(`/batches/${batchId}/corrected-batch`, "POST", {
+        reviewer: reviewer(),
+        destination,
+      });
+      if (saved.download) await download(saved.download, `${batchName}-${saved.file}`);
       return saved;
     },
     onSuccess: () => {

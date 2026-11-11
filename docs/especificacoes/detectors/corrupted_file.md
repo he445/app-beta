@@ -1,6 +1,6 @@
 # corrupted_file: Arquivo corrompido
 
-Versão: 1.0.0 · Severidade padrão: crítico
+Versão: 1.1.0 · Severidade padrão: crítico
 
 ## Objetivo
 
@@ -18,7 +18,12 @@ se o arquivo tem 0 byte, não abre, ou uma página falha ao decodificar:
     measure = 1, threshold = 0, confiança 1
 ```
 
-A mensagem traz o motivo da falha sem caminhos do servidor.
+A mensagem traz o motivo da falha sem caminhos do computador.
+
+Falha de **acesso** não é defeito do arquivo: arquivo bloqueado por outro programa, sem
+permissão de leitura ou numa pasta de rede que caiu durante a análise. Nesses casos o
+motivo é "arquivo inacessível", a página continua sinalizada como crítica (não foi
+verificada) e a correção muda (ver Saída). O lote nunca é interrompido.
 
 ## Parâmetros
 
@@ -26,7 +31,10 @@ Nenhum.
 
 ## Saída
 
-Correção `physical/regenerate`: regerar no software de captura ou redigitalizar.
+- Arquivo corrompido: correção `physical/regenerate`, regerar no software de captura ou
+  redigitalizar.
+- Arquivo inacessível: correção `escalate/human_review`, fechar o programa que usa o
+  arquivo (ou conferir a rede e a permissão) e abrir o lote de novo.
 
 ## Falhas conhecidas e casos de borda
 
@@ -45,4 +53,5 @@ Correção `physical/regenerate`: regerar no software de captura ou redigitaliza
 
 ## Histórico de versões
 
+- 1.1.0: arquivo inacessível (bloqueado, sem permissão, rede fora) tem correção própria.
 - 1.0.0: versão inicial.

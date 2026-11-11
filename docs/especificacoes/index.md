@@ -8,6 +8,7 @@ com a suíte de `conformance/`.
 | Documento | Conteúdo |
 | --- | --- |
 | [`batch-layout.md`](batch-layout.md) | Como uma pasta de lote vira documentos e páginas |
+| [`lote-local.md`](lote-local.md) | Lote lido no lugar: espera de estabilidade, retrato e raízes permitidas |
 | [`detectors/`](detectors/blank_page.md) | Um documento por regra de página, no modelo obrigatório |
 | [`sequencing.md`](sequencing.md) | Numeração, sequência e completude (regras de documento) |
 | [`scoring.md`](scoring.md) | Severidade, estado do documento, veredito e amostragem |

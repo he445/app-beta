@@ -28,8 +28,10 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
 from qa_engine import __version__
+from qa_engine.adapters.corrected_folder import FolderTiffWriter
 from qa_engine.adapters.corrected_zip import ZipTiffWriter
 from qa_engine.adapters.images import FileImageSource
+from qa_engine.adapters.local_folder import LocalFolderSource, is_within
 from qa_engine.adapters.metadata import PillowMetadataReader
 from qa_engine.adapters.page_versions import FilePageVersionStore
 from qa_engine.adapters.sqlite import SqliteRepository
@@ -42,9 +44,18 @@ from qa_engine.application.correction_service import (
     CorrectionService,
     NotFoundError,
     SaveBlockedError,
+    SourceChangedError,
 )
 from qa_engine.application.demo_batches import copy_demo_batch, list_demo_batches
 from qa_engine.application.exports import findings_csv, metadata_csv, rework_csv
+from qa_engine.application.local_batch import (
+    SNAPSHOT_FILE,
+    LocalBatchError,
+    compare_snapshot,
+    open_local_batch,
+    take_snapshot,
+    wait_until_stable,
+)
 from qa_engine.application.profile import Profile, load_profile, profile_from_dict
 from qa_engine.application.review import (
     baselines_from_json,
@@ -103,6 +114,7 @@ class Engine:
         self.queue = ThreadPoolExecutor(max_workers=1, thread_name_prefix="analysis")
         self.corrections = ThreadPoolExecutor(max_workers=1, thread_name_prefix="corrections")
         self.images = FileImageSource()
+        self.folder = LocalFolderSource()
         self.service = CorrectionService(
             self.repo, self.images, PillowMetadataReader(), SystemClock(), __version__
         )
@@ -131,6 +143,13 @@ class Engine:
         if snapshot.is_file():
             return profile_from_dict(json.loads(snapshot.read_text("utf-8")))
         return self.profile(profile_id)
+
+    def source_changes(self, batch_id: str, root: Path) -> list[str]:
+        """O que mudou na pasta original desde o retrato (lote local; senão, nada)."""
+        snapshot = self.batch_dir(batch_id) / SNAPSHOT_FILE
+        if not snapshot.is_file():
+            return []
+        return compare_snapshot(self.folder, root, json.loads(snapshot.read_text("utf-8")))
 
     def context(self, batch_id: str) -> BatchContext:
         """Contexto dos casos de uso de correção para um lote."""
@@ -161,16 +180,40 @@ class Engine:
             log.exception("falha na correção em lote %s", operation_id)
 
     def purge(self) -> None:
-        """Apaga lotes mais antigos que a retenção (24 h na PoC)."""
-        cutoff = iso(self.now() - timedelta(hours=self.settings.retention_hours))
-        for root in self.repo.purge_before(cutoff):
-            shutil.rmtree(root.parent if root.name == "input" else root, ignore_errors=True)
+        """Apaga lotes mais antigos que a retenção.
 
-    def analyze(self, batch_id: str, root: Path, profile: Profile, name: str) -> None:
-        """Trabalho de fundo: analisa e grava o resultado."""
+        Só a pasta de trabalho do lote (dentro de ``data_dir``) é apagada. A pasta de um
+        lote local é o original e nunca é tocada.
+        """
+        cutoff = iso(self.now() - timedelta(hours=self.settings.retention_hours))
+        for batch_id in self.repo.purge_before(cutoff):
+            shutil.rmtree(self.batch_dir(batch_id), ignore_errors=True)
+
+    def analyze(
+        self,
+        batch_id: str,
+        root: Path,
+        profile: Profile,
+        name: str,
+        station_id: str | None = None,
+        local: bool = False,
+    ) -> None:
+        """Trabalho de fundo: analisa e grava o resultado.
+
+        Lote local: antes, espera a pasta parar de mudar e tira o retrato dos arquivos.
+        """
         try:
             work = self.batch_dir(batch_id)
             work.mkdir(parents=True, exist_ok=True)
+            if local:
+                self.repo.set_stage(batch_id, "settling")
+                wait_until_stable(self.folder, root, self.settings.batch_settle_seconds)
+                self.repo.set_stage(batch_id, "snapshot")
+                (work / SNAPSHOT_FILE).write_text(
+                    json.dumps(take_snapshot(self.folder, root), ensure_ascii=False),
+                    encoding="utf-8",
+                )
+            self.repo.set_stage(batch_id, "analyzing")
             (work / PROFILE_SNAPSHOT).write_text(
                 json.dumps(dict(profile.raw), ensure_ascii=False, indent=2), encoding="utf-8"
             )
@@ -181,7 +224,7 @@ class Engine:
                 name=name,
                 batch_id=batch_id,
                 progress=lambda done, total: self.repo.set_progress(batch_id, done, total),
-                fallback_station=self.settings.default_station,
+                fallback_station=station_id or self.settings.default_station,
             )
             report = analysis_json(analysis)
             validate(report, "analysis.schema.json")
@@ -260,6 +303,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def not_found(_: Request, exc: NotFoundError) -> JSONResponse:
         return problem(404, str(exc))
 
+    @app.exception_handler(LocalBatchError)
+    async def local_batch_error(_: Request, exc: LocalBatchError) -> JSONResponse:
+        return problem(exc.status, "Pasta não pode ser aberta como lote", str(exc))
+
+    @app.exception_handler(SourceChangedError)
+    async def source_changed(_: Request, exc: SourceChangedError) -> JSONResponse:
+        return problem(409, "Lote original alterado", str(exc))
+
     @app.exception_handler(SaveBlockedError)
     async def save_blocked(_: Request, exc: SaveBlockedError) -> JSONResponse:
         return problem(409, "Página faltando sem decisão", str(exc))
@@ -336,9 +387,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             folder = names[0].stem
         return enqueue(batch_id, root, profile, name or folder or f"lote-{batch_id[:8]}")
 
-    def enqueue(batch_id: str, root: Path, profile: Profile, batch_name: str) -> dict[str, Any]:
-        engine.repo.create_batch(batch_id, batch_name, profile.id, root, iso(engine.now()))
-        engine.queue.submit(engine.analyze, batch_id, root, profile, batch_name)
+    def enqueue(
+        batch_id: str,
+        root: Path,
+        profile: Profile,
+        batch_name: str,
+        source: str = "upload",
+        station_id: str | None = None,
+    ) -> dict[str, Any]:
+        engine.repo.create_batch(batch_id, batch_name, profile.id, root, iso(engine.now()), source)
+        engine.queue.submit(
+            engine.analyze, batch_id, root, profile, batch_name, station_id, source == "local"
+        )
         row = engine.repo.get_batch(batch_id)
         assert row is not None
         status: dict[str, Any] = row.status_json()
@@ -365,7 +425,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         except LookupError as exc:
             shutil.rmtree(root.parent, ignore_errors=True)
             raise HTTPException(404, str(exc)) from exc
-        return enqueue(batch_id, root, profile, name)
+        return enqueue(batch_id, root, profile, name, source="demo")
+
+    @app.post("/local-batches", status_code=202)
+    def open_local(body: Annotated[dict[str, Any], Body()]) -> dict[str, Any]:
+        if settings.mode != "desktop":
+            raise HTTPException(404, "lote por pasta só existe no programa desktop")
+        validate(body, "local-batch-request.schema.json")
+        default = "sos-piloto" if (settings.profiles_dir / "sos-piloto.yaml").is_file() else "demo"
+        profile = engine.profile(body.get("profile_id", default))
+        station_id = body.get("station_id")
+        if station_id is not None and profile.station(station_id) is None:
+            raise HTTPException(422, f"estação {station_id!r} não existe no perfil {profile.id!r}")
+        batch = open_local_batch(
+            engine.folder, body["path"], settings.allowed_roots, is_within, body.get("name")
+        )
+        return enqueue(str(uuid.uuid4()), batch.root, profile, batch.name, "local", station_id)
 
     def batch_or_404(batch_id: str) -> Any:
         row = engine.repo.get_batch(batch_id)
@@ -485,11 +560,27 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.post("/batches/{batch_id}/corrected-batch", status_code=201)
     def save_corrected(batch_id: str, body: Annotated[dict[str, Any], Body()]) -> dict[str, Any]:
         validate(body, "corrected-batch-request.schema.json")
-        target = engine.batch_dir(batch_id) / "exports" / CORRECTED_ZIP
+        ctx = engine.context(batch_id)
+        destination = body.get("destination", "zip")
+        writer: Callable[[datetime], Any]
+        if destination == "folder":
+            output = settings.output_root
+
+            def writer(when: datetime) -> Any:
+                return FolderTiffWriter(output, ctx.name, when)
+
+        else:
+            target = engine.batch_dir(batch_id) / "exports" / CORRECTED_ZIP
+
+            def writer(when: datetime) -> Any:
+                return ZipTiffWriter(target, when)
+
         return engine.service.save(
-            engine.context(batch_id),
+            ctx,
             body["reviewer"],
-            lambda when: ZipTiffWriter(target, when),
+            writer,
+            destination=destination,
+            check_source=lambda: engine.source_changes(batch_id, ctx.root),
         )
 
     @app.put("/pages/{page_id}/numbering")

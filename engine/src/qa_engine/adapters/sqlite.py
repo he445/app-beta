@@ -27,6 +27,8 @@ class BatchRow:
     root: Path
     error: str | None
     summary: Mapping[str, Any] | None
+    source: str = "upload"
+    stage: str | None = None
 
     def status_json(self) -> dict[str, Any]:
         """Formato de ``batch-status.schema.json``."""
@@ -37,6 +39,9 @@ class BatchRow:
             "progress": {"done": self.done, "total": self.total},
             "created_at": self.created_at,
         }
+        data["source"] = self.source
+        if self.stage is not None and self.status in {"queued", "processing"}:
+            data["stage"] = self.stage
         if self.error:
             data["error"] = self.error
         if self.summary is not None:
@@ -100,15 +105,26 @@ class SqliteRepository:
     # Lotes ---------------------------------------------------------------
 
     def create_batch(
-        self, batch_id: str, name: str, profile_id: str, root: Path, created_at: str
+        self,
+        batch_id: str,
+        name: str,
+        profile_id: str,
+        root: Path,
+        created_at: str,
+        source: str = "upload",
     ) -> None:
         """Registra um lote na fila."""
         with self._tx() as c:
             c.execute(
-                "INSERT INTO batches (id, name, profile_id, status, created_at, root) "
-                "VALUES (?, ?, ?, 'queued', ?, ?)",
-                (batch_id, name, profile_id, created_at, str(root)),
+                "INSERT INTO batches (id, name, profile_id, status, created_at, root, source) "
+                "VALUES (?, ?, ?, 'queued', ?, ?, ?)",
+                (batch_id, name, profile_id, created_at, str(root), source),
             )
+
+    def set_stage(self, batch_id: str, stage: str | None) -> None:
+        """Etapa do lote antes e durante a análise."""
+        with self._tx() as c:
+            c.execute("UPDATE batches SET stage = ? WHERE id = ?", (stage, batch_id))
 
     def set_progress(self, batch_id: str, done: int, total: int) -> None:
         """Atualiza o progresso e marca o lote como em processamento."""
@@ -404,14 +420,28 @@ class SqliteRepository:
 
     # Retenção ---------------------------------------------------------------
 
-    def purge_before(self, cutoff_iso: str) -> list[Path]:
-        """Apaga lotes criados antes de ``cutoff_iso``; devolve as pastas para remover."""
+    def purge_before(self, cutoff_iso: str) -> list[str]:
+        """Apaga do banco os lotes criados antes de ``cutoff_iso``.
+
+        Returns:
+            Os identificadores apagados, para a entrada remover as pastas de trabalho.
+            A pasta de origem nunca é devolvida: num lote local ela é o original.
+        """
         with self._tx() as c:
             rows = c.execute(
-                "SELECT root FROM batches WHERE created_at < ?", (cutoff_iso,)
+                "SELECT id FROM batches WHERE created_at < ?", (cutoff_iso,)
             ).fetchall()
             c.execute("DELETE FROM batches WHERE created_at < ?", (cutoff_iso,))
-        return [Path(r[0]) for r in rows]
+        return [str(r[0]) for r in rows]
+
+    def decision_log(self, batch_id: str) -> list[dict[str, Any]]:
+        """Histórico de decisões do lote, na ordem em que foram registradas."""
+        rows = self._all(
+            "SELECT d.finding_id, d.rule, d.action, d.reviewer, d.decided_at, d.note,"
+            " d.operation_id FROM decisions d WHERE d.batch_id = ? ORDER BY d.seq",
+            (batch_id,),
+        )
+        return [dict(r) for r in rows]
 
 
 def _batch(row: sqlite3.Row) -> BatchRow:
@@ -426,6 +456,8 @@ def _batch(row: sqlite3.Row) -> BatchRow:
         root=Path(row["root"]),
         error=row["error"],
         summary=json.loads(row["summary_json"]) if row["summary_json"] else None,
+        source=row["source"],
+        stage=row["stage"],
     )
 
 

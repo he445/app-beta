@@ -7,3 +7,4 @@ registrada aqui até alguém decidir.
 | # | Questão | Escolha atual | Quem decide |
 | --- | --- | --- | --- |
 | 1 | Uma chave travada pelo arquivo da máquina pode ser sobrescrita por variável `QA_*` ou argumento, para suporte e testes? | Não: travada vale para todas as camadas seguintes (ADR-0012) | TI |
+| 2 | Arquivo bloqueado por outro programa conta como "crítico" no estado do documento? | Sim: a página não foi verificada. A correção sugerida é abrir o lote de novo, não redigitalizar | Coordenação |

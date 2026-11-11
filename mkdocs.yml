@@ -66,11 +66,13 @@ nav:
           - "0009 Correção em lote e lote corrigido": adr/0009-correcao-em-lote-e-lote-corrigido.md
           - "0010 Demonstração no celular": adr/0010-demonstracao-no-celular.md
           - "0012 Configuração em camadas": adr/0012-configuracao-em-camadas.md
+          - "0013 Lote local lido no lugar": adr/0013-lote-local-lido-no-lugar.md
           - "0017 Documentação numa pasta só": adr/0017-documentacao-em-uma-pasta.md
           - Modelo: adr/0000-template.md
   - Especificações:
       - especificacoes/index.md
       - Layout do lote: especificacoes/batch-layout.md
+      - Lote local: especificacoes/lote-local.md
       - Sequência e completude: especificacoes/sequencing.md
       - Correções e lote corrigido: especificacoes/corrections.md
       - Pontuação e veredito: especificacoes/scoring.md

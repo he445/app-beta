@@ -17,18 +17,25 @@
   ],
   "properties": {
     "file": {
-      "const": "lote-corrigido.zip"
+      "type": "string",
+      "description": "Nome do arquivo .zip ou da pasta gerada."
     },
     "download": {
-      "type": "string"
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Rota para baixar o .zip; vazio quando o destino é pasta."
     },
     "size_bytes": {
       "type": "integer",
-      "minimum": 0
+      "minimum": 0,
+      "description": "Tamanho do .zip, ou a soma dos arquivos da pasta."
     },
     "sha256": {
       "type": "string",
-      "pattern": "^[0-9a-f]{64}$"
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 do .zip, ou do manifest.json quando o destino é pasta."
     },
     "generated_at": {
       "type": "string",
@@ -82,6 +89,19 @@
         "type": "string",
         "format": "uuid"
       }
+    },
+    "destination": {
+      "enum": [
+        "zip",
+        "folder"
+      ]
+    },
+    "folder": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Caminho da pasta gerada, quando o destino é pasta."
     }
   }
 }

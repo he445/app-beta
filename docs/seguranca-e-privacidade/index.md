@@ -7,6 +7,8 @@
 | Lote enviado pelo navegador | `QA_DATA_DIR/batches/<id>/input` | `QA_RETENTION_HOURS` (padrão 24 h); depois é apagado |
 | Cópias corrigidas das páginas e log de correções | `QA_DATA_DIR/batches/<id>/corrected` | Junto com o lote |
 | Relatório, sinalizações, decisões e histórico | `QA_DATA_DIR/qa.sqlite3` | Junto com o lote |
+| Lote local (pasta lida no lugar) | Na pasta original | Nunca é copiado, alterado nem apagado; só o retrato e as cópias corrigidas ficam em `data_dir/batches/<id>` |
+| Lote corrigido gravado em pasta | `output_dir` | Até alguém apagar |
 
 O motor em nuvem só deve receber documentos sintéticos ou públicos
 ([princípio 1](../visao-geral/principios.md)); a tela de envio avisa isso. Documento de

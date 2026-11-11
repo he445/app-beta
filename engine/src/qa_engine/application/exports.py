@@ -5,7 +5,7 @@ from __future__ import annotations
 import csv
 import io
 import json
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -193,3 +193,14 @@ def write_exports(report: Mapping[str, Any], out_dir: Path) -> list[Path]:
 def pending_findings(findings: Iterable[Finding]) -> list[Finding]:
     """Sinalizações ainda pendentes."""
     return [f for f in findings if f.pending]
+
+
+def decisions_csv(log: Sequence[Mapping[str, Any]]) -> str:
+    """Registro de decisões: uma linha por decisão, inclusive as desfeitas (``undo``)."""
+    out = io.StringIO()
+    writer = csv.writer(out, lineterminator="\n")
+    columns = ["decided_at", "reviewer", "action", "rule", "finding_id", "operation_id", "note"]
+    writer.writerow(columns)
+    for row in log:
+        writer.writerow([row.get(c) or "" for c in columns])
+    return out.getvalue()

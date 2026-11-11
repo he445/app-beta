@@ -93,6 +93,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/local-batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Abrir um lote numa pasta local ou de rede (só no programa desktop)
+         * @description Lê o lote no lugar, só para leitura: nada é copiado nem alterado na pasta original.
+         *     Recusado (403) fora de `allowed_roots`; 404 se a pasta não existe; 422 se não é uma
+         *     pasta ou não tem imagens. Antes de analisar, espera `batch_settle_seconds` sem
+         *     nenhum arquivo mudar e tira um retrato (tamanho, data e SHA-256 de cada arquivo).
+         *     Se a pasta mudar durante a revisão, salvar o lote corrigido é recusado (409).
+         *     Só existe quando o motor roda como programa desktop (`mode` em `/health`).
+         *
+         */
+        post: operations["openLocalBatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/batches/{batch_id}": {
         parameters: {
             query?: never;
@@ -294,13 +320,17 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Salvar correções e gerar o lote corrigido (.zip)
-         * @description Confirma as operações de correção ainda não salvas e gera
-         *     `exports/lote-corrigido.zip`: mesma estrutura de pastas, ordem final, páginas
+         * Salvar correções e gerar o lote corrigido (.zip ou pasta)
+         * @description Confirma as operações de correção ainda não salvas e gera o lote corrigido:
+         *     `exports/lote-corrigido.zip` ou, com `destination: folder`, a pasta
+         *     `output_dir/<lote>-corrigido-<data-hora>`, gravada num temporário e renomeada só
+         *     quando termina (nunca fica uma pasta pela metade com o nome final). Mesma estrutura de pastas, ordem final, páginas
          *     removidas fora, versão corrigida mais recente, arquivos renumerados (0001.tif...),
          *     TIFF com compressão sem perda (Deflate) e DPI do original, mais `manifest.json`
-         *     (schemas/corrected-manifest.schema.json) e `manifest.csv`. O original nunca é
-         *     alterado. Recusado (409) enquanto houver página faltando sem decisão.
+         *     (schemas/corrected-manifest.schema.json), `manifest.csv`, `report.json`,
+         *     `findings.csv` e `decisions.csv` (registro de decisões). O original nunca é
+         *     alterado. Recusado (409) enquanto houver página faltando sem decisão ou se a pasta
+         *     original de um lote local mudou desde a análise.
          *
          */
         post: operations["saveCorrectedBatch"];
@@ -539,6 +569,16 @@ export interface components {
             created_at: string;
             error?: string;
             summary?: components["schemas"]["batch-summary.schema"];
+            /**
+             * @description Como o lote entrou: enviado pelo navegador, lote de demonstração do servidor ou pasta lida no lugar.
+             * @enum {unknown}
+             */
+            source?: "upload" | "demo" | "local";
+            /**
+             * @description Etapa enquanto o lote está na fila ou em análise: esperando a pasta parar de mudar, tirando o retrato dos arquivos ou analisando.
+             * @enum {unknown}
+             */
+            stage?: "settling" | "snapshot" | "analyzing" | null;
         };
         /**
          * DemoBatch
@@ -553,6 +593,20 @@ export interface components {
         "demo-batch-request.schema": {
             /** @default demo */
             profile_id: string;
+        };
+        /**
+         * LocalBatchRequest
+         * @description Abrir um lote numa pasta deste computador ou da rede interna, lido no lugar e só para leitura.
+         */
+        "local-batch-request.schema": {
+            /** @description Pasta do lote: caminho local (D:\Lotes\0412) ou de rede (\\servidor\digitalizacao\0412). */
+            path: string;
+            /** @description Perfil usado na análise. Padrão: sos-piloto, se existir; senão demo. */
+            profile_id?: string;
+            /** @description Estação das páginas cujo arquivo não identifica a digitalizadora. Padrão: a estação padrão deste computador. */
+            station_id?: string;
+            /** @description Nome do lote. Padrão: nome da pasta. */
+            name?: string;
         };
         /** Batch */
         "batch.schema": {
@@ -880,16 +934,25 @@ export interface components {
         /** CorrectedBatchRequest */
         "corrected-batch-request.schema": {
             reviewer: string;
+            /**
+             * @description `zip`: arquivo para baixar. `folder`: pasta em `output_dir`, gravada num temporário e renomeada só no fim.
+             * @default zip
+             * @enum {unknown}
+             */
+            destination: "zip" | "folder";
         };
         /**
          * CorrectedBatch
          * @description Resultado de "Salvar correções".
          */
         "corrected-batch.schema": {
-            /** @constant */
-            file: "lote-corrigido.zip";
-            download: string;
+            /** @description Nome do arquivo .zip ou da pasta gerada. */
+            file: string;
+            /** @description Rota para baixar o .zip; vazio quando o destino é pasta. */
+            download: string | null;
+            /** @description Tamanho do .zip, ou a soma dos arquivos da pasta. */
             size_bytes: number;
+            /** @description SHA-256 do .zip, ou do manifest.json quando o destino é pasta. */
             sha256: string;
             /** Format: date-time */
             generated_at: string;
@@ -903,6 +966,10 @@ export interface components {
             };
             pending_critical: number;
             saved_operations: string[];
+            /** @enum {unknown} */
+            destination?: "zip" | "folder";
+            /** @description Caminho da pasta gerada, quando o destino é pasta. */
+            folder?: string | null;
         };
         /** NumberingUpdate */
         "numbering-update.schema": {
@@ -1176,6 +1243,34 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["Problem"];
+        };
+    };
+    openLocalBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["local-batch-request.schema"];
+            };
+        };
+        responses: {
+            /** @description Lote na fila */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["batch-status.schema"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
         };
     };
     getBatch: {

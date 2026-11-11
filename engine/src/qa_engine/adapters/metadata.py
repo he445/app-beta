@@ -35,6 +35,7 @@ _TIFF_COMPRESSION = {
     32946: "deflate",
 }
 LOSSY_COMPRESSIONS = {"jpeg"}
+UNREADABLE_SHA256 = hashlib.sha256(b"").hexdigest()
 
 
 def sha256_of(path: Path) -> str:
@@ -53,7 +54,12 @@ class PillowMetadataReader:
         """Metadados do arquivo; tags ilegíveis são simplesmente omitidas."""
         stat = path.stat()
         modified = datetime.fromtimestamp(stat.st_mtime, tz=UTC)
-        sha = sha256_of(path)
+        try:
+            sha = sha256_of(path)
+        except OSError:
+            # Bloqueado por outro programa ou rede fora: a página vira corrupted_file
+            # (arquivo inacessível) e o lote segue. SHA-256 do conteúdo vazio no lugar.
+            sha = UNREADABLE_SHA256
         suffix = path.suffix.lower()
         tags: dict[str, Any] = {}
         pages = 0

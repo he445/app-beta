@@ -11,6 +11,14 @@
     "reviewer": {
       "type": "string",
       "minLength": 1
+    },
+    "destination": {
+      "enum": [
+        "zip",
+        "folder"
+      ],
+      "default": "zip",
+      "description": "`zip`: arquivo para baixar. `folder`: pasta em `output_dir`, gravada num temporário e renomeada só no fim."
     }
   }
 }

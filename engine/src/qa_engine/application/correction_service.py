@@ -20,6 +20,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
+from qa_engine.adapters.local_folder import display_path
 from qa_engine.application.bulk import SkipCategory, plan_bulk, skip_entry
 from qa_engine.application.contracts import validate
 from qa_engine.application.corrected_batch import build_plan, manifest_csv, plan_totals, raster_dpi
@@ -31,6 +32,7 @@ from qa_engine.application.corrections import (
     refresh_page,
     render_chain,
 )
+from qa_engine.application.exports import decisions_csv, findings_csv
 from qa_engine.application.profile import Profile
 from qa_engine.application.review import decide, finding_from_json, recompute_summary
 from qa_engine.application.serialize import iso
@@ -57,6 +59,19 @@ class NotFoundError(LookupError):
 
 class ConflictError(ValueError):
     """A operação não pode ser feita no estado atual."""
+
+
+class SourceChangedError(ConflictError):
+    """Salvar recusado: a pasta original do lote mudou desde a análise."""
+
+    def __init__(self, changes: Sequence[str]) -> None:
+        self.changes = list(changes)
+        shown = "; ".join(self.changes[:5])
+        more = f" (e mais {len(self.changes) - 5})" if len(self.changes) > 5 else ""
+        super().__init__(
+            "A pasta original do lote mudou durante a revisão: "
+            f"{shown}{more}. Abra o lote de novo para analisar a versão atual."
+        )
 
 
 class SaveBlockedError(ConflictError):
@@ -473,6 +488,9 @@ class CorrectionService:
         ctx: BatchContext,
         reviewer: str,
         writer_factory: Callable[[datetime], CorrectedBatchWriter],
+        *,
+        destination: str = "zip",
+        check_source: Callable[[], Sequence[str]] | None = None,
     ) -> dict[str, Any]:
         """Salva as correções: confirma as operações e gera o lote corrigido.
 
@@ -480,8 +498,16 @@ class CorrectionService:
         removidas fora, a versão corrigida mais recente de cada página, arquivos
         renumerados, TIFF sem perda com o DPI do original e o manifesto.
 
+        Args:
+            ctx: contexto do lote.
+            reviewer: quem salvou.
+            writer_factory: cria o gravador (``.zip`` ou pasta) para o horário da gravação.
+            destination: ``zip`` ou ``folder``, devolvido na resposta.
+            check_source: devolve o que mudou na pasta original desde a análise.
+
         Raises:
             SaveBlockedError: há página faltando sem decisão.
+            SourceChangedError: a pasta original mudou desde a análise.
             ConflictError: há correção em lote em andamento.
         """
         operations = self.operations(ctx.batch_id)
@@ -491,6 +517,9 @@ class CorrectionService:
         plan = build_plan(report, operations)
         if not plan["can_save"]:
             raise SaveBlockedError(plan["blockers"])
+        changes = list(check_source()) if check_source is not None else []
+        if changes:
+            raise SourceChangedError(changes)
         now = self.clock.now()
         pages = {p["id"]: p for p in report["pages"]}
         parsed = [finding_from_json(f) for f in report["findings"]]
@@ -531,15 +560,22 @@ class CorrectionService:
                 "manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2) + "\n"
             )
             writer.add_text("manifest.csv", manifest_csv(manifest))
-            _, sha, size = writer.close()
+            writer.add_text("report.json", json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+            page_index = {p["id"]: p for p in report["pages"]}
+            writer.add_text("findings.csv", findings_csv(report["findings"], page_index))
+            writer.add_text("decisions.csv", decisions_csv(self.store.decision_log(ctx.batch_id)))
+            path, sha, size = writer.close()
         except BaseException:
             writer.abort()
             raise
         for op_id in plan["unsaved_operations"]:
             self.store.update_operation(op_id, status="saved", saved_at=iso(now))
+        zipped = destination == "zip"
         return {
-            "file": CORRECTED_ZIP,
-            "download": f"/batches/{ctx.batch_id}/exports/{CORRECTED_ZIP}",
+            "file": path.name,
+            "download": f"/batches/{ctx.batch_id}/exports/{path.name}" if zipped else None,
+            "destination": destination,
+            "folder": None if zipped else display_path(str(path)),
             "size_bytes": size,
             "sha256": sha,
             "generated_at": iso(now),

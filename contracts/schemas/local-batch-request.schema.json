@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "local-batch-request.schema.json",
+  "title": "LocalBatchRequest",
+  "description": "Abrir um lote numa pasta deste computador ou da rede interna, lido no lugar e só para leitura.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "path"
+  ],
+  "properties": {
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Pasta do lote: caminho local (D:\\Lotes\\0412) ou de rede (\\\\servidor\\digitalizacao\\0412)."
+    },
+    "profile_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]+$",
+      "description": "Perfil usado na análise. Padrão: sos-piloto, se existir; senão demo."
+    },
+    "station_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]+$",
+      "description": "Estação das páginas cujo arquivo não identifica a digitalizadora. Padrão: a estação padrão deste computador."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Nome do lote. Padrão: nome da pasta."
+    }
+  }
+}

@@ -157,7 +157,15 @@ def _check_size(path: Path) -> None:
         raise LoadError("arquivo vazio (0 byte)")
 
 
+INACCESSIBLE = "arquivo inacessível (bloqueado por outro programa, sem permissão ou fora da rede)"
+"""Motivo de falha que não é defeito do arquivo: tentar de novo pode resolver."""
+
+
 def _reason(exc: BaseException, path: Path) -> str:
-    """Motivo curto, sem caminhos do servidor."""
+    """Motivo curto, sem caminhos do computador."""
+    if isinstance(exc, (PermissionError, ConnectionError, TimeoutError)) or (
+        isinstance(exc, OSError) and getattr(exc, "winerror", None) in {32, 33, 53, 64, 67}
+    ):
+        return INACCESSIBLE
     text = (str(exc).strip() or exc.__class__.__name__).replace(str(path), path.name)
     return text[:200]

@@ -83,7 +83,7 @@ Por documento, com as decisões atuais:
 Pasta de cada documento: a mesma do original (`caixa/documento`); documento vindo de
 um arquivo multipágina vira uma pasta com o nome do arquivo sem extensão.
 
-## Lote corrigido (.zip)
+## Lote corrigido (.zip ou pasta)
 
 - TIFF com compressão **sem perda** (Deflate, tag 259 = 8), nunca JPEG (Decreto
   10.278/2020, Anexo I);
@@ -94,4 +94,15 @@ um arquivo multipágina vira uma pasta com o nome do arquivo sem extensão.
   arquivo e página de origem, arquivo de destino, posição antiga e nova, correções com
   quem decidiu e quando, SHA-256 de origem e destino, removidas e o motivo,
   redigitalizar, páginas faltando e a decisão;
-- gerado em `<lote>/exports/lote-corrigido.zip` (arquivo parcial renomeado no fim).
+- `report.json` (relatório com as decisões vigentes), `findings.csv` e `decisions.csv`
+  (registro de todas as decisões, inclusive as desfeitas, com quem e quando);
+- destino `zip`: `<lote>/exports/lote-corrigido.zip` (arquivo parcial renomeado no fim);
+- destino `folder`: `output_dir/<lote>-corrigido-<AAAAMMDD-HHMMSS>`, com a mesma
+  estrutura. A gravação é feita na pasta oculta `.<nome>.part` e só renomeada para o nome
+  final quando termina; uma falha no meio apaga a pasta parcial. Se o nome já existir,
+  ganha o sufixo `-2`, `-3`...
+
+**Lote local:** antes de gravar, a pasta original é comparada com o retrato tirado
+antes da análise (tamanho, data e SHA-256 de cada arquivo; com tamanho e data iguais, o
+arquivo é considerado igual). Qualquer arquivo novo, removido ou alterado recusa a
+gravação com a lista do que mudou ([lote local](lote-local.md)).

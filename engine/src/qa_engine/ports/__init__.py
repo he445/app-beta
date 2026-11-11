@@ -152,6 +152,10 @@ class ReviewStore(Protocol):
         """Operações do lote, da mais recente à mais antiga."""
         ...
 
+    def decision_log(self, batch_id: str) -> list[dict[str, Any]]:
+        """Histórico de decisões do lote (inclusive ``undo``), na ordem em que foram gravadas."""
+        ...
+
 
 class PageVersionStore(Protocol):
     """Cópias corrigidas das páginas e o log só de inserção que as descreve."""
@@ -212,4 +216,31 @@ class SettingsSource(Protocol):
 
     def save_user(self, changes: Mapping[str, Any], reset: Sequence[str] = ()) -> ResolvedSettings:
         """Grava mudanças na camada do usuário e devolve a configuração resultante."""
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class FileStamp:
+    """Tamanho e data de modificação de um arquivo, para saber se ele mudou."""
+
+    size: int
+    mtime_ns: int
+
+
+class BatchFolder(Protocol):
+    """Pasta de lote lida no lugar, local ou de rede (nunca alterada)."""
+
+    def resolve(self, path: str) -> Path:
+        """Caminho absoluto, no formato que o sistema abre sem limite de tamanho.
+
+        Levanta ``FileNotFoundError`` se não existe e ``NotADirectoryError`` se não é pasta.
+        """
+        ...
+
+    def listing(self, root: Path) -> dict[str, FileStamp]:
+        """Arquivos do lote (caminho relativo com ``/``), sem ocultos; ilegíveis ficam de fora."""
+        ...
+
+    def sha256(self, path: Path) -> str | None:
+        """SHA-256 do arquivo, ou ``None`` se ele não pôde ser lido (bloqueado, sem permissão)."""
         ...

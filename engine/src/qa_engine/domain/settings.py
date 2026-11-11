@@ -72,6 +72,8 @@ class Settings:
         batch_settle_seconds: espera sem mudança no lote antes de analisar.
         max_memory_mb: teto de memória da análise; ``None`` = metade da memória da máquina.
         log_level: detalhe do log.
+        mode: como o motor está rodando: ``cloud`` (demonstração), ``desktop`` (programa na
+            estação) ou ``server`` (servidor interno). Definido pela entrada, não por arquivo.
     """
 
     data_dir: Path
@@ -90,6 +92,7 @@ class Settings:
     batch_settle_seconds: float = 0.0
     max_memory_mb: int | None = None
     log_level: str = "info"
+    mode: str = "cloud"
 
     @property
     def output_root(self) -> Path:

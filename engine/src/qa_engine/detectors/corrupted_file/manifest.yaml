@@ -1,5 +1,5 @@
 id: corrupted_file
-version: 1.0.0
+version: 1.1.0
 title: Arquivo corrompido
 spec: docs/especificacoes/detectors/corrupted_file.md
 input: file

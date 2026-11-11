@@ -54,6 +54,23 @@
     },
     "summary": {
       "$ref": "batch-summary.schema.json"
+    },
+    "source": {
+      "enum": [
+        "upload",
+        "demo",
+        "local"
+      ],
+      "description": "Como o lote entrou: enviado pelo navegador, lote de demonstração do servidor ou pasta lida no lugar."
+    },
+    "stage": {
+      "enum": [
+        "settling",
+        "snapshot",
+        "analyzing",
+        null
+      ],
+      "description": "Etapa enquanto o lote está na fila ou em análise: esperando a pasta parar de mudar, tirando o retrato dos arquivos ou analisando."
     }
   }
 }

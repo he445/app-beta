@@ -6,8 +6,21 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ## [Não lançado]
 
+### Corrigido
+
+- A retenção apagava a pasta `root` do lote; agora apaga só a pasta de trabalho em
+  `data_dir`, e a pasta de origem nunca é tocada.
+
 ### Adicionado
 
+- Lote local lido no lugar (ADR-0013): `POST /local-batches` (só no programa desktop),
+  raízes permitidas (`allowed_roots`), espera até a pasta parar de mudar, retrato com
+  SHA-256 antes da análise e conferência antes de gravar (409 se o original mudou),
+  caminhos longos e de rede no Windows (`\\?\`). Estado do lote com `source` e `stage`.
+  Contrato 0.5.0. Porta `BatchFolder`, adaptador `LocalFolderSource`, migração 0003.
+- Lote corrigido em pasta (`destination: folder`): `output_dir/<lote>-corrigido-<data-hora>`,
+  gravado numa pasta temporária e renomeado só no fim (`FolderTiffWriter`). O lote
+  corrigido (pasta ou zip) passa a levar `report.json`, `findings.csv` e `decisions.csv`.
 - Configuração em camadas (ADR-0012): padrões, arquivo da máquina, arquivo do usuário,
   variáveis `QA_*` e argumentos, validada contra `contracts/schemas/settings.schema.json`.
   Chaves novas: `output_dir`, `temp_dir`, `allowed_roots`, `default_station`,
@@ -57,6 +70,8 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Alterado
 
+- `corrupted_file` 1.1.0: arquivo bloqueado por outro programa, sem permissão ou em rede
+  que caiu vira "arquivo inacessível", com a correção "abrir o lote de novo".
 - `workers` automático passa a ser núcleos − 1 (mínimo 1), limitado pelo teto de memória
   (`max_memory_mb`); antes eram todos os núcleos.
 - Documentação reorganizada numa pasta só, em português (ADR-0017): `spec/` virou

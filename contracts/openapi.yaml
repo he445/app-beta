@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QA Automático de Digitalização — API do motor
-  version: 0.4.0
+  version: 0.5.0
   summary: Contrato entre a interface web, a linha de comando e o motor de análise.
   description: |
     Fonte da verdade do sistema (ADR-0002). Modelos de cada linguagem são gerados a partir
@@ -141,6 +141,33 @@ paths:
               schema: { $ref: "schemas/batch-status.schema.json" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/Problem" }
+  /local-batches:
+    post:
+      tags: [batches]
+      operationId: openLocalBatch
+      summary: Abrir um lote numa pasta local ou de rede (só no programa desktop)
+      description: |
+        Lê o lote no lugar, só para leitura: nada é copiado nem alterado na pasta original.
+        Recusado (403) fora de `allowed_roots`; 404 se a pasta não existe; 422 se não é uma
+        pasta ou não tem imagens. Antes de analisar, espera `batch_settle_seconds` sem
+        nenhum arquivo mudar e tira um retrato (tamanho, data e SHA-256 de cada arquivo).
+        Se a pasta mudar durante a revisão, salvar o lote corrigido é recusado (409).
+        Só existe quando o motor roda como programa desktop (`mode` em `/health`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "schemas/local-batch-request.schema.json" }
+      responses:
+        "202":
+          description: Lote na fila
+          content:
+            application/json:
+              schema: { $ref: "schemas/batch-status.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
   /batches/{batch_id}:
     parameters: [{ $ref: "#/components/parameters/BatchId" }]
     get:
@@ -386,14 +413,18 @@ paths:
     post:
       tags: [corrections]
       operationId: saveCorrectedBatch
-      summary: Salvar correções e gerar o lote corrigido (.zip)
+      summary: Salvar correções e gerar o lote corrigido (.zip ou pasta)
       description: |
-        Confirma as operações de correção ainda não salvas e gera
-        `exports/lote-corrigido.zip`: mesma estrutura de pastas, ordem final, páginas
+        Confirma as operações de correção ainda não salvas e gera o lote corrigido:
+        `exports/lote-corrigido.zip` ou, com `destination: folder`, a pasta
+        `output_dir/<lote>-corrigido-<data-hora>`, gravada num temporário e renomeada só
+        quando termina (nunca fica uma pasta pela metade com o nome final). Mesma estrutura de pastas, ordem final, páginas
         removidas fora, versão corrigida mais recente, arquivos renumerados (0001.tif...),
         TIFF com compressão sem perda (Deflate) e DPI do original, mais `manifest.json`
-        (schemas/corrected-manifest.schema.json) e `manifest.csv`. O original nunca é
-        alterado. Recusado (409) enquanto houver página faltando sem decisão.
+        (schemas/corrected-manifest.schema.json), `manifest.csv`, `report.json`,
+        `findings.csv` e `decisions.csv` (registro de decisões). O original nunca é
+        alterado. Recusado (409) enquanto houver página faltando sem decisão ou se a pasta
+        original de um lote local mudou desde a análise.
       requestBody:
         required: true
         content:
