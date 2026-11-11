@@ -1,6 +1,6 @@
 // Telas 4 e 5: fila de revisão e detalhe da página, operadas pelo teclado.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useDecide, usePageImage, useReport, useSetNumbering, useUndo } from "../api/hooks";
+import { useDecide, usePageImage, useReport, useRotate, useSetNumbering, useUndo } from "../api/hooks";
 import type { Analysis, DecisionAction, Severity } from "../api/types";
 import { BulkBatchButton } from "../components/BulkButton";
 import { Viewer, type ViewerHandle } from "../components/Viewer";
@@ -16,7 +16,7 @@ import {
   pct,
   ruleLabel,
 } from "../lib/format";
-import { SHORTCUTS, isTyping, keyToAction } from "../lib/keys";
+import { SHORTCUTS, currentRotation, isTyping, keyToAction, nextRotation } from "../lib/keys";
 import { buildQueue, clampIndex, type QueueFilter, type QueueItem } from "../lib/queue";
 import { href } from "../router";
 
@@ -38,6 +38,32 @@ function ReviewQueue({ report }: { report: Analysis }) {
   const viewer = useRef<ViewerHandle>(null);
   const decide = useDecide(batchId);
   const undo = useUndo(batchId);
+  const rotateMutation = useRotate(batchId);
+  const correctedPages = useMemo(
+    () =>
+      new Set(
+        report.findings
+          .filter((f) => f.target.kind === "page" && f.decision?.action === "correct" && f.correction.kind === "automatic")
+          .map((f) => f.target.id),
+      ),
+    [report.findings],
+  );
+
+  function rotate(delta: 90 | 180 | 270) {
+    const pageId = current?.page?.id;
+    if (!pageId || rotateMutation.isPending) return;
+    const angle = nextRotation(currentRotation(report.findings, pageId), delta);
+    rotateMutation.mutate(
+      { pageId, angle },
+      {
+        onSuccess: (res) => {
+          setHistory((h) => [...h, res.finding.id]);
+          setMessage(angle ? `Página girada ${angle}° na cópia.` : "Página de volta à orientação original.");
+        },
+        onError: (err) => setMessage(err.message),
+      },
+    );
+  }
 
   const queue = useMemo(() => buildQueue(report, filter), [report, filter]);
   const current = queue[clampIndex(index, queue.length)];
@@ -111,6 +137,8 @@ function ReviewQueue({ report }: { report: Analysis }) {
         case "numbering":
           if (current?.page) setNumberingOpen(true);
           return;
+        case "rotate":
+          return rotate(action.delta);
       }
     }
     window.addEventListener("keydown", onKey);
@@ -165,7 +193,13 @@ function ReviewQueue({ report }: { report: Analysis }) {
         </div>
         <ol className="queue-list">
           {queue.map((item, i) => (
-            <QueueRow key={item.finding.id} item={item} active={item === current} onClick={() => setIndex(i)} />
+            <QueueRow
+              key={item.finding.id}
+              item={item}
+              active={item === current}
+              corrected={Boolean(item.imagePage && correctedPages.has(item.imagePage.id))}
+              onClick={() => setIndex(i)}
+            />
           ))}
         </ol>
         {queue.length === 0 && <p className="muted pad">Nada na fila com esses filtros.</p>}
@@ -173,7 +207,16 @@ function ReviewQueue({ report }: { report: Analysis }) {
 
       <main className="detail">
         {current ? (
-          <Detail item={current} viewer={viewer} busy={decide.isPending} onDecide={act} onNumbering={() => setNumberingOpen(true)} />
+          <Detail
+            item={current}
+            viewer={viewer}
+            busy={decide.isPending || rotateMutation.isPending}
+            onDecide={act}
+            onNumbering={() => setNumberingOpen(true)}
+            onRotate={rotate}
+            rotation={current.page ? currentRotation(report.findings, current.page.id) : 0}
+            pageCorrected={Boolean(current.imagePage && correctedPages.has(current.imagePage.id))}
+          />
         ) : (
           <div className="empty">
             <h2>Fila vazia</h2>
@@ -194,7 +237,7 @@ function ReviewQueue({ report }: { report: Analysis }) {
   );
 }
 
-function QueueRow({ item, active, onClick }: { item: QueueItem; active: boolean; onClick: () => void }) {
+function QueueRow({ item, active, corrected, onClick }: { item: QueueItem; active: boolean; corrected: boolean; onClick: () => void }) {
   const ref = useRef<HTMLLIElement>(null);
   useEffect(() => {
     if (active) ref.current?.scrollIntoView({ block: "nearest" });
@@ -202,7 +245,7 @@ function QueueRow({ item, active, onClick }: { item: QueueItem; active: boolean;
   const f = item.finding;
   return (
     <li ref={ref} className={`queue-row ${active ? "active" : ""} ${f.decision ? "decided" : ""}`} onClick={onClick}>
-      <Thumb pageId={item.imagePage?.id} width={56} />
+      <Thumb pageId={item.imagePage?.id} width={56} variant={corrected ? "corrected" : "original"} />
       <div className="queue-text">
         <div className="row tight">
           <SeverityBadge severity={f.severity} />
@@ -224,15 +267,21 @@ function Detail({
   busy,
   onDecide,
   onNumbering,
+  onRotate,
+  rotation,
+  pageCorrected,
 }: {
   item: QueueItem;
   viewer: React.RefObject<ViewerHandle>;
   busy: boolean;
   onDecide: (a: DecisionAction) => void;
   onNumbering: () => void;
+  onRotate: (delta: 90 | 180 | 270) => void;
+  rotation: number;
+  pageCorrected: boolean;
 }) {
   const f = item.finding;
-  const corrected = f.decision?.action === "correct" && f.correction.kind === "automatic" && f.target.kind === "page";
+  const corrected = pageCorrected && f.target.kind === "page";
   const [showAfter, setShowAfter] = useState(true);
   const variant = corrected && showAfter ? "corrected" : "original";
   const image = usePageImage(item.imagePage?.id, variant);
@@ -284,6 +333,21 @@ function Detail({
           <p className="small muted">
             {DECISION_LABEL[f.decision.action]} por {f.decision.reviewer} em {new Date(f.decision.decided_at).toLocaleString("pt-BR")}
           </p>
+        )}
+
+        {page && (
+          <div className="rotation">
+            <h3>Girar a página</h3>
+            <div className="row tight">
+              <button disabled={busy} onClick={() => onRotate(270)} title="Tecla Q"><kbd>Q</kbd> ↺ 90°</button>
+              <button disabled={busy} onClick={() => onRotate(90)} title="Tecla E"><kbd>E</kbd> ↻ 90°</button>
+              <button disabled={busy} onClick={() => onRotate(180)} title="Tecla W"><kbd>W</kbd> 180°</button>
+            </div>
+            <p className="small muted">
+              {rotation ? `Na cópia: girada ${rotation}° no sentido horário.` : "Na cópia: orientação original."} O
+              original não muda.
+            </p>
+          </div>
         )}
 
         <h3>Página</h3>

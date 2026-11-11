@@ -28,6 +28,7 @@ from qa_engine.application.corrections import (
     IMAGE_ACTIONS,
     CorrectionNotApplicableError,
     active_chain,
+    chain_key,
     current_version,
     refresh_page,
     render_chain,
@@ -170,7 +171,7 @@ class CorrectionService:
         chain = active_chain(findings, page["id"])
         if not chain:
             return None
-        name = current_version(ctx.versions, page["id"], [f.id for f in chain])
+        name = current_version(ctx.versions, page["id"], chain)
         image = ctx.versions.load(name) if name else None
         return image if image is not None else render_chain(self._loader(ctx, page)(), chain)
 
@@ -252,9 +253,9 @@ class CorrectionService:
         before = [finding_from_json(f) for f in report["findings"]]
         after = list(before)
         after[index] = finding_from_json(updated)
-        old_chain = [f.id for f in active_chain(before, page_id)]
+        old_chain = chain_key(active_chain(before, page_id))
         new_chain = active_chain(after, page_id)
-        if old_chain == [f.id for f in new_chain]:
+        if old_chain == chain_key(new_chain):
             return None
         page = next(p for p in report["pages"] if p["id"] == page_id)
         try:
@@ -269,6 +270,71 @@ class CorrectionService:
             )
         except (LoadError, OSError, CorrectionNotApplicableError) as exc:
             raise ConflictError(f"não foi possível corrigir a página: {exc}") from exc
+
+    # Rotação escolhida pelo revisor ------------------------------------------------
+
+    def set_rotation(
+        self, ctx: BatchContext, page_id: str, angle: int, reviewer: str
+    ) -> dict[str, Any]:
+        """Gira a página na cópia pelo ângulo escolhido (giro horário total: 0, 90, 180, 270).
+
+        Vira sempre uma decisão auditada numa sinalização ``orientation``: a do modelo,
+        se houver (a rotação proposta passa a ser a escolhida), ou uma nova, "rotação
+        escolhida pelo revisor". Ângulo 0 aprova a sinalização existente (não girar).
+
+        Raises:
+            NotFoundError: página fora do lote.
+            ConflictError: ângulo 0 sem sinalização de orientação na página.
+        """
+        report = self._report(ctx)
+        page = next((p for p in report["pages"] if p["id"] == page_id), None)
+        if page is None:
+            raise NotFoundError("página não encontrada")
+        mine = [
+            f
+            for f in report["findings"]
+            if f["rule"] == "orientation" and f["target"] == {"kind": "page", "id": page_id}
+        ]
+        if angle == 0:
+            if not mine:
+                raise ConflictError("a página não está girada: nada a desfazer")
+            return self.decide(
+                ctx, mine[-1]["id"], DecisionAction.APPROVE, reviewer, "não girar (revisor)"
+            )
+        text = f"Girar {angle}° no sentido horário na cópia (escolhido pelo revisor)."
+        if mine:
+            finding = json.loads(json.dumps(mine[-1]))
+            params = dict(finding["correction"].get("params", {}))
+            params.pop("review", None)
+            params.update({"angle_deg": angle, "manual": True})
+            finding["correction"] = {**finding["correction"], "params": params, "description": text}
+            finding.pop("decision", None)
+            self.store.update_finding(finding)
+        else:
+            from qa_engine.detectors.registry import manifest
+            from qa_engine.domain import ids
+
+            finding = {
+                "id": ids.finding_id(ctx.batch_id, page_id, "orientation", 0),
+                "target": {"kind": "page", "id": page_id},
+                "rule": "orientation",
+                "rule_version": manifest("orientation").version,
+                "severity": "medium",
+                "measure": 1.0,
+                "threshold": 0.0,
+                "confidence": 1.0,
+                "message": "Rotação escolhida pelo revisor.",
+                "correction": {
+                    "kind": "automatic",
+                    "action": "rotate",
+                    "description": text,
+                    "params": {"angle_deg": angle, "manual": True},
+                },
+            }
+            self.store.add_findings(ctx.batch_id, [finding])
+        return self.decide(
+            ctx, finding["id"], DecisionAction.CORRECT, reviewer, f"rotação de {angle}° (revisor)"
+        )
 
     # Corrigir tudo -----------------------------------------------------------------
 

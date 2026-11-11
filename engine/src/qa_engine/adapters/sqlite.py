@@ -473,6 +473,38 @@ class SqliteRepository:
         rows = self._all("SELECT signature, resolved_at, resolved_by FROM diagnostic_resolutions")
         return {r[0]: {"resolved_at": r[1], "resolved_by": r[2]} for r in rows}
 
+    def add_findings(self, batch_id: str, findings: Sequence[Mapping[str, Any]]) -> None:
+        """Acrescenta sinalizações no fim do relatório."""
+        with self._tx() as c:
+            row = c.execute(
+                "SELECT COALESCE(MAX(ord), -1) FROM findings WHERE batch_id = ?", (batch_id,)
+            ).fetchone()
+            start = int(row[0]) + 1
+            c.executemany(
+                "INSERT INTO findings VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (
+                        f["id"],
+                        batch_id,
+                        start + i,
+                        f["rule"],
+                        f["severity"],
+                        f["target"]["kind"],
+                        f["target"]["id"],
+                        json.dumps(f, ensure_ascii=False),
+                    )
+                    for i, f in enumerate(findings)
+                ],
+            )
+
+    def update_finding(self, finding: Mapping[str, Any]) -> None:
+        """Regrava uma sinalização sem mexer no histórico de decisões."""
+        with self._tx() as c:
+            c.execute(
+                "UPDATE findings SET finding_json = ? WHERE id = ?",
+                (json.dumps(finding, ensure_ascii=False), finding["id"]),
+            )
+
     def decision_log(self, batch_id: str) -> list[dict[str, Any]]:
         """Histórico de decisões do lote, na ordem em que foram registradas."""
         rows = self._all(

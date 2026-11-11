@@ -156,6 +156,14 @@ class ReviewStore(Protocol):
         """Histórico de decisões do lote (inclusive ``undo``), na ordem em que foram gravadas."""
         ...
 
+    def add_findings(self, batch_id: str, findings: Sequence[Mapping[str, Any]]) -> None:
+        """Acrescenta sinalizações ao lote (ex.: rotação escolhida pelo revisor)."""
+        ...
+
+    def update_finding(self, finding: Mapping[str, Any]) -> None:
+        """Regrava uma sinalização (ex.: rotação proposta trocada pelo revisor)."""
+        ...
+
 
 class PageVersionStore(Protocol):
     """Cópias corrigidas das páginas e o log só de inserção que as descreve."""

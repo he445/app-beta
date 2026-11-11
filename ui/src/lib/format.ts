@@ -13,6 +13,7 @@ export const RULE_LABEL: Record<string, string> = {
   corrupted_file: "Arquivo corrompido",
   low_resolution: "Resolução abaixo do exigido",
   blank_page: "Página em branco",
+  orientation: "Página de lado ou de cabeça para baixo",
   black_borders: "Bordas pretas",
   blur: "Desfoque",
   skew: "Inclinação",

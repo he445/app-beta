@@ -53,6 +53,16 @@ automática que o revisor desfizer conta como erro, e `auto_threshold` sobe até
 - Mensagem: "Página de lado (girada para a direita)", "de cabeça para baixo" ou "de lado
   (girada para a esquerda)", com a confiança.
 
+## Rotação escolhida pelo revisor
+
+`PUT /pages/{id}/rotation` com o giro horário total (0, 90, 180 ou 270). Se a página já
+tem sinalização `orientation`, ela passa a propor o giro escolhido (`params.manual =
+true`, `detected_deg` mantido) e é decidida como `correct`; se não tem, nasce uma
+sinalização "Rotação escolhida pelo revisor" (medida 1, confiança 1) já decidida. Giro 0
+aprova a sinalização existente (não girar). A cópia corrigida é regravada: versões
+gravadas só são reaproveitadas quando sinalizações, ações **e parâmetros** da cadeia são
+os mesmos.
+
 ## Falhas conhecidas e casos de borda
 
 - Página quase branca (verso só com carimbo ou rubrica) não é classificada: o carimbo

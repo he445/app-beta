@@ -817,6 +817,15 @@ def create_app(
             check_source=lambda: engine.source_changes(batch_id, ctx.root),
         )
 
+    @app.put("/pages/{page_id}/rotation")
+    def put_rotation(page_id: str, body: Annotated[dict[str, Any], Body()]) -> dict[str, Any]:
+        validate(body, "rotation-request.schema.json")
+        page = engine.repo.get_page(page_id)
+        if page is None:
+            raise HTTPException(404, "página não encontrada")
+        ctx = engine.context(page["batch_id"])
+        return engine.service.set_rotation(ctx, page_id, int(body["angle_deg"]), body["reviewer"])
+
     @app.put("/pages/{page_id}/numbering")
     def put_numbering(page_id: str, body: Annotated[dict[str, Any], Body()]) -> dict[str, Any]:
         validate(body, "numbering-update.schema.json")

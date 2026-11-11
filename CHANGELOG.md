@@ -8,6 +8,10 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Rotação na revisão: botões e atalhos Q, E e W giram a cópia da página (somando ao giro
+  já aplicado); cada giro é decisão auditada numa sinalização `orientation` (a do modelo
+  ou uma nova) e vai para o lote corrigido. `PUT /pages/{id}/rotation` (contrato 0.10.0).
+  Miniaturas da fila mostram a cópia corrigida.
 - Orientação da página (ADR-0014): regra `orientation` com o classificador
   PP-LCNet_x1_0_doc_ori (porta `OrientationClassifier`); rotação automática acima de 0,90
   e sugerida para revisão entre 0,60 e 0,90 (fora do "Corrigir tudo"); inclinação medida
@@ -144,6 +148,8 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Corrigido
 
+- A versão corrigida de uma página era reaproveitada comparando só as sinalizações da
+  cadeia; agora compara também ação e parâmetros.
 - Windows: a segunda abertura do programa não conseguia ler a porta da primeira (o
   trecho travado do arquivo não pode ser lido por outro processo); porta e segredo agora
   ficam em `instance.json`, separado da trava.

@@ -10,6 +10,7 @@ de página antes de ir para a saída.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -205,20 +206,35 @@ def describe_correction(action: CorrectionAction | str, params: Mapping[str, Any
     }.get(action, action.value)
 
 
-def current_version(store: PageVersionStore, page_id: str, chain_ids: Sequence[str]) -> str | None:
-    """Nome da versão gravada mais recente cuja cadeia é exatamente ``chain_ids``.
+def chain_key(chain: Sequence[Finding]) -> list[tuple[str, str, str]]:
+    """O que identifica uma cadeia: sinalização, ação e parâmetros (o ângulo pode mudar)."""
+    return [
+        (f.id, f.correction.action.value, json.dumps(dict(f.correction.params), sort_keys=True))
+        for f in chain
+    ]
+
+
+def current_version(store: PageVersionStore, page_id: str, chain: Sequence[Finding]) -> str | None:
+    """Nome da versão gravada mais recente cuja cadeia é exatamente ``chain``.
+
+    Compara sinalização, ação e parâmetros: uma rotação que mudou de 90° para 270°
+    não reaproveita a cópia antiga.
 
     Returns:
         O nome do arquivo, ou ``None`` se não há versão gravada para essa cadeia
         (ou se a cadeia é vazia: vale o original).
     """
-    wanted = list(chain_ids)
+    wanted = chain_key(chain)
     if not wanted:
         return None
     for event in reversed(store.events()):
-        if event.get("page_id") != page_id:
+        if event.get("page_id") != page_id or not event.get("output"):
             continue
-        if [c["finding_id"] for c in event["chain"]] == wanted and event.get("output"):
+        got = [
+            (c["finding_id"], c["action"], json.dumps(c.get("params", {}), sort_keys=True))
+            for c in event["chain"]
+        ]
+        if got == wanted:
             name: str = event["output"]
             return name
     return None
@@ -263,7 +279,7 @@ def refresh_page(
         station_id: estação da página (parâmetros da reanálise).
     """
     ids = [f.id for f in chain]
-    output = current_version(store, page_id, ids)
+    output = current_version(store, page_id, chain)
     sha: str | None = None
     remaining: tuple[str, ...] = ()
     if chain:

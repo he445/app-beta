@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "rotation-request.schema.json",
+  "title": "RotationRequest",
+  "description": "Rotação escolhida pelo revisor: giro horário total da página na cópia. 0 = não girar.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "angle_deg",
+    "reviewer"
+  ],
+  "properties": {
+    "angle_deg": {
+      "enum": [
+        0,
+        90,
+        180,
+        270
+      ]
+    },
+    "reviewer": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

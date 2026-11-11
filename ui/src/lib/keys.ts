@@ -8,7 +8,8 @@ export type ReviewAction =
   | { type: "zoom" }
   | { type: "undo" }
   | { type: "filter"; severity: Severity }
-  | { type: "numbering" };
+  | { type: "numbering" }
+  | { type: "rotate"; delta: 90 | 180 | 270 };
 
 export interface KeyLike {
   key: string;
@@ -34,6 +35,9 @@ export function keyToAction(e: KeyLike): ReviewAction | null {
   if (key === "arrowleft" || key === "arrowup") return { type: "move", delta: -1 };
   if (key === " " || key === "spacebar") return { type: "zoom" };
   if (key === "n") return { type: "numbering" };
+  if (key === "e") return { type: "rotate", delta: 90 };
+  if (key === "q") return { type: "rotate", delta: 270 };
+  if (key === "w") return { type: "rotate", delta: 180 };
   const n = Number(key);
   const severity = Number.isInteger(n) ? SEVERITIES[n - 1] : undefined;
   if (severity) return { type: "filter", severity };
@@ -55,7 +59,25 @@ export const SHORTCUTS: [string, string][] = [
   ["Ctrl+Z", "Desfazer a última decisão"],
   ["1–4", "Filtrar por severidade"],
   ["N", "Digitar a numeração da página"],
+  ["Q / E", "Girar a página 90° para a esquerda / direita"],
+  ["W", "Girar a página 180°"],
 ];
+
+/**
+ * Giro horário total já aplicado na cópia de uma página: o da sinalização de orientação
+ * decidida como "corrigir" (0 se não houver).
+ */
+export function currentRotation(findings: { rule: string; target: { kind: string; id: string }; decision?: { action: string } | null; correction: { params?: Record<string, unknown> } }[], pageId: string): number {
+  const applied = findings.find(
+    (f) => f.rule === "orientation" && f.target.kind === "page" && f.target.id === pageId && f.decision?.action === "correct",
+  );
+  return Number(applied?.correction.params?.angle_deg ?? 0) % 360;
+}
+
+/** Novo giro total depois de girar mais ``delta`` graus no sentido horário. */
+export function nextRotation(current: number, delta: number): number {
+  return (current + delta) % 360;
+}
 
 export type ZoomKeyAction = "close" | "prev" | "next" | "zoom";
 

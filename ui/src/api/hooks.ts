@@ -176,6 +176,32 @@ export function useDecide(batchId: string) {
   });
 }
 
+/** Rotação escolhida pelo revisor: giro horário total da página na cópia (0 = não girar). */
+export function useRotate(batchId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ pageId, angle }: { pageId: string; angle: number }) =>
+      json<DecisionResponse>(`/pages/${pageId}/rotation`, "PUT", {
+        angle_deg: angle,
+        reviewer: getSession().reviewer || "revisor",
+      }),
+    onSuccess: (res) => {
+      patchReport(qc, batchId, (r) => {
+        const exists = r.findings.some((f) => f.id === res.finding.id);
+        return {
+          ...r,
+          batch: { ...r.batch, summary: res.summary },
+          findings: exists
+            ? r.findings.map((f) => (f.id === res.finding.id ? res.finding : f))
+            : [...r.findings, res.finding],
+        };
+      });
+      void qc.invalidateQueries({ queryKey: keys.plan(batchId) });
+      void qc.invalidateQueries({ queryKey: ["image", res.finding.target.id, "corrected"] });
+    },
+  });
+}
+
 export function useUndo(batchId: string) {
   const qc = useQueryClient();
   return useMutation({

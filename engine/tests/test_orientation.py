@@ -146,3 +146,114 @@ def test_other_rules_measure_the_original(tmp_path: Path) -> None:
     b = analyze_page(PageTask(path, 0, rules, 0.05), classifier=Fixed(0, 0.95))
     assert a.observations["black_borders"].values == b.observations["black_borders"].values
     assert a.observations["orientation"].values["angle"] == 180
+
+
+# Rotação escolhida pelo revisor (T12) ---------------------------------------------
+
+
+def test_manual_rotation_is_an_audited_decision_and_goes_to_the_corrected_batch(
+    tmp_path: Path, full_profile_path: Path, correction_batch: Path
+) -> None:
+    import io
+    import time
+    import zipfile
+
+    import yaml
+    from fastapi.testclient import TestClient
+    from PIL import Image
+
+    from qa_engine.application.contracts import validate
+    from qa_engine.entrypoints.http.app import create_app
+    from qa_engine.entrypoints.http.settings import Settings
+
+    profiles = tmp_path / "profiles"
+    profiles.mkdir()
+    data = yaml.safe_load(full_profile_path.read_text("utf-8"))
+    data["resolution"] = {"min_dpi": 100}
+    (profiles / "demo.yaml").write_text(yaml.safe_dump(data, allow_unicode=True), "utf-8")
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        profiles_dir=profiles,
+        api_token=None,
+        cors_origins=(),
+        retention_hours=24,
+        max_upload_mb=50,
+        workers=1,
+    )
+    files = [
+        (
+            "files",
+            (f"lote/{p.relative_to(correction_batch).as_posix()}", p.read_bytes(), "image/tiff"),
+        )
+        for p in sorted(correction_batch.rglob("*.tif"))
+    ]
+    with TestClient(create_app(settings)) as client:
+        batch_id = client.post("/batches", files=files).json()["id"]
+        for _ in range(200):
+            if client.get(f"/batches/{batch_id}").json()["status"] == "analyzed":
+                break
+            time.sleep(0.1)
+        report = client.get(f"/batches/{batch_id}/report").json()
+        page = next(p for p in report["pages"] if p["source_file"] == "CX1/DOC2/0001.tif")
+
+        r = client.put(f"/pages/{page['id']}/rotation", json={"angle_deg": 90, "reviewer": "maria"})
+        assert r.status_code == 200, r.text
+        finding = r.json()["finding"]
+        validate(finding, "finding.schema.json")
+        assert (
+            finding["rule"] == "orientation" and finding["correction"]["params"]["manual"] is True
+        )
+        assert (
+            finding["decision"]["action"] == "correct"
+            and finding["decision"]["reviewer"] == "maria"
+        )
+
+        def corrected() -> np.ndarray:
+            png = client.get(f"/pages/{page['id']}/image", params={"variant": "corrected"}).content
+            return np.asarray(Image.open(io.BytesIO(png)))
+
+        original = np.asarray(Image.open(correction_batch / "CX1/DOC2/0001.tif"))
+        assert np.array_equal(corrected(), cv2.rotate(original, cv2.ROTATE_90_CLOCKWISE))
+
+        # Trocar o ângulo regrava a cópia (não reaproveita a de 90°).
+        r = client.put(
+            f"/pages/{page['id']}/rotation", json={"angle_deg": 270, "reviewer": "maria"}
+        )
+        assert r.json()["finding"]["id"] == finding["id"]
+        assert np.array_equal(corrected(), cv2.rotate(original, cv2.ROTATE_90_COUNTERCLOCKWISE))
+
+        plan = client.get(f"/batches/{batch_id}/corrected-plan").json()
+        item = next(p for d in plan["documents"] for p in d["pages"] if p["page_id"] == page["id"])
+        assert item["corrected"] and item["changes"][0]["text"] == "girada 270°"
+        assert item["changes"][0]["decided_by"] == "maria"
+
+        # A página girada vai girada no zip, e a decisão vai no registro de decisões.
+        for missing in client.get(f"/batches/{batch_id}/findings").json():
+            if missing["rule"] == "missing_page":
+                client.post(
+                    f"/findings/{missing['id']}/decision",
+                    json={"action": "reject", "reviewer": "maria"},
+                )
+        saved = client.post(
+            f"/batches/{batch_id}/corrected-batch", json={"reviewer": "maria"}
+        ).json()
+        archive = zipfile.ZipFile(io.BytesIO(client.get(saved["download"]).content))
+        rotated = np.asarray(Image.open(io.BytesIO(archive.read(item["target_file"]))))
+        assert rotated.shape == original.shape[::-1]
+        decisions = archive.read("decisions.csv").decode()
+        assert "rotate" not in decisions and "orientation" in decisions and "maria" in decisions
+
+        # Não girar: aprova a sinalização (fica auditado) e a cópia volta ao original.
+        r = client.put(f"/pages/{page['id']}/rotation", json={"angle_deg": 0, "reviewer": "joão"})
+        assert r.json()["finding"]["decision"]["action"] == "approve"
+        assert (
+            client.get(f"/pages/{page['id']}/image", params={"variant": "corrected"}).status_code
+            == 404
+        )
+        other = next(p for p in report["pages"] if p["source_file"] == "CX1/DOC2/0002.tif")
+        assert (
+            client.put(
+                f"/pages/{other['id']}/rotation", json={"angle_deg": 0, "reviewer": "x"}
+            ).status_code
+            == 409
+        )

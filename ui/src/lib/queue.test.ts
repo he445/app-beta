@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Analysis, Finding } from "../api/types";
 import { parseSse } from "../api/sse";
 import { csvObjects, parseCsv } from "./csv";
-import { keyToAction } from "./keys";
+import { currentRotation, keyToAction, nextRotation } from "./keys";
 import { buildQueue, clampIndex, replaceFinding } from "./queue";
 
 function finding(id: string, severity: Finding["severity"], page: string, rule = "blur"): Finding {
@@ -88,5 +88,25 @@ describe("SSE e CSV", () => {
   it("lê campos com aspas, vírgulas e quebras de linha", () => {
     expect(parseCsv('a,b\n"x, y","diz ""oi""\nok"\n')).toEqual([["a", "b"], ["x, y", 'diz "oi"\nok']]);
     expect(csvObjects("station,box\nE3,CX1\n")).toEqual([{ station: "E3", box: "CX1" }]);
+  });
+});
+
+
+describe("rotação pelo teclado", () => {
+  it("Q, E e W giram 90° à esquerda, 90° à direita e 180°", () => {
+    expect(keyToAction({ key: "e" })).toEqual({ type: "rotate", delta: 90 });
+    expect(keyToAction({ key: "Q" })).toEqual({ type: "rotate", delta: 270 });
+    expect(keyToAction({ key: "w" })).toEqual({ type: "rotate", delta: 180 });
+  });
+
+  it("o giro é somado ao que já está aplicado na cópia", () => {
+    const findings = [
+      { rule: "orientation", target: { kind: "page", id: "p" }, decision: { action: "correct" }, correction: { params: { angle_deg: 90 } } },
+      { rule: "orientation", target: { kind: "page", id: "x" }, decision: { action: "approve" }, correction: { params: { angle_deg: 180 } } },
+    ];
+    expect(currentRotation(findings, "p")).toBe(90);
+    expect(currentRotation(findings, "x")).toBe(0);
+    expect(nextRotation(90, 270)).toBe(0);
+    expect(nextRotation(270, 180)).toBe(90);
   });
 });

@@ -44,6 +44,18 @@ const { chromium } = require("playwright");
   await page.waitForURL(/#\/batches\/[0-9a-f-]+$/, { timeout: 30_000 });
   await page.getByRole("link", { name: "Relatório" }).waitFor({ timeout: 120_000 });
   await page.getByText(/Veredito|Aprovado|Reprovado/).first().waitFor({ timeout: 120_000 });
+  // Revisão: girar a página pelo teclado (E = 90° à direita) vira decisão auditada.
+  await page.getByRole("link", { name: "Revisão" }).click();
+  const rotateHeading = page.getByRole("heading", { name: "Girar a página" });
+  await page.getByText("decididas").first().waitFor({ timeout: 30_000 });
+  for (let i = 0; i < 10 && !(await rotateHeading.isVisible()); i++) await page.keyboard.press("ArrowRight");
+  await rotateHeading.waitFor({ timeout: 10_000 });
+  await page.keyboard.press("e");
+  await page.getByText("Página girada 90° na cópia.").waitFor({ timeout: 30_000 });
+  await page.getByText("Na cópia: girada 90° no sentido horário.").waitFor({ timeout: 30_000 });
+  if (shots) await page.screenshot({ path: `${shots}/desktop-revisao-girada.png` });
+  await page.keyboard.press("q");
+  await page.getByText("Página de volta à orientação original.").waitFor({ timeout: 30_000 });
   await page.getByRole("link", { name: "Relatório" }).click();
 
   const save = page.getByRole("button", { name: "Salvar na pasta de saída" });

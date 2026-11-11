@@ -542,6 +542,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/pages/{page_id}/rotation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                page_id: components["parameters"]["PageId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Girar a página na cópia (rotação escolhida pelo revisor)
+         * @description Giro horário total. Vira uma decisão auditada numa sinalização `orientation`: a do
+         *     modelo, se houver (a rotação proposta passa a ser a escolhida), ou uma nova. A cópia
+         *     corrigida é regravada e vai para o lote corrigido. `angle_deg: 0` aprova a
+         *     sinalização existente (não girar).
+         *
+         */
+        put: operations["setPageRotation"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/pages/{page_id}/numbering": {
         parameters: {
             query?: never;
@@ -1416,6 +1442,15 @@ export interface components {
             destination?: "zip" | "folder";
             /** @description Caminho da pasta gerada, quando o destino é pasta. */
             folder?: string | null;
+        };
+        /**
+         * RotationRequest
+         * @description Rotação escolhida pelo revisor: giro horário total da página na cópia. 0 = não girar.
+         */
+        "rotation-request.schema": {
+            /** @enum {unknown} */
+            angle_deg: 0 | 90 | 180 | 270;
+            reviewer: string;
         };
         /** NumberingUpdate */
         "numbering-update.schema": {
@@ -2317,6 +2352,39 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["Problem"];
+        };
+    };
+    setPageRotation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                page_id: components["parameters"]["PageId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["rotation-request.schema"];
+            };
+        };
+        responses: {
+            /** @description Sinalização decidida e painel do lote */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        finding: components["schemas"]["finding.schema"];
+                        summary: components["schemas"]["batch-summary.schema"];
+                        applied?: Record<string, never>;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
         };
     };
     putPageNumbering: {

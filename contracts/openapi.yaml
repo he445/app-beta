@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QA Automático de Digitalização — API do motor
-  version: 0.9.0
+  version: 0.10.0
   summary: Contrato entre a interface web, a linha de comando e o motor de análise.
   description: |
     Fonte da verdade do sistema (ADR-0002). Modelos de cada linguagem são gerados a partir
@@ -648,6 +648,37 @@ paths:
               schema: { type: string, format: binary }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/Problem" }
+  /pages/{page_id}/rotation:
+    parameters: [{ $ref: "#/components/parameters/PageId" }]
+    put:
+      tags: [review]
+      operationId: setPageRotation
+      summary: Girar a página na cópia (rotação escolhida pelo revisor)
+      description: |
+        Giro horário total. Vira uma decisão auditada numa sinalização `orientation`: a do
+        modelo, se houver (a rotação proposta passa a ser a escolhida), ou uma nova. A cópia
+        corrigida é regravada e vai para o lote corrigido. `angle_deg: 0` aprova a
+        sinalização existente (não girar).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "schemas/rotation-request.schema.json" }
+      responses:
+        "200":
+          description: Sinalização decidida e painel do lote
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [finding, summary]
+                properties:
+                  finding: { $ref: "schemas/finding.schema.json" }
+                  summary: { $ref: "schemas/batch-summary.schema.json" }
+                  applied: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
   /pages/{page_id}/numbering:
     parameters: [{ $ref: "#/components/parameters/PageId" }]
     put:

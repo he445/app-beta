@@ -2,7 +2,7 @@
 
 # Referência da API
 
-Contrato **0.9.0**. A fonte é `contracts/openapi.yaml`, com os
+Contrato **0.10.0**. A fonte é `contracts/openapi.yaml`, com os
 formatos em `contracts/schemas/` (JSON Schema 2020-12), validados pelo Spectral na CI.
 Com o motor no ar, a versão interativa fica em `/docs`.
 
@@ -32,6 +32,7 @@ Erros seguem o RFC 9457 (`application/problem+json`).
 | `GET /batches/{batch_id}/findings` | Sinalizações filtradas por severidade, regra e pendência | 200, 401, 404 |
 | `POST /findings/{finding_id}/decision` | Aprovar, corrigir, reprovar ou marcar defeito de origem | 200, 401, 404, 422 |
 | `DELETE /findings/{finding_id}/decision` | Desfazer a última decisão (Ctrl+Z) | 200, 401, 404, 409 |
+| `PUT /pages/{page_id}/rotation` | Girar a página na cópia (rotação escolhida pelo revisor) | 200, 401, 404, 409 |
 
 ## Imagens e numeração
 

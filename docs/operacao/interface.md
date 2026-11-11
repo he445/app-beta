@@ -35,6 +35,14 @@ Guia para garantidores e conferentes. Para instalar e publicar, veja
 | Ctrl+Z | Desfazer a última decisão |
 | 1–4 | Mostrar só crítico, alto, médio ou baixo (de novo: todos) |
 | N | Digitar a numeração correta da folha |
+| Q / E | Girar a página 90° para a esquerda / direita, na cópia |
+| W | Girar a página 180°, na cópia |
+
+**Página de lado ou de cabeça para baixo:** com confiança alta, a rotação entra no
+"Corrigir tudo"; com confiança média, aparece sugerida e você aplica com C. Em qualquer
+página, Q, E e W (ou os botões **Girar a página**) giram a cópia; o giro é somado ao que
+já está aplicado. Cada giro é uma decisão registrada com seu nome e horário e vai para o
+lote corrigido; voltar à orientação original registra "não girar".
 
 5. **Sequência:** miniaturas na ordem do arquivo com a numeração lida e o canto ampliado.
    Toque ou clique numa página (ou Enter) para corrigir a numeração; **Ampliar**, duplo

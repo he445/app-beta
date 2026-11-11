@@ -23,7 +23,8 @@ Ordem canônica (empate: identificador da sinalização):
 Cada versão gravada vira um evento no log só de inserção (`corrected/corrections.jsonl`)
 com a cadeia (`chain`), o arquivo gerado, os SHA-256 de origem e destino, quem decidiu,
 quando e a operação em lote, se houver. Uma versão já gravada para a mesma cadeia é
-reaproveitada: desfazer volta ao mesmo arquivo, byte a byte.
+reaproveitada: desfazer volta ao mesmo arquivo, byte a byte. A cadeia é comparada por
+sinalização, ação e parâmetros (uma rotação trocada de 90° para 270° grava outra versão).
 
 **Correções proibidas** nunca são oferecidas: aumentar resolução por
 interpolação, nitidez artificial, clarear página ilegível, preencher área cortada.
