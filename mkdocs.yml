@@ -52,6 +52,7 @@ nav:
   - Operação:
       - operacao/index.md
       - Interface de revisão: operacao/interface.md
+      - Configurações: operacao/configuracoes.md
   - Arquitetura:
       - arquitetura/index.md
       - Diagramas C4: arquitetura/c4.md

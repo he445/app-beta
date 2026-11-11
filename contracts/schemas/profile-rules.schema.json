@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "profile-rules.schema.json",
+  "title": "ProfileRules",
+  "description": "Cada regra de um perfil como fica para uma estação: valor, de onde veio (manifesto, perfil ou estação) e o padrão.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "rule",
+      "enabled",
+      "enabled_source",
+      "params"
+    ],
+    "properties": {
+      "rule": {
+        "type": "string"
+      },
+      "enabled": {
+        "type": "boolean"
+      },
+      "enabled_source": {
+        "enum": [
+          "manifest",
+          "profile",
+          "station"
+        ]
+      },
+      "params": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "value",
+            "source",
+            "default"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "value": {},
+            "source": {
+              "enum": [
+                "manifest",
+                "profile",
+                "station"
+              ]
+            },
+            "default": {},
+            "type": {
+              "enum": [
+                "number",
+                "integer",
+                "boolean"
+              ]
+            },
+            "minimum": {
+              "type": "number"
+            },
+            "maximum": {
+              "type": "number"
+            },
+            "description": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

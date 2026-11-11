@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "settings-view.schema.json",
+  "title": "SettingsView",
+  "description": "Configuração deste computador como está valendo, com a origem de cada valor. O token nunca é devolvido.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "values",
+    "origins",
+    "locked",
+    "editable",
+    "files",
+    "restart_required"
+  ],
+  "properties": {
+    "values": {
+      "$ref": "settings.schema.json"
+    },
+    "origins": {
+      "type": "object",
+      "additionalProperties": {
+        "enum": [
+          "default",
+          "machine",
+          "user",
+          "env",
+          "args"
+        ]
+      },
+      "description": "De qual camada veio cada valor."
+    },
+    "locked": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Chaves travadas pelo arquivo da máquina."
+    },
+    "editable": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Chaves que a pessoa pode mudar pela tela (as travadas ficam de fora)."
+    },
+    "files": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "machine": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "user": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "restart_required": {
+      "type": "boolean",
+      "description": "Verdadeiro quando há mudança salva que só vale na próxima abertura do programa."
+    }
+  }
+}

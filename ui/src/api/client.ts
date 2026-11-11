@@ -63,11 +63,20 @@ export function onSessionChange(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
+/** Valor recusado pelo motor, um por chave (configuração inválida). */
+export interface FieldProblem {
+  key: string;
+  source: string;
+  expected: string;
+  value?: unknown;
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
     readonly title: string,
     readonly detail?: string,
+    readonly problems: FieldProblem[] = [],
   ) {
     super(detail ? `${title}: ${detail}` : title);
   }
@@ -110,10 +119,12 @@ export async function raw(path: string, init: RequestInit = {}): Promise<Respons
   if (!response.ok) {
     let title = response.statusText || `Erro ${response.status}`;
     let detail: string | undefined;
+    let problems: FieldProblem[] = [];
     try {
-      const body = (await response.json()) as { title?: string; detail?: string };
+      const body = (await response.json()) as { title?: string; detail?: string; problems?: FieldProblem[] };
       title = body.title ?? title;
       detail = body.detail;
+      problems = body.problems ?? [];
     } catch {
       /* corpo não é JSON (ex.: página do Render enquanto o motor acorda) */
     }
@@ -124,7 +135,7 @@ export async function raw(path: string, init: RequestInit = {}): Promise<Respons
     if (response.status === 502 || response.status === 503) {
       detail = detail ?? "O motor está reiniciando ou acordando. Tente de novo em alguns segundos.";
     }
-    throw new ApiError(response.status, title, detail);
+    throw new ApiError(response.status, title, detail, problems);
   }
   return response;
 }

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "station-override.schema.json",
+  "title": "StationOverride",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "O que a estação muda numa regra.",
+  "properties": {
+    "enabled": {
+      "type": "boolean",
+      "description": "Liga ou desliga a regra só para as páginas desta estação."
+    },
+    "params": {
+      "type": "object",
+      "description": "Parâmetros que esta estação sobrescreve; os nomes são os do manifesto da regra.",
+      "additionalProperties": true
+    }
+  }
+}

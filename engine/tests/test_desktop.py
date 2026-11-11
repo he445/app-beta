@@ -189,3 +189,102 @@ def test_headless_start_single_instance_and_invalid_settings(tmp_path: Path) -> 
     )
     assert bad.returncode == 2
     assert "workers em argumento --set workers" in bad.stderr
+
+
+# Tela de configurações -----------------------------------------------------------------
+
+
+@pytest.fixture
+def with_settings(tmp_path: Path, repo: Path) -> Iterator[tuple[TestClient, Path]]:
+    from qa_engine.adapters.paths import AppPaths
+    from qa_engine.adapters.settings import LayeredSettings
+
+    paths = AppPaths(
+        machine_config=tmp_path / "maquina" / "config.toml",
+        user_config=tmp_path / "usuario" / "config.toml",
+        data_dir=tmp_path / "data",
+        output_dir=tmp_path / "Saída",
+        program_dir=repo,
+    )
+    paths.machine_config.parent.mkdir()
+    paths.machine_config.write_text('[locked]\nkeys = ["allowed_roots"]\n', "utf-8")
+    source = LayeredSettings.for_desktop(paths, env={})
+    settings = desktop_settings(base_settings(tmp_path, repo), 51234, "tk")
+    app = create_app(settings, source)
+    with TestClient(app, base_url="http://127.0.0.1:51234") as client:
+        client.headers["Authorization"] = "Bearer tk"
+        yield client, paths.user_config
+
+
+def test_settings_view_shows_origin_and_locked_keys(
+    with_settings: tuple[TestClient, Path],
+) -> None:
+    from qa_engine.application.contracts import validate
+
+    client, _ = with_settings
+    assert "settings" in client.get("/health").json()["capabilities"]
+    view = client.get("/settings").json()
+    validate(view, "settings-view.schema.json")
+    assert view["origins"]["workers"] == "default"
+    assert view["locked"] == ["allowed_roots"]
+    assert "allowed_roots" not in view["editable"] and "output_dir" in view["editable"]
+    assert view["values"]["api_token"] is None
+    assert view["restart_required"] is False
+
+
+def test_put_settings_refuses_invalid_values_before_writing(
+    with_settings: tuple[TestClient, Path],
+) -> None:
+    client, user_file = with_settings
+    r = client.put("/settings", json={"changes": {"workers": 0, "log_level": "verbose"}})
+    assert r.status_code == 422
+    problems = {p["key"]: p for p in r.json()["problems"]}
+    assert set(problems) == {"workers", "log_level"}
+    assert problems["workers"]["source"] == str(user_file) and problems["workers"]["value"] == 0
+    assert not user_file.exists()
+
+    locked = client.put("/settings", json={"changes": {"allowed_roots": ["C:/x"]}})
+    assert locked.status_code == 422
+    assert locked.json()["problems"][0]["key"] == "allowed_roots"
+    token = client.put("/settings", json={"changes": {"api_token": "x"}})
+    assert token.status_code == 422
+
+    ok = client.put("/settings", json={"changes": {"workers": 2, "output_dir": "D:/Saída"}})
+    assert ok.status_code == 200, ok.text
+    assert ok.json()["origins"]["workers"] == "user" and ok.json()["restart_required"] is True
+    reset = client.put("/settings", json={"reset": ["workers"]}).json()
+    assert reset["origins"]["workers"] == "default"
+
+
+def test_settings_only_where_there_is_a_source(tmp_path: Path, repo: Path) -> None:
+    with TestClient(create_app(base_settings(tmp_path, repo))) as client:
+        assert client.get("/settings").status_code == 404
+        assert "settings" not in client.get("/health").json()["capabilities"]
+
+
+def test_profile_rules_show_where_each_value_came_from(
+    with_settings: tuple[TestClient, Path],
+) -> None:
+    from qa_engine.application.contracts import validate
+
+    client, _ = with_settings
+    rules = client.get("/profiles/sos-piloto/rules", params={"station_id": "cg-e3"}).json()
+    validate(rules, "profile-rules.schema.json")
+    borders = next(r for r in rules if r["rule"] == "black_borders")
+    dark = next(p for p in borders["params"] if p["name"] == "dark_level")
+    assert (dark["value"], dark["source"], dark["default"]) == (60, "station", 70)
+    assert dark["type"] == "integer" and dark["minimum"] == 0
+    assert client.get("/profiles/sos-piloto/rules", params={"station_id": "x"}).status_code == 404
+
+
+def test_profile_params_out_of_range_are_refused(
+    with_settings: tuple[TestClient, Path],
+) -> None:
+    client, _ = with_settings
+    profile = client.get("/profiles/sos-piloto").json()
+    profile["stations"][0]["overrides"]["black_borders"]["params"]["dark_level"] = -5
+    r = client.put("/profiles/sos-piloto", json=profile)
+    assert r.status_code == 422
+    assert "black_borders.dark_level: esperado ≥ 0" in r.json()["title"] + r.json().get(
+        "detail", ""
+    )

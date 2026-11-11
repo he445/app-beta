@@ -64,6 +64,7 @@ desktop fora de `api/engine.tsx`, `lib/desktop.ts` e `lib/session.ts`.
 | `local_batches` | Cartão "Abrir lote" (caminho da pasta e, na janela do programa, "Escolher pasta…") |
 | `folder_export` | "Salvar na pasta de saída" no relatório |
 | `os_session` | Sem tela de entrada: o token vem da janela (ou de um código de uso único no fragmento da URL) e o revisor de `GET /session` |
+| `settings` | Tela de Configurações (`GET`/`PUT /settings`, `GET /profiles/{id}/rules`) no lugar do editor de perfis |
 | `synthetic_only` | Aviso de que só documentos sintéticos ou públicos são aceitos |
 
 ## Estrutura

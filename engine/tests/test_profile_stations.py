@@ -85,7 +85,13 @@ def test_effective_rules_view(repo: Path) -> None:
         ]
         if p["name"] == "dark_level"
     )
-    assert dark == {"name": "dark_level", "value": 60, "source": "station", "default": 70}
+    assert {k: dark[k] for k in ("name", "value", "source", "default")} == {
+        "name": "dark_level",
+        "value": 60,
+        "source": "station",
+        "default": 70,
+    }
+    assert (dark["type"], dark["minimum"], dark["maximum"]) == ("integer", 0, 255)
 
 
 @pytest.mark.parametrize(

@@ -28,6 +28,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Configuração deste computador, com a origem de cada valor
+         * @description Só no programa desktop (`settings` em `capabilities`).
+         */
+        get: operations["getSettings"];
+        /**
+         * Mudar a configuração do usuário
+         * @description Valida cada chave contra `settings.schema.json` e só então grava no arquivo do
+         *     usuário. Chave travada pelo arquivo da máquina ou valor inválido: 422 com a lista
+         *     `problems` (chave, origem e valor esperado), e nada é gravado. As mudanças valem
+         *     na próxima abertura do programa (`restart_required`).
+         *
+         */
+        put: operations["putSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/session/exchange": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trocar o código de uso único pelo token (programa desktop no navegador)
+         * @description Quando a janela do programa não abre (sem WebView2), a interface abre no navegador
+         *     padrão com um código de uso único no fragmento da URL (`#code=...`), que não vai para
+         *     o servidor nem para o log. A interface troca o código pelo token desta abertura. Cada
+         *     código vale uma vez e por 2 minutos. Só existe no programa desktop.
+         *
+         */
+        post: operations["exchangeSessionCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/session": {
         parameters: {
             query?: never;
@@ -513,6 +565,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/profiles/{profile_id}/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Regras do perfil para uma estação, com a origem de cada valor */
+        get: operations["getProfileRules"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/profiles/{profile_id}": {
         parameters: {
             query?: never;
@@ -543,6 +612,13 @@ export interface components {
             title: string;
             status: number;
             detail?: string;
+            /** @description Valores recusados, um por chave (configuração inválida). */
+            problems?: {
+                key: string;
+                source: string;
+                expected: string;
+                value?: unknown;
+            }[];
         };
         /** Health */
         "health.schema": {
@@ -560,6 +636,127 @@ export interface components {
             mode: "cloud" | "desktop" | "server";
             /** @description O que este motor oferece; a interface mostra só o que está aqui. upload: enviar lote pelo navegador. demo_batches: lotes de demonstração no servidor. local_batches: abrir pasta local ou de rede (POST /local-batches). folder_export: gravar o lote corrigido em pasta. os_session: o revisor vem do usuário do sistema (GET /session), sem tela de entrada. synthetic_only: só documentos sintéticos ou públicos, com apagamento automático. settings: tela de configurações (GET e PUT /settings). */
             capabilities: ("upload" | "demo_batches" | "local_batches" | "folder_export" | "os_session" | "synthetic_only" | "settings")[];
+        };
+        /**
+         * Settings
+         * @description Configuração deste computador: pastas, recursos e acesso. Descreve a máquina, não o padrão de qualidade (esse fica no perfil). Cada camada (arquivo da máquina, arquivo do usuário, variáveis QA_*, argumentos) é validada contra este esquema.
+         */
+        "settings.schema": {
+            /**
+             * @description Quantos processos analisam ao mesmo tempo. `auto` = núcleos − 1, mínimo 1. Variável: QA_WORKERS.
+             * @default auto
+             */
+            workers: "auto" | number;
+            /**
+             * @description Teto de memória da análise, em MB; o motor reduz o paralelismo para caber nele. `auto` = metade da memória do computador. Variável: QA_MAX_MEMORY_MB.
+             * @default auto
+             */
+            max_memory_mb: "auto" | number;
+            /** @description Banco SQLite, miniaturas, cópias corrigidas e log. Padrão: `%LOCALAPPDATA%\SOSDocs\QA` no desktop; `./data` no servidor. Variável: QA_DATA_DIR. */
+            data_dir?: string;
+            /** @description Onde vai o lote corrigido gravado em pasta. Padrão: `Documentos\QA\Saída` no desktop; `saida` dentro de `data_dir` no servidor. Variável: QA_OUTPUT_DIR. Vazio = o padrão calculado. */
+            output_dir?: string | null;
+            /** @description Arquivos temporários de correção. Padrão: `tmp` dentro de `data_dir`. Variável: QA_TEMP_DIR. Vazio = o padrão calculado. */
+            temp_dir?: string | null;
+            /**
+             * @description Pastas e compartilhamentos de rede de onde se pode abrir lote. Vazio = qualquer pasta que o usuário consiga ler. Variável: QA_ALLOWED_ROOTS (separadas por `;`).
+             * @default []
+             */
+            allowed_roots: string[];
+            /**
+             * @description Identificador da estação usada quando o arquivo não diz de qual digitalizadora veio. Variável: QA_DEFAULT_STATION.
+             * @default null
+             */
+            default_station: string | null;
+            /** @description Espera o lote ficar esse tempo sem nenhum arquivo mudar antes de analisar (a digitalizadora pode ainda estar gravando). Padrão: 30 no desktop; 0 no servidor. Variável: QA_BATCH_SETTLE_SECONDS. */
+            batch_settle_seconds?: number;
+            /** @description Quanto tempo ficam guardados os lotes enviados, as miniaturas e as cópias corrigidas. Padrão: 30 no desktop; 1 no servidor. Variáveis: QA_RETENTION_DAYS ou QA_RETENTION_HOURS. */
+            retention_days?: number;
+            /**
+             * @description Detalhe do log. Variável: QA_LOG_LEVEL.
+             * @default info
+             * @enum {unknown}
+             */
+            log_level: "debug" | "info" | "warning" | "error";
+            /** @description Pasta dos perfis YAML. Padrão: `profiles` ao lado do programa. Variável: QA_PROFILES_DIR. */
+            profiles_dir?: string;
+            /**
+             * @description Interface compilada para servir na mesma origem. Variável: QA_UI_DIR.
+             * @default null
+             */
+            ui_dir: string | null;
+            /**
+             * @description Lotes de demonstração, uma subpasta por lote. Variável: QA_DEMO_DIR.
+             * @default null
+             */
+            demo_dir: string | null;
+            /**
+             * @description Limite do envio de lote pelo navegador, em MB. Variável: QA_MAX_UPLOAD_MB.
+             * @default 2048
+             */
+            max_upload_mb: number;
+            /**
+             * @description Origens de interface publicada noutro endereço. Vazio = nenhuma (interface na mesma origem). Variável: QA_CORS_ORIGINS (separadas por vírgula).
+             * @default []
+             */
+            cors_origins: string[];
+            /**
+             * @description Token exigido em `Authorization: Bearer`. Vazio desliga a autenticação (só desenvolvimento e demonstração com dados sintéticos). No desktop é gerado a cada abertura e não é lido de arquivo. Variável: QA_API_TOKEN.
+             * @default null
+             */
+            api_token: string | null;
+            /** @description Só no arquivo da máquina: chaves que as camadas seguintes (arquivo do usuário, variáveis e argumentos) não podem mudar. */
+            locked?: {
+                /** @description Nomes das chaves travadas. */
+                keys?: ("workers" | "max_memory_mb" | "data_dir" | "output_dir" | "temp_dir" | "allowed_roots" | "default_station" | "batch_settle_seconds" | "retention_days" | "log_level" | "profiles_dir" | "ui_dir" | "demo_dir" | "max_upload_mb" | "cors_origins" | "api_token")[];
+            };
+        };
+        /**
+         * SettingsView
+         * @description Configuração deste computador como está valendo, com a origem de cada valor. O token nunca é devolvido.
+         */
+        "settings-view.schema": {
+            values: components["schemas"]["settings.schema"];
+            /** @description De qual camada veio cada valor. */
+            origins: {
+                [key: string]: "default" | "machine" | "user" | "env" | "args";
+            };
+            /** @description Chaves travadas pelo arquivo da máquina. */
+            locked: string[];
+            /** @description Chaves que a pessoa pode mudar pela tela (as travadas ficam de fora). */
+            editable: string[];
+            files: {
+                machine?: string | null;
+                user?: string | null;
+            };
+            /** @description Verdadeiro quando há mudança salva que só vale na próxima abertura do programa. */
+            restart_required: boolean;
+        };
+        /**
+         * SettingsUpdate
+         * @description Mudanças na configuração do usuário. Cada chave é validada contra settings.schema.json antes de gravar.
+         */
+        "settings-update.schema": {
+            /** @description Chaves a definir. */
+            changes?: {
+                [key: string]: unknown;
+            };
+            /** @description Chaves que voltam a herdar da máquina ou do padrão. */
+            reset?: string[];
+        };
+        /**
+         * SessionExchangeRequest
+         * @description Código de uso único que o programa desktop põe no fragmento da URL quando abre a interface no navegador padrão.
+         */
+        "session-exchange-request.schema": {
+            code: string;
+        };
+        /**
+         * SessionToken
+         * @description Token desta abertura do programa, para o cabeçalho Authorization: Bearer.
+         */
+        "session-token.schema": {
+            token: string;
         };
         /**
          * Session
@@ -1030,16 +1227,22 @@ export interface components {
             reviewer: string;
         };
         /**
+         * RuleId
          * @description Identificador de uma regra registrada.
          * @enum {unknown}
          */
-        rule: "corrupted_file" | "low_resolution" | "blank_page" | "black_borders" | "blur" | "skew" | "exposure" | "duplicate_page" | "missing_page" | "out_of_order" | "numbering_review" | "completeness_unverifiable";
-        /** @description O que a estação muda numa regra. */
-        station_override: {
+        "rule-id.schema": "corrupted_file" | "low_resolution" | "blank_page" | "black_borders" | "blur" | "skew" | "exposure" | "duplicate_page" | "missing_page" | "out_of_order" | "numbering_review" | "completeness_unverifiable";
+        /**
+         * StationOverride
+         * @description O que a estação muda numa regra.
+         */
+        "station-override.schema": {
             /** @description Liga ou desliga a regra só para as páginas desta estação. */
             enabled?: boolean;
             /** @description Parâmetros que esta estação sobrescreve; os nomes são os do manifesto da regra. */
-            params?: Record<string, never>;
+            params?: {
+                [key: string]: unknown;
+            };
         };
         /**
          * Profile
@@ -1096,7 +1299,7 @@ export interface components {
                 folder?: string;
                 /** @description Ajustes desta estação por regra. Ordem de aplicação: padrão do manifesto, depois `detectors` do perfil, depois isto. */
                 overrides?: {
-                    [key: string]: components["schemas"]["station_override"];
+                    [key: string]: components["schemas"]["station-override.schema"];
                 };
             }[];
             /** @description Configuração por regra. Regra ausente fica ligada com os padrões do manifesto. */
@@ -1110,24 +1313,34 @@ export interface components {
                      */
                     severity?: "critical" | "high" | "medium" | "low";
                     /** @description Parâmetros que o perfil sobrescreve; os nomes são os do manifesto da regra. */
-                    params?: Record<string, never>;
-                };
-            };
-            $defs: {
-                /**
-                 * @description Identificador de uma regra registrada.
-                 * @enum {unknown}
-                 */
-                rule: "corrupted_file" | "low_resolution" | "blank_page" | "black_borders" | "blur" | "skew" | "exposure" | "duplicate_page" | "missing_page" | "out_of_order" | "numbering_review" | "completeness_unverifiable";
-                /** @description O que a estação muda numa regra. */
-                station_override: {
-                    /** @description Liga ou desliga a regra só para as páginas desta estação. */
-                    enabled?: boolean;
-                    /** @description Parâmetros que esta estação sobrescreve; os nomes são os do manifesto da regra. */
-                    params?: Record<string, never>;
+                    params?: {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };
+        /**
+         * ProfileRules
+         * @description Cada regra de um perfil como fica para uma estação: valor, de onde veio (manifesto, perfil ou estação) e o padrão.
+         */
+        "profile-rules.schema": {
+            rule: string;
+            enabled: boolean;
+            /** @enum {unknown} */
+            enabled_source: "manifest" | "profile" | "station";
+            params: {
+                name: string;
+                value: unknown;
+                /** @enum {unknown} */
+                source: "manifest" | "profile" | "station";
+                default: unknown;
+                /** @enum {unknown} */
+                type?: "number" | "integer" | "boolean";
+                minimum?: number;
+                maximum?: number;
+                description?: string;
+            }[];
+        }[];
     };
     responses: {
         /** @description Erro */
@@ -1177,6 +1390,81 @@ export interface operations {
                     "application/json": components["schemas"]["health.schema"];
                 };
             };
+        };
+    };
+    getSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Configuração efetiva */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["settings-view.schema"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    putSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["settings-update.schema"];
+            };
+        };
+        responses: {
+            /** @description Configuração depois da mudança */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["settings-view.schema"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    exchangeSessionCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["session-exchange-request.schema"];
+            };
+        };
+        responses: {
+            /** @description Token desta abertura */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["session-token.schema"];
+                };
+            };
+            403: components["responses"]["Problem"];
+            404: components["responses"]["Problem"];
         };
     };
     getSession: {
@@ -1854,6 +2142,33 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    getProfileRules: {
+        parameters: {
+            query?: {
+                /** @description Estação; ausente = o perfil inteiro. */
+                station_id?: string;
+            };
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Regras efetivas */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["profile-rules.schema"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["Problem"];
         };
     };
     getProfile: {

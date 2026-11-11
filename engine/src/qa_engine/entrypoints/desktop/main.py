@@ -35,6 +35,7 @@ from qa_engine.adapters.logs import setup_file_logging, write_crash
 from qa_engine.adapters.paths import AppPaths
 from qa_engine.adapters.settings import LayeredSettings, parse_overrides
 from qa_engine.application.settings import Settings, SettingsError
+from qa_engine.ports import SettingsSource
 
 log = logging.getLogger("qa_engine.desktop")
 HOST = "127.0.0.1"
@@ -125,10 +126,10 @@ class Bridge:
 class EngineServer:
     """uvicorn numa thread, com encerramento limpo."""
 
-    def __init__(self, settings: Settings, port: int) -> None:
+    def __init__(self, settings: Settings, port: int, source: SettingsSource | None = None) -> None:
         from qa_engine.entrypoints.http.app import create_app
 
-        self.app = create_app(settings)
+        self.app = create_app(settings, source)
         self.url = f"http://{HOST}:{port}"
         config = uvicorn.Config(self.app, host=HOST, port=port, log_config=None, access_log=False)
         self.server = uvicorn.Server(config)
@@ -233,7 +234,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     paths = AppPaths.detect()
     try:
-        resolved = LayeredSettings.for_desktop(paths, args=parse_overrides(args.set)).load()
+        source = LayeredSettings.for_desktop(paths, args=parse_overrides(args.set))
+        resolved = source.load()
     except SettingsError as exc:
         show_error(
             [str(p) for p in exc.problems],
@@ -259,7 +261,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         port = args.port or free_port()
         token = secrets.token_urlsafe(32)
-        server = EngineServer(desktop_settings(base, port, token), port)
+        server = EngineServer(desktop_settings(base, port, token), port, source)
         server.app.state.focus_secret = secrets.token_urlsafe(16)
         server.start()
         lock.publish(port, server.app.state.focus_secret)

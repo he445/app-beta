@@ -26,6 +26,11 @@ export type Health = S["health.schema"];
 export type Capability = Health["capabilities"][number];
 export type SessionInfo = S["session.schema"];
 export type Station = NonNullable<Profile["stations"]>[number];
+export type SettingsView = S["settings-view.schema"];
+export type ComputerSettings = S["settings.schema"];
+export type ProfileRules = S["profile-rules.schema"];
+export type RuleView = ProfileRules[number];
+export type ParamView = RuleView["params"][number];
 
 export interface DecisionResponse {
   finding: Finding;

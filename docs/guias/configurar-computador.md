@@ -7,6 +7,9 @@ não fica aqui: fica no [perfil](../referencia/perfis.md).
 Todas as chaves, com tipo, padrão e variável de ambiente, estão na
 [referência de configuração](../referencia/configuracao.md).
 
+No programa desktop, a aba **Este computador** da [tela de Configurações](../operacao/configuracoes.md)
+grava o arquivo do usuário, com a mesma validação.
+
 ## Camadas
 
 Cada camada sobrescreve a anterior:

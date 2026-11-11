@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "rule-id.schema.json",
+  "title": "RuleId",
+  "enum": [
+    "corrupted_file",
+    "low_resolution",
+    "blank_page",
+    "black_borders",
+    "blur",
+    "skew",
+    "exposure",
+    "duplicate_page",
+    "missing_page",
+    "out_of_order",
+    "numbering_review",
+    "completeness_unverifiable"
+  ],
+  "description": "Identificador de uma regra registrada."
+}

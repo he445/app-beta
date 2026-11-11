@@ -70,6 +70,7 @@ from qa_engine.application.review import (
 )
 from qa_engine.application.serialize import analysis_json, iso
 from qa_engine.application.services import run_analysis
+from qa_engine.application.settings import ResolvedSettings, SettingsError, SettingsProblem
 from qa_engine.domain.model import DecisionAction
 from qa_engine.entrypoints.http.settings import Settings, normalize_origin, server_settings
 from qa_engine.entrypoints.http.uploads import (
@@ -78,6 +79,7 @@ from qa_engine.entrypoints.http.uploads import (
     safe_relative,
     strip_common_root,
 )
+from qa_engine.ports import SettingsSource
 
 log = logging.getLogger("qa_engine.http")
 API_PREFIXES = (
@@ -90,6 +92,7 @@ API_PREFIXES = (
     "/demo-batches",
     "/local-batches",
     "/session",
+    "/settings",
 )
 """Rotas que exigem token quando ``QA_API_TOKEN`` está definido. O resto (saúde,
 documentação e a interface servida na mesma origem) é público."""
@@ -266,10 +269,17 @@ class Engine:
             self.repo.fail(batch_id, f"{exc.__class__.__name__}: {exc}"[:500])
 
 
-def capabilities(settings: Settings, demo_batches: int) -> list[str]:
-    """O que o motor oferece, conforme o modo (``capabilities`` em ``/health``)."""
+def capabilities(settings: Settings, demo_batches: int, editable: bool = False) -> list[str]:
+    """O que o motor oferece, conforme o modo (``capabilities`` em ``/health``).
+
+    Args:
+        settings: configuração efetiva.
+        demo_batches: lotes de demonstração prontos.
+        editable: há camada de configuração editável pela tela.
+    """
     if settings.mode == "desktop":
-        return ["local_batches", "folder_export", "os_session"]
+        caps = ["local_batches", "folder_export", "os_session"]
+        return [*caps, "settings"] if editable else caps
     caps = ["upload", "folder_export"] if settings.mode == "server" else ["upload"]
     if demo_batches:
         caps.append("demo_batches")
@@ -286,8 +296,38 @@ def os_user() -> str:
         return "usuário"
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
-    """Monta a aplicação."""
+USER_EDITABLE = (
+    "workers",
+    "max_memory_mb",
+    "output_dir",
+    "temp_dir",
+    "data_dir",
+    "allowed_roots",
+    "default_station",
+    "batch_settle_seconds",
+    "retention_days",
+    "log_level",
+)
+"""Chaves de configuração que a pessoa muda pela tela (as travadas pela máquina saem)."""
+
+
+def settings_view(resolved: ResolvedSettings, restart_required: bool) -> dict[str, Any]:
+    """Configuração no formato de ``settings-view.schema.json``."""
+    view = resolved.json()
+    view["editable"] = [k for k in USER_EDITABLE if k not in resolved.locked]
+    view["restart_required"] = restart_required
+    return view
+
+
+def create_app(
+    settings: Settings | None = None, settings_source: SettingsSource | None = None
+) -> FastAPI:
+    """Monta a aplicação.
+
+    Args:
+        settings: configuração efetiva (padrão: a do servidor, por variáveis ``QA_*``).
+        settings_source: camadas de configuração editáveis pela tela (programa desktop).
+    """
     settings = settings or server_settings()
     engine = Engine(settings)
     if settings.api_token is None:
@@ -365,6 +405,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def not_found(_: Request, exc: NotFoundError) -> JSONResponse:
         return problem(404, str(exc))
 
+    @app.exception_handler(SettingsError)
+    async def settings_error(_: Request, exc: SettingsError) -> JSONResponse:
+        body: dict[str, Any] = {
+            "title": "Configuração inválida",
+            "status": 422,
+            "detail": str(exc),
+            "problems": [p.json() for p in exc.problems],
+        }
+        return JSONResponse(body, status_code=422, media_type="application/problem+json")
+
     @app.exception_handler(LocalBatchError)
     async def local_batch_error(_: Request, exc: LocalBatchError) -> JSONResponse:
         return problem(exc.status, "Pasta não pode ser aberta como lote", str(exc))
@@ -394,7 +444,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "auth_required": settings.api_token is not None,
             "demo_batches": demos,
             "mode": settings.mode,
-            "capabilities": capabilities(settings, demos),
+            "capabilities": capabilities(settings, demos, settings_source is not None),
         }
 
     @app.post("/desktop/focus", status_code=204)
@@ -787,6 +837,45 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return FileResponse(path, media_type=EXPORTS[name], filename=filename)
 
     # Perfis -----------------------------------------------------------------
+
+    def source_or_404() -> SettingsSource:
+        if settings_source is None:
+            raise HTTPException(404, "configuração pela tela só existe no programa desktop")
+        return settings_source
+
+    restart = {"required": False}
+
+    @app.get("/settings")
+    def get_settings() -> dict[str, Any]:
+        return settings_view(source_or_404().load(), restart["required"])
+
+    @app.put("/settings")
+    def put_settings(body: Annotated[dict[str, Any], Body()]) -> dict[str, Any]:
+        source = source_or_404()
+        validate(body, "settings-update.schema.json")
+        changes = dict(body.get("changes") or {})
+        reset = list(body.get("reset") or [])
+        refused = sorted((set(changes) | set(reset)) - set(USER_EDITABLE))
+        if refused:
+            raise SettingsError(
+                [
+                    SettingsProblem(
+                        k, "tela de configurações", "chave editável pela tela", changes.get(k)
+                    )
+                    for k in refused
+                ]
+            )
+        resolved = source.save_user(changes, reset)
+        restart["required"] = True
+        log.info("configuração do usuário alterada: %s", sorted(set(changes) | set(reset)))
+        return settings_view(resolved, True)
+
+    @app.get("/profiles/{profile_id}/rules")
+    def profile_rules(profile_id: str, station_id: str | None = None) -> list[dict[str, Any]]:
+        profile = engine.profile(profile_id)
+        if station_id is not None and profile.station(station_id) is None:
+            raise HTTPException(404, f"estação {station_id!r} não existe no perfil")
+        return profile.effective_rules(station_id)
 
     @app.get("/profiles")
     def list_profiles() -> list[dict[str, Any]]:

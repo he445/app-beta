@@ -9,16 +9,27 @@
     "workers": {
       "description": "Quantos processos analisam ao mesmo tempo. `auto` = núcleos − 1, mínimo 1. Variável: QA_WORKERS.",
       "oneOf": [
-        { "const": "auto" },
-        { "type": "integer", "minimum": 1, "maximum": 256 }
+        {
+          "const": "auto"
+        },
+        {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 256
+        }
       ],
       "default": "auto"
     },
     "max_memory_mb": {
       "description": "Teto de memória da análise, em MB; o motor reduz o paralelismo para caber nele. `auto` = metade da memória do computador. Variável: QA_MAX_MEMORY_MB.",
       "oneOf": [
-        { "const": "auto" },
-        { "type": "integer", "minimum": 256 }
+        {
+          "const": "auto"
+        },
+        {
+          "type": "integer",
+          "minimum": 256
+        }
       ],
       "default": "auto"
     },
@@ -28,24 +39,34 @@
       "description": "Banco SQLite, miniaturas, cópias corrigidas e log. Padrão: `%LOCALAPPDATA%\\SOSDocs\\QA` no desktop; `./data` no servidor. Variável: QA_DATA_DIR."
     },
     "output_dir": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Onde vai o lote corrigido gravado em pasta. Padrão: `Documentos\\QA\\Saída` no desktop; `saida` dentro de `data_dir` no servidor. Variável: QA_OUTPUT_DIR."
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Onde vai o lote corrigido gravado em pasta. Padrão: `Documentos\\QA\\Saída` no desktop; `saida` dentro de `data_dir` no servidor. Variável: QA_OUTPUT_DIR. Vazio = o padrão calculado."
     },
     "temp_dir": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Arquivos temporários de correção. Padrão: `tmp` dentro de `data_dir`. Variável: QA_TEMP_DIR."
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Arquivos temporários de correção. Padrão: `tmp` dentro de `data_dir`. Variável: QA_TEMP_DIR. Vazio = o padrão calculado."
     },
     "allowed_roots": {
       "type": "array",
-      "items": { "type": "string", "minLength": 1 },
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
       "uniqueItems": true,
       "description": "Pastas e compartilhamentos de rede de onde se pode abrir lote. Vazio = qualquer pasta que o usuário consiga ler. Variável: QA_ALLOWED_ROOTS (separadas por `;`).",
       "default": []
     },
     "default_station": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "pattern": "^[a-z0-9_-]+$",
       "description": "Identificador da estação usada quando o arquivo não diz de qual digitalizadora veio. Variável: QA_DEFAULT_STATION.",
       "default": null
@@ -62,7 +83,12 @@
       "description": "Quanto tempo ficam guardados os lotes enviados, as miniaturas e as cópias corrigidas. Padrão: 30 no desktop; 1 no servidor. Variáveis: QA_RETENTION_DAYS ou QA_RETENTION_HOURS."
     },
     "log_level": {
-      "enum": ["debug", "info", "warning", "error"],
+      "enum": [
+        "debug",
+        "info",
+        "warning",
+        "error"
+      ],
       "description": "Detalhe do log. Variável: QA_LOG_LEVEL.",
       "default": "info"
     },
@@ -72,12 +98,18 @@
       "description": "Pasta dos perfis YAML. Padrão: `profiles` ao lado do programa. Variável: QA_PROFILES_DIR."
     },
     "ui_dir": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "Interface compilada para servir na mesma origem. Variável: QA_UI_DIR.",
       "default": null
     },
     "demo_dir": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "Lotes de demonstração, uma subpasta por lote. Variável: QA_DEMO_DIR.",
       "default": null
     },
@@ -89,12 +121,18 @@
     },
     "cors_origins": {
       "type": "array",
-      "items": { "type": "string", "minLength": 1 },
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
       "description": "Origens de interface publicada noutro endereço. Vazio = nenhuma (interface na mesma origem). Variável: QA_CORS_ORIGINS (separadas por vírgula).",
       "default": []
     },
     "api_token": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "Token exigido em `Authorization: Bearer`. Vazio desliga a autenticação (só desenvolvimento e demonstração com dados sintéticos). No desktop é gerado a cada abertura e não é lido de arquivo. Variável: QA_API_TOKEN.",
       "default": null
     },

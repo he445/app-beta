@@ -2,7 +2,7 @@
 
 # Referência da API
 
-Contrato **0.7.0**. A fonte é `contracts/openapi.yaml`, com os
+Contrato **0.8.0**. A fonte é `contracts/openapi.yaml`, com os
 formatos em `contracts/schemas/` (JSON Schema 2020-12), validados pelo Spectral na CI.
 Com o motor no ar, a versão interativa fica em `/docs`.
 
@@ -56,6 +56,7 @@ Erros seguem o RFC 9457 (`application/problem+json`).
 | Rota | Função | Respostas |
 | --- | --- | --- |
 | `GET /profiles` | Listar perfis | 200, 401 |
+| `GET /profiles/{profile_id}/rules` | Regras do perfil para uma estação, com a origem de cada valor | 200, 401, 404 |
 | `GET /profiles/{profile_id}` | Ler um perfil | 200, 401, 404 |
 | `PUT /profiles/{profile_id}` | Criar ou atualizar um perfil (validado contra o esquema) | 200, 401, 422 |
 
@@ -64,5 +65,7 @@ Erros seguem o RFC 9457 (`application/problem+json`).
 | Rota | Função | Respostas |
 | --- | --- | --- |
 | `GET /health` | Saúde do serviço | 200 |
+| `GET /settings` | Configuração deste computador, com a origem de cada valor | 200, 401, 404 |
+| `PUT /settings` | Mudar a configuração do usuário | 200, 401, 404, 422 |
 | `POST /session/exchange` | Trocar o código de uso único pelo token (programa desktop no navegador) | 200, 403, 404 |
 | `GET /session` | Quem está usando o motor | 200, 401 |

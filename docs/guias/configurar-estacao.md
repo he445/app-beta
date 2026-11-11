@@ -5,6 +5,9 @@ vidro, o brilho do papel e a margem escura mudam de uma digitalizadora para outr
 isso os ajustes das regras podem ser dados no perfil inteiro e, por cima, em cada
 estação.
 
+No programa desktop, a aba **Digitalizadoras** da [tela de Configurações](../operacao/configuracoes.md)
+mostra e muda esses ajustes, com a origem de cada valor.
+
 ## Ordem de aplicação
 
 Para cada parâmetro de cada regra, vale o último que existir:

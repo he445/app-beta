@@ -85,12 +85,44 @@ def manifest(rule: str) -> Manifest:
     )
 
 
+def param_problem(rule: str, name: str, value: Any) -> str | None:
+    """Por que um valor não serve para um parâmetro (tipo e faixa do manifesto), ou ``None``."""
+    spec = (manifest(rule).raw.get("params") or {}).get(name)
+    if spec is None:
+        return f"parâmetro desconhecido para {rule}: {name}"
+    kind = spec.get("type")
+    if kind == "boolean":
+        ok = isinstance(value, bool)
+    elif kind == "integer":
+        ok = isinstance(value, int) and not isinstance(value, bool)
+    elif kind == "number":
+        ok = isinstance(value, (int, float)) and not isinstance(value, bool)
+    else:
+        ok = True
+    names = {"boolean": "verdadeiro ou falso", "integer": "número inteiro", "number": "número"}
+    if not ok:
+        return f"{rule}.{name}: esperado {names.get(str(kind), kind)}; veio {value!r}"
+    if kind in {"integer", "number"}:
+        if "minimum" in spec and value < spec["minimum"]:
+            return f"{rule}.{name}: esperado ≥ {spec['minimum']}; veio {value!r}"
+        if "maximum" in spec and value > spec["maximum"]:
+            return f"{rule}.{name}: esperado ≤ {spec['maximum']}; veio {value!r}"
+    return None
+
+
 def params_for(rule: str, overrides: Mapping[str, Any] | None) -> dict[str, Any]:
-    """Padrões do manifesto sobrescritos pelos parâmetros do perfil."""
+    """Padrões do manifesto sobrescritos pelos parâmetros do perfil.
+
+    Raises:
+        ValueError: parâmetro desconhecido ou fora do tipo e da faixa do manifesto.
+    """
     merged = dict(manifest(rule).defaults)
     if overrides:
         unknown = set(overrides) - set(merged)
         if unknown:
             raise ValueError(f"parâmetros desconhecidos para {rule}: {sorted(unknown)}")
+        problems = [p for n, v in overrides.items() if (p := param_problem(rule, n, v))]
+        if problems:
+            raise ValueError("; ".join(problems))
         merged.update(overrides)
     return merged

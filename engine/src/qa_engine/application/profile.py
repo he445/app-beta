@@ -10,7 +10,7 @@ from typing import Any
 import yaml
 
 from qa_engine.application.contracts import validate
-from qa_engine.detectors.registry import RULES, params_for
+from qa_engine.detectors.registry import RULES, manifest, params_for
 from qa_engine.domain.model import Severity
 from qa_engine.domain.scoring import VerdictPolicy
 from qa_engine.domain.sequencing import NumberingMode, SequenceParams
@@ -99,6 +99,7 @@ class Profile:
             values = self.params(rule, station_id)
             sources = self.param_sources(rule, station_id)
             defaults = params_for(rule, None)
+            spec = manifest(rule).raw.get("params") or {}
             station_rule = self._station_rule(rule, station_id)
             if "enabled" in station_rule:
                 enabled_source = "station"
@@ -117,6 +118,11 @@ class Profile:
                             "value": values[name],
                             "source": sources[name],
                             "default": defaults[name],
+                            **{
+                                k: spec[name][k]
+                                for k in ("type", "minimum", "maximum", "description")
+                                if k in spec[name]
+                            },
                         }
                         for name in values
                     ],

@@ -127,10 +127,10 @@
             "type": "object",
             "description": "Ajustes desta estação por regra. Ordem de aplicação: padrão do manifesto, depois `detectors` do perfil, depois isto.",
             "propertyNames": {
-              "$ref": "#/$defs/rule"
+              "$ref": "rule-id.schema.json"
             },
             "additionalProperties": {
-              "$ref": "#/$defs/station_override"
+              "$ref": "station-override.schema.json"
             }
           }
         }
@@ -140,7 +140,7 @@
     "detectors": {
       "type": "object",
       "propertyNames": {
-        "$ref": "#/$defs/rule"
+        "$ref": "rule-id.schema.json"
       },
       "additionalProperties": {
         "type": "object",
@@ -161,45 +161,12 @@
           },
           "params": {
             "type": "object",
-            "description": "Parâmetros que o perfil sobrescreve; os nomes são os do manifesto da regra."
+            "description": "Parâmetros que o perfil sobrescreve; os nomes são os do manifesto da regra.",
+            "additionalProperties": true
           }
         }
       },
       "description": "Configuração por regra. Regra ausente fica ligada com os padrões do manifesto."
-    }
-  },
-  "$defs": {
-    "rule": {
-      "enum": [
-        "corrupted_file",
-        "low_resolution",
-        "blank_page",
-        "black_borders",
-        "blur",
-        "skew",
-        "exposure",
-        "duplicate_page",
-        "missing_page",
-        "out_of_order",
-        "numbering_review",
-        "completeness_unverifiable"
-      ],
-      "description": "Identificador de uma regra registrada."
-    },
-    "station_override": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "O que a estação muda numa regra.",
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Liga ou desliga a regra só para as páginas desta estação."
-        },
-        "params": {
-          "type": "object",
-          "description": "Parâmetros que esta estação sobrescreve; os nomes são os do manifesto da regra."
-        }
-      }
     }
   }
 }

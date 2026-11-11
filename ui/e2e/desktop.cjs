@@ -17,6 +17,27 @@ const { chromium } = require("playwright");
   if (new URL(page.url()).hash.includes("code=")) throw new Error("código ficou na URL");
   if (shots) await page.screenshot({ path: `${shots}/desktop-inicio.png` });
 
+  // Configurações: valor inválido é recusado antes de salvar; cada valor diz de onde veio.
+  await page.getByRole("link", { name: "Configurações" }).click();
+  await page.getByRole("tab", { name: "Digitalizadoras" }).waitFor();
+  await page.getByLabel("Ajustar para").selectOption("cg-e3");
+  const dark = page.getByLabel("dark_level");
+  await dark.waitFor({ timeout: 30_000 });
+  if ((await dark.inputValue()) !== "60") throw new Error("dark_level da estação cg-e3 deveria ser 60");
+  await dark.fill("-5");
+  await page.getByText("mínimo 0").waitFor();
+  if (await page.getByRole("button", { name: /Salvar 1 mudança/ }).isEnabled()) throw new Error("salvar liberado com valor inválido");
+  await page.getByRole("button", { name: "Descartar" }).click();
+  await page.getByRole("tab", { name: "Este computador" }).click();
+  const workers = page.getByLabel("Processos de análise");
+  await workers.fill("0");
+  await page.getByText("mínimo 1").waitFor();
+  await workers.fill("2");
+  await page.getByRole("button", { name: "Salvar", exact: true }).click();
+  await page.getByText("valem na próxima abertura").waitFor();
+  if (shots) await page.screenshot({ path: `${shots}/desktop-configuracoes.png`, fullPage: true });
+  await page.getByRole("link", { name: "QA de Digitalização" }).click();
+
   await page.getByLabel("Pasta do lote").fill(folder);
   await page.getByRole("button", { name: "Analisar lote" }).click();
   await page.waitForURL(/#\/batches\/[0-9a-f-]+$/, { timeout: 30_000 });

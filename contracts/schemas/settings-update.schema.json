@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "settings-update.schema.json",
+  "title": "SettingsUpdate",
+  "description": "Mudanças na configuração do usuário. Cada chave é validada contra settings.schema.json antes de gravar.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "changes": {
+      "type": "object",
+      "description": "Chaves a definir.",
+      "additionalProperties": true
+    },
+    "reset": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true,
+      "description": "Chaves que voltam a herdar da máquina ou do padrão."
+    }
+  }
+}

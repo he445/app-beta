@@ -11,6 +11,7 @@ import { Profiles } from "./screens/Profiles";
 import { Reports } from "./screens/Reports";
 import { Review } from "./screens/Review";
 import { Sequence } from "./screens/Sequence";
+import { Settings } from "./screens/Settings";
 
 function useSession() {
   return useSyncExternalStore(onSessionChange, getSession);
@@ -48,7 +49,11 @@ function Shell({ engine }: { engine: Health }) {
           </nav>
         )}
         <div className="topbar-right">
-          <a href={href({ name: "profiles" })}>Perfis</a>
+          {hasCapability(engine, "settings") ? (
+            <a href={href({ name: "settings" })}>Configurações</a>
+          ) : (
+            <a href={href({ name: "profiles" })}>Perfis</a>
+          )}
           <span className="muted reviewer-name">{session.reviewer}</span>
           {!osSession && <button className="link" onClick={logout}>{session.token ? "Sair" : "Trocar"}</button>}
         </div>
@@ -73,6 +78,8 @@ function Screen({ route }: { route: Route }) {
       return <Home />;
     case "profiles":
       return <Profiles />;
+    case "settings":
+      return <Settings />;
     case "batch":
       return <Batch id={route.id} />;
     case "review":

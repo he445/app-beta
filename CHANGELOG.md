@@ -8,6 +8,12 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Tela de Configurações no programa desktop (capacidade `settings`): aba
+  **Digitalizadoras** com cada regra por perfil e estação, a origem de cada valor e
+  "voltar ao herdado"; aba **Este computador** com pastas, estação padrão, recursos e log.
+  Valor inválido é recusado antes de salvar. `GET`/`PUT /settings` (422 com `problems`
+  por chave), `GET /profiles/{id}/rules` (contrato 0.8.0).
+- Parâmetros de regra são conferidos pelo tipo e pela faixa do manifesto (antes só o nome).
 - Programa desktop (ADR-0011): `python -m qa_engine.entrypoints.desktop` abre o motor em
   `127.0.0.1` numa porta livre, com token novo a cada abertura, e a interface numa janela
   pywebview; o token vai pela ponte da janela. Uma instância por usuário (a segunda

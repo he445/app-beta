@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QA Automático de Digitalização — API do motor
-  version: 0.7.0
+  version: 0.8.0
   summary: Contrato entre a interface web, a linha de comando e o motor de análise.
   description: |
     Fonte da verdade do sistema (ADR-0002). Modelos de cada linguagem são gerados a partir
@@ -51,6 +51,43 @@ paths:
           content:
             application/json:
               schema: { $ref: "schemas/health.schema.json" }
+  /settings:
+    get:
+      tags: [system]
+      operationId: getSettings
+      summary: Configuração deste computador, com a origem de cada valor
+      description: Só no programa desktop (`settings` em `capabilities`).
+      responses:
+        "200":
+          description: Configuração efetiva
+          content:
+            application/json:
+              schema: { $ref: "schemas/settings-view.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+    put:
+      tags: [system]
+      operationId: putSettings
+      summary: Mudar a configuração do usuário
+      description: |
+        Valida cada chave contra `settings.schema.json` e só então grava no arquivo do
+        usuário. Chave travada pelo arquivo da máquina ou valor inválido: 422 com a lista
+        `problems` (chave, origem e valor esperado), e nada é gravado. As mudanças valem
+        na próxima abertura do programa (`restart_required`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "schemas/settings-update.schema.json" }
+      responses:
+        "200":
+          description: Configuração depois da mudança
+          content:
+            application/json:
+              schema: { $ref: "schemas/settings-view.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
   /session/exchange:
     post:
       tags: [system]
@@ -638,6 +675,26 @@ paths:
                 type: array
                 items: { $ref: "schemas/profile.schema.json" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+  /profiles/{profile_id}/rules:
+    get:
+      tags: [profiles]
+      operationId: getProfileRules
+      summary: Regras do perfil para uma estação, com a origem de cada valor
+      parameters:
+        - { name: profile_id, in: path, required: true, schema: { type: string } }
+        - name: station_id
+          in: query
+          required: false
+          description: Estação; ausente = o perfil inteiro.
+          schema: { type: string }
+      responses:
+        "200":
+          description: Regras efetivas
+          content:
+            application/json:
+              schema: { $ref: "schemas/profile-rules.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
   /profiles/{profile_id}:
     parameters:
       - name: profile_id
@@ -703,6 +760,17 @@ components:
         title: { type: string }
         status: { type: integer }
         detail: { type: string }
+        problems:
+          type: array
+          description: Valores recusados, um por chave (configuração inválida).
+          items:
+            type: object
+            required: [key, source, expected]
+            properties:
+              key: { type: string }
+              source: { type: string }
+              expected: { type: string }
+              value: {}
   responses:
     Problem:
       description: Erro
