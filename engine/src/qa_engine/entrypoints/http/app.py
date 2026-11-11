@@ -12,7 +12,10 @@ import io
 import json
 import logging
 import platform
+import secrets
 import shutil
+import threading
+import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -90,6 +93,10 @@ API_PREFIXES = (
 )
 """Rotas que exigem token quando ``QA_API_TOKEN`` está definido. O resto (saúde,
 documentação e a interface servida na mesma origem) é público."""
+PUBLIC = {"/session/exchange"}
+"""Rotas dentro dos prefixos protegidos que não exigem token (elas próprias conferem)."""
+CODE_TTL_SECONDS = 120.0
+"""Validade do código de uso único entregue no fragmento da URL."""
 PROFILE_SNAPSHOT = "profile.json"
 """Cópia do perfil efetivo, gravada na pasta de trabalho de cada lote analisado."""
 EXPORTS = {
@@ -119,6 +126,9 @@ class Engine:
         self.corrections = ThreadPoolExecutor(max_workers=1, thread_name_prefix="corrections")
         self.images = FileImageSource()
         self.folder = LocalFolderSource()
+        self.last_request = time.monotonic()
+        self._codes: dict[str, float] = {}
+        self._codes_lock = threading.Lock()
         self.service = CorrectionService(
             self.repo, self.images, PillowMetadataReader(), SystemClock(), __version__
         )
@@ -147,6 +157,21 @@ class Engine:
         if snapshot.is_file():
             return profile_from_dict(json.loads(snapshot.read_text("utf-8")))
         return self.profile(profile_id)
+
+    def issue_code(self) -> str:
+        """Código de uso único para abrir a interface no navegador padrão (desktop)."""
+        code = secrets.token_urlsafe(24)
+        with self._codes_lock:
+            self._codes[code] = time.monotonic() + CODE_TTL_SECONDS
+        return code
+
+    def redeem_code(self, code: str) -> bool:
+        """Consome o código; verdadeiro se ele existia e não tinha vencido."""
+        with self._codes_lock:
+            expires = self._codes.pop(code, None)
+            now = time.monotonic()
+            self._codes = {c: t for c, t in self._codes.items() if t > now}
+        return expires is not None and expires > now
 
     def source_changes(self, batch_id: str, root: Path) -> list[str]:
         """O que mudou na pasta original desde o retrato (lote local; senão, nada)."""
@@ -292,11 +317,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def auth(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
-        protected = request.url.path.startswith(API_PREFIXES)
+        protected = request.url.path.startswith(API_PREFIXES) and request.url.path not in PUBLIC
         if settings.api_token and protected and request.method != "OPTIONS":
             header = request.headers.get("authorization", "")
             if header != f"Bearer {settings.api_token}":
                 return problem(401, "Não autorizado", "Envie Authorization: Bearer <token>.")
+        return await call_next(request)
+
+    @app.middleware("http")
+    async def trusted_host(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        # Desktop: outro site aberto na máquina pode tentar chamar 127.0.0.1 com outro Host
+        # (DNS rebinding). Só o endereço do próprio programa passa.
+        engine.last_request = time.monotonic()
+        if settings.trusted_hosts:
+            host = request.headers.get("host", "").lower()
+            if host not in settings.trusted_hosts:
+                return problem(400, "Endereço não aceito", "Abra o programa pelo atalho.")
         return await call_next(request)
 
     @app.middleware("http")
@@ -358,6 +396,29 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "mode": settings.mode,
             "capabilities": capabilities(settings, demos),
         }
+
+    @app.post("/desktop/focus", status_code=204)
+    def focus(request: Request) -> Response:
+        """Outra abertura do programa pede para trazer a janela desta instância para a frente."""
+        secret = getattr(app.state, "focus_secret", None)
+        handler = getattr(app.state, "focus_handler", None)
+        given = request.headers.get("x-instance-secret", "")
+        if settings.mode != "desktop" or not secret or not secrets.compare_digest(given, secret):
+            raise HTTPException(404, "não encontrado")
+        if handler is not None:
+            handler()
+        return Response(status_code=204)
+
+    @app.post("/session/exchange")
+    def exchange(body: Annotated[dict[str, Any], Body()]) -> dict[str, Any]:
+        if settings.mode != "desktop" or settings.api_token is None:
+            raise HTTPException(404, "só existe no programa desktop")
+        validate(body, "session-exchange-request.schema.json")
+        if not engine.redeem_code(body["code"]):
+            raise HTTPException(
+                403, "código inválido, já usado ou vencido: abra o programa de novo"
+            )
+        return {"token": settings.api_token}
 
     @app.get("/session")
     def session() -> dict[str, Any]:

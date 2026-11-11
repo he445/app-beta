@@ -1,0 +1,191 @@
+"""Programa desktop (ADR-0011): abertura, segurança do endereço local e instância única."""
+
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+import time
+import urllib.request
+from collections.abc import Iterator
+from pathlib import Path
+
+import pytest
+import yaml
+from fastapi.testclient import TestClient
+
+from qa_engine.adapters.instance import InstanceLock
+from qa_engine.adapters.logs import mask_paths, write_crash
+from qa_engine.entrypoints.desktop.main import Bridge, desktop_settings, error_page, free_port
+from qa_engine.entrypoints.http.app import create_app
+from qa_engine.entrypoints.http.settings import Settings
+
+
+def base_settings(tmp_path: Path, repo: Path) -> Settings:
+    profiles = tmp_path / "profiles"
+    profiles.mkdir(exist_ok=True)
+    data = yaml.safe_load((repo / "profiles/sos-piloto.yaml").read_text("utf-8"))
+    (profiles / "sos-piloto.yaml").write_text(yaml.safe_dump(data, allow_unicode=True), "utf-8")
+    return Settings(
+        data_dir=tmp_path / "data",
+        profiles_dir=profiles,
+        api_token=None,
+        cors_origins=("https://qualquer.exemplo",),
+        retention_hours=24,
+        max_upload_mb=10,
+        workers=1,
+    )
+
+
+@pytest.fixture
+def desktop(tmp_path: Path, repo: Path) -> Iterator[tuple[TestClient, Settings]]:
+    settings = desktop_settings(base_settings(tmp_path, repo), 51234, "token-desta-abertura")
+    app = create_app(settings)
+    with TestClient(app, base_url="http://127.0.0.1:51234") as client:
+        yield client, settings
+
+
+def test_desktop_settings_lock_down_the_local_address(tmp_path: Path, repo: Path) -> None:
+    settings = desktop_settings(base_settings(tmp_path, repo), 51234, "t" * 32)
+    assert settings.mode == "desktop"
+    assert settings.api_token == "t" * 32
+    assert settings.cors_origins == ()
+    assert settings.trusted_hosts == ("127.0.0.1:51234", "localhost:51234")
+    assert 1024 < free_port() < 65536
+
+
+def test_api_needs_the_token_and_the_right_host(
+    desktop: tuple[TestClient, Settings],
+) -> None:
+    client, _ = desktop
+    assert client.get("/health").status_code == 200
+    assert client.get("/batches").status_code == 401
+    auth = {"Authorization": "Bearer token-desta-abertura"}
+    assert client.get("/batches", headers=auth).status_code == 200
+    # Outro site na máquina chamando 127.0.0.1 com outro nome (DNS rebinding).
+    evil = client.get("/batches", headers={**auth, "Host": "atacante.exemplo:51234"})
+    assert evil.status_code == 400
+    assert client.get("/health", headers={"Host": "localhost:51234"}).status_code == 200
+    # Nenhum CORS liberado.
+    pre = client.options(
+        "/batches",
+        headers={"Origin": "https://qualquer.exemplo", "Access-Control-Request-Method": "GET"},
+    )
+    assert "access-control-allow-origin" not in pre.headers
+
+
+def test_one_time_code_is_exchanged_once(desktop: tuple[TestClient, Settings]) -> None:
+    client, _ = desktop
+    engine = client.app.state.engine  # type: ignore[attr-defined]
+    code = engine.issue_code()
+    r = client.post("/session/exchange", json={"code": code})
+    assert r.status_code == 200 and r.json() == {"token": "token-desta-abertura"}
+    assert client.post("/session/exchange", json={"code": code}).status_code == 403
+    assert client.post("/session/exchange", json={"code": "x" * 32}).status_code == 403
+    assert client.post("/session/exchange", json={"code": "curto"}).status_code == 422
+
+
+def test_code_exchange_does_not_exist_outside_desktop(tmp_path: Path, repo: Path) -> None:
+    with TestClient(create_app(base_settings(tmp_path, repo))) as client:
+        assert client.post("/session/exchange", json={"code": "x" * 32}).status_code == 404
+        assert client.post("/desktop/focus").status_code == 404
+
+
+def test_focus_requires_the_instance_secret(desktop: tuple[TestClient, Settings]) -> None:
+    client, _ = desktop
+    calls: list[int] = []
+    client.app.state.focus_secret = "segredo-da-instancia"  # type: ignore[attr-defined]
+    client.app.state.focus_handler = lambda: calls.append(1)  # type: ignore[attr-defined]
+    assert client.post("/desktop/focus").status_code == 404
+    assert client.post("/desktop/focus", headers={"X-Instance-Secret": "errado"}).status_code == 404
+    ok = client.post("/desktop/focus", headers={"X-Instance-Secret": "segredo-da-instancia"})
+    assert ok.status_code == 204 and calls == [1]
+
+
+def test_bridge_gives_the_token_and_no_folder_without_window() -> None:
+    bridge = Bridge("abc")
+    assert bridge.get_session() == {"token": "abc"}
+    assert bridge.pick_folder() is None
+
+
+def test_instance_lock_is_exclusive(tmp_path: Path) -> None:
+    first = InstanceLock(tmp_path)
+    assert first.acquire()
+    first.publish(51234, "s")
+    second = InstanceLock(tmp_path)
+    assert not second.acquire()
+    assert second.owner() == {"port": 51234, "secret": "s", "pid": os.getpid()}
+    first.release()
+    assert second.acquire()
+    second.release()
+
+
+def test_logs_never_keep_absolute_paths(tmp_path: Path) -> None:
+    text = r"erro em C:\Users\maria\Documentos\lote 1\0001.tif e \\srv\digit\x e /home/ana/l"
+    assert mask_paths(text) == "erro em <caminho> 1\\0001.tif e <caminho> e <caminho>"
+    try:
+        raise RuntimeError(r"falhou ao ler C:\Users\maria\x.tif")
+    except RuntimeError as exc:
+        crash = write_crash(tmp_path, exc, "9.9.9")
+    content = crash.read_text("utf-8")
+    assert "maria" not in content and "RuntimeError" in content and "9.9.9" in content
+
+
+def test_error_page_escapes_the_problem() -> None:
+    page = error_page(["workers em <arquivo>: esperado ≥ 1"], "Configuração inválida")
+    assert "&lt;arquivo&gt;" in page and "<arquivo>" not in page
+
+
+def _env(home: Path) -> dict[str, str]:
+    env = {k: v for k, v in os.environ.items() if not k.startswith("QA_")}
+    env.update(
+        HOME=str(home),
+        XDG_DATA_HOME=str(home / "dados"),
+        XDG_CONFIG_HOME=str(home / "config"),
+        XDG_CONFIG_DIRS=str(home / "maquina"),
+        QA_BATCH_SETTLE_SECONDS="0",
+        QA_WORKERS="1",
+    )
+    return env
+
+
+def test_headless_start_single_instance_and_invalid_settings(tmp_path: Path) -> None:
+    """Abre de verdade (sem janela), a segunda abertura só traz a primeira, e erro de
+    configuração para com código 2 dizendo a chave."""
+    command = [sys.executable, "-m", "qa_engine.entrypoints.desktop", "--headless"]
+    first = subprocess.Popen(
+        command, env=_env(tmp_path), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+    )
+    try:
+        line = first.stdout.readline() if first.stdout else ""
+        assert line.startswith("motor em http://127.0.0.1:"), (
+            line,
+            first.stderr.read() if first.stderr else "",
+        )
+        url = line.split()[-1]
+        with urllib.request.urlopen(f"{url}/health", timeout=5) as response:
+            health = json.loads(response.read())
+        assert health["mode"] == "desktop" and health["auth_required"] is True
+        assert "os_session" in health["capabilities"]
+
+        started = time.monotonic()
+        second = subprocess.run(
+            command, env=_env(tmp_path), capture_output=True, text=True, timeout=30
+        )
+        assert second.returncode == 0, second.stderr
+        assert time.monotonic() - started < 20
+        assert first.poll() is None  # a primeira continua aberta
+    finally:
+        first.terminate()
+        first.wait(timeout=20)
+
+    bad = subprocess.run(
+        [*command, "--set", "workers=0"],
+        env=_env(tmp_path),
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert bad.returncode == 2
+    assert "workers em argumento --set workers" in bad.stderr

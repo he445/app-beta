@@ -12,7 +12,8 @@
     "test": "vitest run",
     "preview": "vite preview",
     "e2e:celular": "node e2e/celular.cjs",
-    "e2e": "node e2e/fluxo-completo.cjs"
+    "e2e": "node e2e/fluxo-completo.cjs",
+    "e2e:desktop": "node e2e/desktop.cjs"
   },
   "dependencies": {
     "@tanstack/react-query": "5.59.0",

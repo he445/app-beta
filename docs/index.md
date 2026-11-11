@@ -10,7 +10,7 @@ e entrega ao revisor só o que precisa de olho humano.
 | --- | --- |
 | **TI avaliando o sistema** | [Visão geral](visao-geral/index.md), [Segurança e privacidade](seguranca-e-privacidade/index.md), [Licenças de terceiros](seguranca-e-privacidade/licencas.md) e [Arquitetura](arquitetura/index.md) |
 | **Desenvolvimento** | [Instalar e rodar](tutoriais/instalar.md), [Arquitetura](arquitetura/index.md), [Especificações](especificacoes/index.md), [Testes](testes/index.md) e os [guias](guias/criar-detector.md) |
-| **Operação (garantidor, conferente)** | [Interface de revisão](operacao/interface.md) |
+| **Operação (garantidor, conferente)** | [Usar o programa desktop](tutoriais/programa-desktop.md) e [interface de revisão](operacao/interface.md) |
 | **Gestão** | [Visão geral](visao-geral/index.md) e [Demonstração](guias/demonstracao.md) |
 
 ## Onde está cada coisa
@@ -18,7 +18,7 @@ e entrega ao revisor só o que precisa de olho humano.
 | Pasta | Conteúdo |
 | --- | --- |
 | [Visão geral](visao-geral/index.md) | O que o sistema faz, o problema que resolve, escopo, [princípios](visao-geral/principios.md) e [casos de borda](visao-geral/casos-de-borda.md) |
-| [Tutoriais](tutoriais/instalar.md) | Primeiro uso, passo a passo |
+| Tutoriais | [Instalar e rodar](tutoriais/instalar.md) e [usar o programa desktop](tutoriais/programa-desktop.md) |
 | Guias | [Demonstração](guias/demonstracao.md), [publicar a demonstração](guias/publicar-demonstracao.md), [criar uma regra](guias/criar-detector.md), [portar para outra linguagem](guias/portar-linguagem.md), [desenvolver a interface](guias/desenvolver-interface.md), [configurar este computador](guias/configurar-computador.md), [configurar uma estação](guias/configurar-estacao.md) |
 | [Operação](operacao/index.md) | Manual de quem usa o programa |
 | [Arquitetura](arquitetura/index.md) | Visão arc42, [diagramas C4](arquitetura/c4.md) e decisões ([ADRs](adr/0001-web-app-e-motor-em-servidor.md)) |

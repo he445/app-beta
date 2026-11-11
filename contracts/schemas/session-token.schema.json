@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "session-token.schema.json",
+  "title": "SessionToken",
+  "description": "Token desta abertura do programa, para o cabeçalho Authorization: Bearer.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "token"
+  ],
+  "properties": {
+    "token": {
+      "type": "string",
+      "minLength": 16
+    }
+  }
+}

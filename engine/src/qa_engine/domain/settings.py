@@ -74,6 +74,8 @@ class Settings:
         log_level: detalhe do log.
         mode: como o motor está rodando: ``cloud`` (demonstração), ``desktop`` (programa na
             estação) ou ``server`` (servidor interno). Definido pela entrada, não por arquivo.
+        trusted_hosts: valores aceitos no cabeçalho ``Host``; vazio = qualquer um. No desktop,
+            só o endereço local do próprio programa (outro site na máquina não chega à API).
     """
 
     data_dir: Path
@@ -93,6 +95,7 @@ class Settings:
     max_memory_mb: int | None = None
     log_level: str = "info"
     mode: str = "cloud"
+    trusted_hosts: tuple[str, ...] = ()
 
     @property
     def output_root(self) -> Path:

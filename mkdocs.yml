@@ -40,6 +40,7 @@ nav:
       - Casos de borda: visao-geral/casos-de-borda.md
   - Tutoriais:
       - Instalar e rodar: tutoriais/instalar.md
+      - Usar o programa desktop: tutoriais/programa-desktop.md
   - Guias:
       - Demonstração: guias/demonstracao.md
       - Publicar a demonstração: guias/publicar-demonstracao.md
@@ -65,6 +66,7 @@ nav:
           - "0008 Interface web": adr/0008-interface-web.md
           - "0009 Correção em lote e lote corrigido": adr/0009-correcao-em-lote-e-lote-corrigido.md
           - "0010 Demonstração no celular": adr/0010-demonstracao-no-celular.md
+          - "0011 Programa desktop": adr/0011-programa-desktop.md
           - "0012 Configuração em camadas": adr/0012-configuracao-em-camadas.md
           - "0013 Lote local lido no lugar": adr/0013-lote-local-lido-no-lugar.md
           - "0017 Documentação numa pasta só": adr/0017-documentacao-em-uma-pasta.md

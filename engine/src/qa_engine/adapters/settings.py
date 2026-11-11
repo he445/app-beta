@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import tomllib
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -176,7 +177,10 @@ def server_defaults() -> dict[str, Any]:
 
 def desktop_defaults(paths: AppPaths) -> dict[str, Any]:
     """Padrões do programa na estação."""
+    # No pacote, a interface compilada fica em ``ui``; em desenvolvimento, em ``ui/dist``.
     ui = paths.program_dir / "ui"
+    if not getattr(sys, "frozen", False):
+        ui = ui / "dist"
     return {
         **server_defaults(),
         "data_dir": str(paths.data_dir),

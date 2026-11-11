@@ -18,6 +18,7 @@ processo externo, atrás de uma porta. Dependência nova entra no ADR-0004 no me
 | Servidor HTTP | uvicorn | BSD-3-Clause |
 | Envio de arquivos | python-multipart | Apache-2.0 |
 | Pastas do sistema operacional | platformdirs | MIT |
+| Janela do programa desktop | pywebview (e, no Windows, pythonnet e clr-loader) | BSD-3-Clause (MIT) |
 | Armazenamento | SQLite (biblioteca padrão do Python) | Domínio público |
 
 PyMuPDF (AGPL) não é usado.
@@ -34,7 +35,8 @@ PyMuPDF (AGPL) não é usado.
 
 pytest e Hypothesis (MIT, MPL-2.0), Ruff e mypy (MIT), Vite, Vitest e TypeScript (MIT,
 Apache-2.0), openapi-typescript (MIT), Playwright (Apache-2.0), MkDocs Material e
-mkdocstrings (MIT, ISC), Spectral e oasdiff (Apache-2.0).
+mkdocstrings (MIT, ISC), Spectral e oasdiff (Apache-2.0). PyInstaller (GPL-2.0+ com
+exceção para o executável gerado) só monta o pacote.
 
 As licenças precisam ser revistas por alguém do jurídico antes de qualquer distribuição
 comercial.

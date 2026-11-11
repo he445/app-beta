@@ -18,8 +18,15 @@ dependencies = [
     "platformdirs>=4.2",
 ]
 
+[project.optional-dependencies]
+# Janela do programa desktop (WebView2 no Windows). O motor e a CLI não precisam.
+desktop = ["pywebview>=6.2"]
+
 [project.scripts]
 qa = "qa_engine.entrypoints.cli.main:main"
+
+[project.gui-scripts]
+qa-desktop = "qa_engine.entrypoints.desktop.main:main"
 
 [dependency-groups]
 dev = [
@@ -72,5 +79,5 @@ follow_imports = "skip"
 follow_untyped_imports = true
 
 [[tool.mypy.overrides]]
-module = ["pypdfium2.*", "jsonschema.*"]
+module = ["pypdfium2.*", "jsonschema.*", "webview", "webview.*"]
 ignore_missing_imports = true

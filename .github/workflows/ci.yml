@@ -100,6 +100,51 @@ jobs:
             ${{ runner.temp }}/capturas/*.png
             ${{ runner.temp }}/motor.log
 
+  desktop:
+    name: Programa desktop sem janela (abrir pasta, analisar, salvar em pasta)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.11.32"
+          enable-cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Fontes do lote de exemplo
+        run: sudo apt-get update && sudo apt-get install -y fonts-dejavu-core
+      - run: uv sync --frozen --project engine
+      - name: Interface compilada (servida pelo próprio programa)
+        working-directory: ui
+        run: |
+          npm ci
+          VITE_API_URL= npm run build
+          npx playwright install --with-deps chromium
+      - name: Lote de exemplo numa pasta com acento e espaço
+        run: uv run --project engine python tools/synth/synth.py showcase --out "$RUNNER_TEMP/Lotes/Caixa 0412"
+      - name: Programa sem janela e fluxo no navegador
+        env:
+          HOME: ${{ runner.temp }}/home
+          QA_BATCH_SETTLE_SECONDS: "1"
+          QA_WORKERS: "2"
+        run: |
+          mkdir -p "$HOME" "$RUNNER_TEMP/capturas"
+          (cd engine && nohup uv run python -m qa_engine.entrypoints.desktop --headless > "$RUNNER_TEMP/desktop.log" 2>&1 &)
+          for i in $(seq 1 60); do grep -q '^acesso:' "$RUNNER_TEMP/desktop.log" && break; sleep 1; done
+          cat "$RUNNER_TEMP/desktop.log"
+          link=$(grep '^acesso:' "$RUNNER_TEMP/desktop.log" | awk '{print $2}')
+          cd ui && npm run e2e:desktop -- "$link" "$RUNNER_TEMP/Lotes/Caixa 0412" "$RUNNER_TEMP/capturas"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desktop-capturas
+          path: |
+            ${{ runner.temp }}/capturas/*.png
+            ${{ runner.temp }}/desktop.log
+
   contract:
     name: Contrato (Spectral + oasdiff)
     runs-on: ubuntu-24.04

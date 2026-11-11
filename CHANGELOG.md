@@ -8,6 +8,13 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Programa desktop (ADR-0011): `python -m qa_engine.entrypoints.desktop` abre o motor em
+  `127.0.0.1` numa porta livre, com token novo a cada abertura, e a interface numa janela
+  pywebview; o token vai pela ponte da janela. Uma instância por usuário (a segunda
+  abertura traz a janela existente). Sem WebView2, abre no navegador com código de uso
+  único (`POST /session/exchange`, contrato 0.7.0). Checagem do cabeçalho `Host`. Log em
+  arquivo com rotação e caminhos mascarados; arquivo de queda. `--headless`, `--browser`,
+  `--set chave=valor`. Fluxo de ponta a ponta no CI (`ui/e2e/desktop.cjs`).
 - `GET /health` informa `mode` (`cloud`, `desktop`, `server`) e `capabilities`;
   `GET /session` devolve o usuário do sistema como revisor no programa desktop
   (contrato 0.6.0). A interface decide o que mostrar pelas capacidades: "Abrir lote" com

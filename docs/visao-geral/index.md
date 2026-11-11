@@ -34,6 +34,7 @@ sistema futuro falam com ele só por esse contrato
 | Modo | Onde roda | Como o lote entra | Para quê |
 | --- | --- | --- | --- |
 | Demonstração em nuvem | Motor num contêiner, servindo também a interface | Lote de demonstração no servidor ou envio pelo navegador | Apresentações, só com documentos sintéticos |
+| Programa desktop | Na estação do conferente, sem internet nem administrador | Pasta local ou da rede, lida no lugar | Conferência com documentos reais ([tutorial](../tutoriais/programa-desktop.md)) |
 | Linha de comando | Qualquer máquina com Python | Pasta local | Medições, testes e automação |
 
 ## Escopo e limites

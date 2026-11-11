@@ -18,6 +18,13 @@ Dependências atuais do núcleo: NumPy (BSD), OpenCV (Apache-2.0), Pillow (MIT-C
 pypdfium2 (Apache-2.0/BSD-3), PyYAML (MIT), jsonschema (MIT), FastAPI/Starlette (MIT),
 uvicorn (BSD), python-multipart (Apache-2.0), platformdirs (MIT).
 
+Programa desktop: pywebview (BSD-3-Clause), opcional, só no pacote Windows; no Windows
+ele traz pythonnet e clr-loader (MIT).
+
+Ferramentas só de build, que não vão no pacote como biblioteca: PyInstaller (GPL-2.0 ou
+posterior **com exceção** que permite distribuir o executável gerado sob qualquer
+licença; o bootloader embutido é coberto por essa exceção).
+
 ## Consequências
 
 - Toda dependência nova exige registrar a licença neste ADR no mesmo PR.

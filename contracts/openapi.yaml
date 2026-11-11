@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QA Automático de Digitalização — API do motor
-  version: 0.6.0
+  version: 0.7.0
   summary: Contrato entre a interface web, a linha de comando e o motor de análise.
   description: |
     Fonte da verdade do sistema (ADR-0002). Modelos de cada linguagem são gerados a partir
@@ -51,6 +51,30 @@ paths:
           content:
             application/json:
               schema: { $ref: "schemas/health.schema.json" }
+  /session/exchange:
+    post:
+      tags: [system]
+      operationId: exchangeSessionCode
+      summary: Trocar o código de uso único pelo token (programa desktop no navegador)
+      security: []
+      description: |
+        Quando a janela do programa não abre (sem WebView2), a interface abre no navegador
+        padrão com um código de uso único no fragmento da URL (`#code=...`), que não vai para
+        o servidor nem para o log. A interface troca o código pelo token desta abertura. Cada
+        código vale uma vez e por 2 minutos. Só existe no programa desktop.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "schemas/session-exchange-request.schema.json" }
+      responses:
+        "200":
+          description: Token desta abertura
+          content:
+            application/json:
+              schema: { $ref: "schemas/session-token.schema.json" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
   /session:
     get:
       tags: [system]

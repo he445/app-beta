@@ -79,7 +79,7 @@ export function Reports({ id }: { id: string }) {
         )}
         {plan.data && !plan.data.can_save && (
           <div className="blocked-reason small">
-            Decida a página faltando antes de baixar: {plan.data.blockers.map((b) => b.document).join(", ")}.
+            Decida a página faltando antes de salvar: {plan.data.blockers.map((b) => b.document).join(", ")}.
           </div>
         )}
         <div className="row wrap">

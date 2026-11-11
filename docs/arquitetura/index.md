@@ -83,7 +83,12 @@ A análise sobe de nível: primeiro cada página, depois cada documento, depois 
 
 ## 7. Implantação
 
-Uma imagem Docker (`deploy/Dockerfile`) com o motor, a interface compilada servida na
+**Programa desktop** (ADR-0011): `entrypoints/desktop` abre o mesmo motor em
+`127.0.0.1`, numa porta livre, com token por abertura, e mostra a interface compilada
+numa janela pywebview (WebView2). Sem WebView2, abre no navegador padrão com código de
+uso único. Uma instância por usuário.
+
+**Demonstração em nuvem:** uma imagem Docker (`deploy/Dockerfile`) com o motor, a interface compilada servida na
 mesma origem e um lote de demonstração (ADR-0010).
 Passo a passo em [Publicar a demonstração](../guias/publicar-demonstracao.md).
 

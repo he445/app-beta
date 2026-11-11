@@ -19,6 +19,12 @@ cliente só é processado dentro da rede da empresa.
 - Com `QA_API_TOKEN` definido, as rotas da API exigem `Authorization: Bearer <token>`.
   Sem ele, a API fica aberta: só para desenvolvimento local e para a demonstração com
   dados sintéticos (ADR-0010).
+- **Programa desktop** (ADR-0011): o motor escuta só em `127.0.0.1`, numa porta escolhida
+  pelo sistema; token novo a cada abertura, entregue à janela pela ponte (nunca na URL);
+  só os cabeçalhos `Host` `127.0.0.1:<porta>` e `localhost:<porta>` passam (contra DNS
+  rebinding); nenhum CORS. No plano B pelo navegador, o token é trocado por um código de
+  uso único que vale 2 minutos.
+- O log nunca grava imagem nem texto de página, e mascara caminhos absolutos.
 - `GET /health` e a interface servida na mesma origem são públicos e não expõem dado de
   lote.
 - O CORS só aceita as origens listadas em `QA_CORS_ORIGINS`; servindo a interface na

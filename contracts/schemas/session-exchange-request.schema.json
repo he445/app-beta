@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "session-exchange-request.schema.json",
+  "title": "SessionExchangeRequest",
+  "description": "Código de uso único que o programa desktop põe no fragmento da URL quando abre a interface no navegador padrão.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "code"
+  ],
+  "properties": {
+    "code": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{16,128}$"
+    }
+  }
+}
