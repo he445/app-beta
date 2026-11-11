@@ -6,11 +6,6 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ## [Não lançado]
 
-### Corrigido
-
-- A retenção apagava a pasta `root` do lote; agora apaga só a pasta de trabalho em
-  `data_dir`, e a pasta de origem nunca é tocada.
-
 ### Adicionado
 
 - Lote local lido no lugar (ADR-0013): `POST /local-batches` (só no programa desktop),
@@ -105,6 +100,8 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Corrigido
 
+- A retenção apagava a pasta `root` do lote; agora apaga só a pasta de trabalho em
+  `data_dir`, e a pasta de origem nunca é tocada.
 - "Failed to fetch" no celular: respostas 401 e 500 sem cabeçalho CORS; origem
   configurada com barra no fim bloqueava tudo; endereço do motor gravado no aparelho
   sobrepunha o da publicação; motor dormindo no plano gratuito; processos de análise
