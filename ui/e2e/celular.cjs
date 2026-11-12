@@ -24,6 +24,9 @@ const slug = DEVICE.toLowerCase().replace(/\s+/g, '-');
   page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
   page.on('requestfailed', (r) => {
     if (booting && r.url().endsWith('/health')) return;
+    // O fluxo de progresso ao vivo é cancelado pela própria tela quando a análise
+    // termina ou quando se sai do painel: não é falha de rede.
+    if (r.url().endsWith('/events') && r.failure()?.errorText === 'net::ERR_ABORTED') return;
     problems.push(`rede: ${r.method()} ${r.url()} ${r.failure()?.errorText}`);
   });
   page.on('response', (r) => r.status() >= 500 && problems.push(`HTTP ${r.status()} ${r.url()}`));
