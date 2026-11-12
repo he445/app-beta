@@ -506,6 +506,37 @@ class SqliteRepository:
             c.execute("DELETE FROM feedback WHERE expires_at <= ?", (now_iso,))
         return [r[0] for r in rows]
 
+    def add_box_report(self, report_id: str, report: Mapping[str, Any], pendencies: str) -> None:
+        """Guarda uma versão do relatório de uma caixa."""
+        with self._tx() as c:
+            c.execute(
+                "INSERT INTO box_reports VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    report_id,
+                    report["batch_id"],
+                    report["box"],
+                    report["version"],
+                    report["concluded_at"],
+                    report["state"],
+                    pendencies,
+                    json.dumps(report, ensure_ascii=False),
+                ),
+            )
+
+    def box_reports(self, batch_id: str) -> list[dict[str, Any]]:
+        """Versões dos relatórios por caixa do lote (``id``, ``pendencies``, ``report``)."""
+        rows = self._all(
+            "SELECT id, pendencies, report_json FROM box_reports WHERE batch_id = ?"
+            " ORDER BY box, version",
+            (batch_id,),
+        )
+        return [{"id": r[0], "pendencies": r[1], "report": json.loads(r[2])} for r in rows]
+
+    def get_box_report(self, report_id: str) -> dict[str, Any] | None:
+        """Uma versão de um relatório por caixa."""
+        row = self._one("SELECT report_json FROM box_reports WHERE id = ?", (report_id,))
+        return json.loads(row[0]) if row else None
+
     def save_beta_metrics(self, batch_id: str, created_at: str, metrics: Mapping[str, Any]) -> None:
         """Guarda as contagens do lote para o relatório do beta (sobrevivem à retenção)."""
         with self._tx() as c:

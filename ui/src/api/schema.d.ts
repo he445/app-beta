@@ -567,6 +567,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/batches/{batch_id}/box-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        /** Relatórios por caixa do lote (todas as versões) */
+        get: operations["listBoxReports"];
+        put?: never;
+        /**
+         * Gerar o relatório das caixas concluídas
+         * @description Para cada caixa com todas as decisões tomadas, grava o relatório (JSON e PDF) na
+         *     pasta de saída e, com `reports_dir`, na pasta compartilhada. Só sai uma versão nova
+         *     quando as pendências mudaram desde a última. Salvar o lote corrigido faz o mesmo.
+         *
+         */
+        post: operations["generateBoxReports"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/box-reports/{report_id}.pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        /** PDF de uma versão do relatório por caixa */
+        get: operations["getBoxReportPdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/pages/{page_id}/rotation": {
         parameters: {
             query?: never;
@@ -901,6 +946,11 @@ export interface components {
              */
             diagnostics_dir: string | null;
             /**
+             * @description Pasta compartilhada da rede onde cada caixa concluída grava o relatório (JSON e PDF), lida pela tela de Gestão de qualquer computador. Vazio = só na pasta de saída deste computador. Variável: QA_REPORTS_DIR.
+             * @default null
+             */
+            reports_dir: string | null;
+            /**
              * @description Hash (scrypt) do token de administrador, gravado por `qa admin token`. Só vale no arquivo da máquina. Vazio = área de administração desligada.
              * @default null
              */
@@ -908,7 +958,7 @@ export interface components {
             /** @description Só no arquivo da máquina: chaves que as camadas seguintes (arquivo do usuário, variáveis e argumentos) não podem mudar. */
             locked?: {
                 /** @description Nomes das chaves travadas. */
-                keys?: ("workers" | "max_memory_mb" | "data_dir" | "output_dir" | "temp_dir" | "allowed_roots" | "default_station" | "batch_settle_seconds" | "retention_days" | "log_level" | "profiles_dir" | "ui_dir" | "demo_dir" | "models_dir" | "max_upload_mb" | "cors_origins" | "api_token" | "diagnostics_dir")[];
+                keys?: ("workers" | "max_memory_mb" | "data_dir" | "output_dir" | "temp_dir" | "allowed_roots" | "default_station" | "batch_settle_seconds" | "retention_days" | "log_level" | "profiles_dir" | "ui_dir" | "demo_dir" | "models_dir" | "max_upload_mb" | "cors_origins" | "api_token" | "diagnostics_dir" | "reports_dir")[];
             };
         };
         /**
@@ -1518,6 +1568,60 @@ export interface components {
             destination?: "zip" | "folder";
             /** @description Caminho da pasta gerada, quando o destino é pasta. */
             folder?: string | null;
+        };
+        /**
+         * BoxReport
+         * @description Relatório por caixa: o que falta e o que está ilegível em cada processo. Gravado na pasta de saída e em reports_dir; alimenta a tela de Gestão.
+         */
+        "box-report.schema": {
+            /** @constant */
+            schema_version: "1";
+            /** @description Número da caixa: a primeira pasta do lote. */
+            box: string;
+            batch_id: string;
+            batch_name: string;
+            /** @description Sai uma versão nova quando uma pendência muda; as anteriores ficam guardadas. */
+            version: number;
+            /**
+             * @description Sem pendência, com pendência ou pendência resolvida (a versão anterior tinha pendência).
+             * @enum {unknown}
+             */
+            state: "clean" | "pending" | "resolved";
+            /** @description Conferente (usuário do Windows no programa desktop). */
+            reviewer: string;
+            /** Format: date-time */
+            concluded_at: string;
+            machine: string;
+            program_version: string;
+            processes: {
+                document_id: string;
+                /** @description Número do processo: a última pasta do documento. */
+                number: string;
+                pages: number;
+                /** @description Folhas faltando confirmadas (retrabalho ou defeito de origem). */
+                missing: {
+                    count: number;
+                    folios: string[];
+                };
+                /** @description Páginas confirmadas como ilegíveis numa regra de legibilidade. */
+                illegible: {
+                    count: number;
+                    pages: {
+                        /** @description Número da folha, quando foi lido ou digitado. */
+                        folio: string | null;
+                        position: number;
+                        file: string;
+                    }[];
+                };
+                /** @description Nenhuma pendência. */
+                clean: boolean;
+            }[];
+            totals: {
+                processes: number;
+                pages: number;
+                missing: number;
+                illegible: number;
+            };
         };
         /**
          * RotationRequest
@@ -2501,6 +2605,90 @@ export interface operations {
                 };
                 content: {
                     "image/png": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    listBoxReports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Versões, da mais antiga para a mais nova, por caixa */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        report: components["schemas"]["box-report.schema"];
+                    }[];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    generateBoxReports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reviewer: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Versões geradas agora (vazio se nada mudou ou nenhuma caixa está concluída) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        report: components["schemas"]["box-report.schema"];
+                    }[];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            409: components["responses"]["Problem"];
+        };
+    };
+    getBoxReportPdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PDF */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
                 };
             };
             401: components["responses"]["Unauthorized"];

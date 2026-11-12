@@ -1,0 +1,188 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "box-report.schema.json",
+  "title": "BoxReport",
+  "description": "Relatório por caixa: o que falta e o que está ilegível em cada processo. Gravado na pasta de saída e em reports_dir; alimenta a tela de Gestão.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "box",
+    "batch_id",
+    "batch_name",
+    "version",
+    "state",
+    "reviewer",
+    "concluded_at",
+    "machine",
+    "program_version",
+    "processes",
+    "totals"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "box": {
+      "type": "string",
+      "description": "Número da caixa: a primeira pasta do lote."
+    },
+    "batch_id": {
+      "type": "string"
+    },
+    "batch_name": {
+      "type": "string"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Sai uma versão nova quando uma pendência muda; as anteriores ficam guardadas."
+    },
+    "state": {
+      "enum": [
+        "clean",
+        "pending",
+        "resolved"
+      ],
+      "description": "Sem pendência, com pendência ou pendência resolvida (a versão anterior tinha pendência)."
+    },
+    "reviewer": {
+      "type": "string",
+      "description": "Conferente (usuário do Windows no programa desktop)."
+    },
+    "concluded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "machine": {
+      "type": "string"
+    },
+    "program_version": {
+      "type": "string"
+    },
+    "processes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "document_id",
+          "number",
+          "pages",
+          "missing",
+          "illegible",
+          "clean"
+        ],
+        "properties": {
+          "document_id": {
+            "type": "string"
+          },
+          "number": {
+            "type": "string",
+            "description": "Número do processo: a última pasta do documento."
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "missing": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "count",
+              "folios"
+            ],
+            "properties": {
+              "count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "folios": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Folhas faltando confirmadas (retrabalho ou defeito de origem)."
+          },
+          "illegible": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "count",
+              "pages"
+            ],
+            "properties": {
+              "count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "pages": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "folio",
+                    "position",
+                    "file"
+                  ],
+                  "properties": {
+                    "folio": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Número da folha, quando foi lido ou digitado."
+                    },
+                    "position": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "file": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Páginas confirmadas como ilegíveis numa regra de legibilidade."
+          },
+          "clean": {
+            "type": "boolean",
+            "description": "Nenhuma pendência."
+          }
+        }
+      }
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "processes",
+        "pages",
+        "missing",
+        "illegible"
+      ],
+      "properties": {
+        "processes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pages": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missing": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "illegible": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

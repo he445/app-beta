@@ -8,6 +8,13 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Relatório por caixa: ao salvar (ou sob pedido), cada caixa concluída gera o relatório
+  com páginas faltando e ilegíveis de cada processo, ou "Nenhuma pendência", em JSON
+  (`box-report.schema.json`) e PDF (ReportLab, BSD-3-Clause, no ADR-0004), na pasta de
+  saída e em `reports_dir` (nova chave, para a Gestão). Versão nova só quando as
+  pendências mudam; as anteriores ficam guardadas (migração 0007). Rotas
+  `/batches/{id}/box-reports` e `/box-reports/{id}.pdf` (contrato 0.13.0); cartão na tela
+  de Relatório; o teste de fumaça do pacote confere o PDF.
 - Folha em branco depende da numeração (`blank_page` 1.1.0): folha com numeração (do
   `numbering.json` ou qualquer escrito na região, inclusive riscado) nunca é branca; em
   página quase vazia, com os modelos, o leitor procura escrito nos quatro cantos. Os

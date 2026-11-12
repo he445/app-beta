@@ -75,6 +75,11 @@ lote corrigido; voltar à orientação original registra "não girar".
 7. **Relatório:** salve o lote corrigido na pasta de saída (programa desktop) ou baixe o
    `.zip` (com aviso se ainda houver críticos pendentes),
    o relatório, os CSVs e a ordem de retrabalho por estação.
+   - **Relatórios por caixa:** com todas as decisões da caixa tomadas, salvar gera o
+     relatório da caixa (PDF para imprimir e JSON para a Gestão): páginas faltando e
+     ilegíveis de cada processo, ou "Nenhuma pendência". O cartão mostra a versão mais
+     nova de cada caixa e baixa o PDF. Se a pendência mudar depois, gere de novo: sai a
+     versão 2 e a 1 fica guardada.
 
 O original nunca é alterado: toda correção gera uma cópia, registrada com data, hora e
 revisor.

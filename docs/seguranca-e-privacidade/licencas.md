@@ -18,6 +18,7 @@ processo externo, atrás de uma porta. Dependência nova entra no ADR-0004 no me
 | Servidor HTTP | uvicorn | BSD-3-Clause |
 | Envio de arquivos | python-multipart | Apache-2.0 |
 | Pastas do sistema operacional | platformdirs | MIT |
+| PDF do relatório por caixa | ReportLab (e charset-normalizer) | BSD-3-Clause (MIT) |
 | Inferência dos modelos | onnxruntime | MIT |
 | Tokenização do reconhecedor | tokenizers | Apache-2.0 |
 | Janela do programa desktop | pywebview (e, no Windows, pythonnet e clr-loader) | BSD-3-Clause (MIT) |

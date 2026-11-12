@@ -132,6 +132,7 @@ def settings_from_values(values: Mapping[str, Any]) -> Settings:
         demo_dir=_path(values.get("demo_dir")),
         models_dir=_path(values.get("models_dir")),
         diagnostics_dir=_path(values.get("diagnostics_dir")),
+        reports_dir=_path(values.get("reports_dir")),
         admin_token_hash=values.get("admin_token_hash") or None,
         ui_dir=_path(values.get("ui_dir")),
         output_dir=_path(values.get("output_dir")),

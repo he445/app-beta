@@ -213,6 +213,37 @@ def say(*parts: object) -> None:
         print(*parts, flush=True)
 
 
+def _pdf_works() -> bool:
+    """O pacote gera o PDF do relatório por caixa (as fontes do ReportLab foram junto)."""
+    try:
+        from qa_engine.adapters.box_report_pdf import render_box_report_pdf
+
+        sample = {
+            "box": "TESTE",
+            "batch_name": "teste",
+            "version": 1,
+            "state": "clean",
+            "reviewer": "teste",
+            "concluded_at": "2026-01-01T00:00:00+00:00",
+            "machine": "teste",
+            "program_version": "teste",
+            "processes": [
+                {
+                    "number": "1",
+                    "pages": 1,
+                    "missing": {"count": 0, "folios": []},
+                    "illegible": {"count": 0, "pages": []},
+                    "clean": True,
+                }
+            ],
+            "totals": {"processes": 1, "pages": 1, "missing": 0, "illegible": 0},
+        }
+        return render_box_report_pdf(sample).startswith(b"%PDF")
+    except Exception:  # qualquer falha aqui é falha do pacote
+        logging.getLogger(__name__).exception("PDF do relatório por caixa não gerou")
+        return False
+
+
 def self_test(folder: str, budget_ms: float) -> int:
     """Teste de fumaça do pacote: código 0 se tudo conferiu."""
     from qa_engine.application.models import verify_models
@@ -227,6 +258,7 @@ def self_test(folder: str, budget_ms: float) -> int:
         "modelos": models.ok,
         "interface": (ui / "index.html").is_file(),
         "perfis": (program / "profiles" / "sos-piloto.yaml").is_file(),
+        "relatório por caixa (PDF)": _pdf_works(),
         "lote de exemplo": (sample / "gabarito.json").is_file(),
     }
     if not checks["lote de exemplo"]:

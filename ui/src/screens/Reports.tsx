@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { raw, download } from "../api/client";
 import { useCapability } from "../api/engine";
 import { usePlan, useReport, useSaveCorrected } from "../api/hooks";
+import { BoxReportsCard } from "../components/BoxReportsCard";
 import { Card, ErrorBox, Loading, Stat } from "../components/ui";
 import { csvObjects } from "../lib/csv";
 import { VERDICT_LABEL, friendlyParams, pct, ruleLabel } from "../lib/format";
@@ -118,6 +119,8 @@ export function Reports({ id }: { id: string }) {
             ),
         )}
       </Card>
+
+      <BoxReportsCard batchId={id} refreshKey={(saveToFolder.data ? 1 : 0) + (saveCorrected.data ? 2 : 0)} />
 
       <Card title="Exportar">
         <div className="row wrap">

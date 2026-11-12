@@ -67,6 +67,8 @@ class Settings:
         ui_dir: interface compilada para servir na mesma origem.
         models_dir: modelos embarcados (``models.lock.json`` ao lado); vazio = sem modelos.
         diagnostics_dir: pasta compartilhada de diagnóstico; vazio = só neste computador.
+        reports_dir: pasta compartilhada dos relatórios por caixa (Gestão); vazio = só na
+            pasta de saída deste computador.
         admin_token_hash: hash do token de administrador; vazio = administração desligada.
         output_dir: destino do lote corrigido gravado em pasta.
         temp_dir: arquivos temporários de correção.
@@ -92,6 +94,7 @@ class Settings:
     ui_dir: Path | None = None
     models_dir: Path | None = None
     diagnostics_dir: Path | None = None
+    reports_dir: Path | None = None
     admin_token_hash: str | None = None
     output_dir: Path | None = None
     temp_dir: Path | None = None

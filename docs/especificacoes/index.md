@@ -13,6 +13,7 @@ com a suíte de `conformance/`.
 | [`sequencing.md`](sequencing.md) | Numeração, sequência e completude (regras de documento) |
 | [`numeracao-por-imagem.md`](numeracao-por-imagem.md) | Leitura da numeração manuscrita no canto da página |
 | [`coleta-do-beta.md`](coleta-do-beta.md) | Exemplos rotulados do beta e definição das métricas do piloto |
+| [`relatorio-por-caixa.md`](relatorio-por-caixa.md) | Pendências de cada processo da caixa, versões e onde são gravadas |
 | [`scoring.md`](scoring.md) | Severidade, estado do documento, veredito e amostragem |
 | [`metadata.md`](metadata.md) | Metadados do Decreto 10.278/2020 e técnicos |
 | [`corrections.md`](corrections.md) | Versão corrigida, "Corrigir tudo", desfazer em lote e lote corrigido |

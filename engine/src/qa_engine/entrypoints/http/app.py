@@ -33,6 +33,7 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
 from qa_engine import __version__
+from qa_engine.adapters.box_report_pdf import render_box_report_pdf
 from qa_engine.adapters.corrected_folder import FolderTiffWriter
 from qa_engine.adapters.corrected_zip import ZipTiffWriter
 from qa_engine.adapters.feedback import SqliteFeedbackStore
@@ -45,6 +46,12 @@ from qa_engine.adapters.sqlite import SqliteRepository
 from qa_engine.adapters.system import SystemClock, total_memory_mb
 from qa_engine.application.admin import AttemptLimiter, verify_token
 from qa_engine.application.beta import metrics_for
+from qa_engine.application.box_report import (
+    boxes,
+    build_box_report,
+    is_complete,
+    pendencies_key,
+)
 from qa_engine.application.contracts import ContractError, validate
 from qa_engine.application.correction_service import (
     CORRECTED_ZIP,
@@ -271,6 +278,65 @@ class Engine:
 
         return metrics_for(self.repo, batch_id, changes)
 
+    def generate_box_reports(self, batch_id: str, reviewer: str) -> list[dict[str, Any]]:
+        """Relatório de cada caixa concluída; versão nova só quando as pendências mudaram."""
+        report = self.repo.get_report(batch_id)
+        if report is None:
+            raise HTTPException(409, "lote ainda não analisado")
+        history: dict[str, list[dict[str, Any]]] = {}
+        for item in self.repo.box_reports(batch_id):
+            history.setdefault(item["report"]["box"], []).append(item)
+        made: list[dict[str, Any]] = []
+        for box, docs in boxes(report).items():
+            if not is_complete(report, docs):
+                continue
+            previous = history.get(box, [])
+            last = previous[-1] if previous else None
+            built = build_box_report(
+                report,
+                box,
+                docs,
+                reviewer=reviewer,
+                concluded_at=iso(self.now()),
+                machine=platform.node() or "estação",
+                program_version=__version__,
+                version=(last["report"]["version"] + 1) if last else 1,
+                previous_pending=bool(last and last["report"]["state"] == "pending"),
+            )
+            key = pendencies_key(built)
+            if last is not None and last["pendencies"] == key:
+                continue
+            validate(built, "box-report.schema.json")
+            report_id = str(uuid.uuid4())
+            self.repo.add_box_report(report_id, built, key)
+            self.write_box_report(built)
+            made.append({"id": report_id, "report": built})
+        return made
+
+    def write_box_report(self, built: Mapping[str, Any]) -> None:
+        """Grava JSON e PDF na pasta de saída e, com ``reports_dir``, na pasta compartilhada."""
+        if self.settings.mode == "cloud":
+            return
+        pdf = render_box_report_pdf(built)
+        text = json.dumps(built, ensure_ascii=False, indent=2)
+        box = safe_name(built["box"])
+        local = self.settings.output_root / "Relatórios por caixa" / safe_name(built["batch_name"])
+        targets = [(local, f"{box}-v{built['version']}")]
+        if self.settings.reports_dir is not None:
+            machine = safe_name(built["machine"])
+            shared = self.settings.reports_dir / machine
+            targets.append((shared, f"{box}-{built['batch_id'][:8]}-v{built['version']}"))
+        for folder, stem in targets:
+            try:
+                folder.mkdir(parents=True, exist_ok=True)
+                for suffix, data in ((".json", text.encode("utf-8")), (".pdf", pdf)):
+                    part = folder / f"{stem}{suffix}.part"
+                    part.write_bytes(data)
+                    part.replace(folder / f"{stem}{suffix}")
+            except OSError as exc:
+                log.warning("não foi possível gravar o relatório da caixa em %s", folder)
+                self.record_error(exc, "engine", "relatório por caixa", None, "warning")
+
     def collect_numbering(
         self,
         batch_id: str,
@@ -444,6 +510,12 @@ THUMB_WIDTH = 256
 """Largura da miniatura guardada nos exemplos de orientação da coleta do beta."""
 NUMBERING_CROPS = "numbering"
 """Pasta, dentro da pasta de trabalho do lote, com o recorte da numeração de cada página."""
+
+
+def safe_name(text: str) -> str:
+    """Nome de arquivo seguro no Windows: sem barras, caracteres reservados nem espaço no fim."""
+    cleaned = "".join("_" if ch in '\\/:*?"<>|' or ord(ch) < 32 else ch for ch in str(text))
+    return cleaned.strip(" .") or "sem-nome"
 
 
 def capabilities(settings: Settings, demo_batches: int, editable: bool = False) -> list[str]:
@@ -921,12 +993,44 @@ def create_app(
             def writer(when: datetime) -> Any:
                 return ZipTiffWriter(target, when)
 
-        return engine.service.save(
+        saved = engine.service.save(
             ctx,
             body["reviewer"],
             writer,
             destination=destination,
             check_source=lambda: engine.source_changes(batch_id, ctx.root),
+        )
+        engine.generate_box_reports(batch_id, body["reviewer"])
+        return saved
+
+    @app.get("/batches/{batch_id}/box-reports")
+    def list_box_reports(batch_id: str) -> list[dict[str, Any]]:
+        batch_or_404(batch_id)
+        return [
+            {"id": item["id"], "report": item["report"]}
+            for item in engine.repo.box_reports(batch_id)
+        ]
+
+    @app.post("/batches/{batch_id}/box-reports")
+    def make_box_reports(
+        batch_id: str, body: Annotated[dict[str, Any], Body()]
+    ) -> list[dict[str, Any]]:
+        reviewer = str(body.get("reviewer") or "").strip()
+        if not reviewer:
+            raise HTTPException(422, "reviewer é obrigatório")
+        batch_or_404(batch_id)
+        return engine.generate_box_reports(batch_id, reviewer)
+
+    @app.get("/box-reports/{report_id}.pdf")
+    def box_report_pdf(report_id: str) -> Response:
+        built = engine.repo.get_box_report(report_id)
+        if built is None:
+            raise HTTPException(404, "relatório não encontrado")
+        name = f"{safe_name(built['box'])}-v{built['version']}.pdf"
+        return Response(
+            render_box_report_pdf(built),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{name}"'},
         )
 
     @app.put("/pages/{page_id}/rotation")

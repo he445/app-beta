@@ -152,6 +152,14 @@
       "description": "Pasta compartilhada da rede onde cada computador grava seus erros, para ver todas as máquinas num lugar só. Vazio = só neste computador. Variável: QA_DIAGNOSTICS_DIR.",
       "default": null
     },
+    "reports_dir": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Pasta compartilhada da rede onde cada caixa concluída grava o relatório (JSON e PDF), lida pela tela de Gestão de qualquer computador. Vazio = só na pasta de saída deste computador. Variável: QA_REPORTS_DIR.",
+      "default": null
+    },
     "admin_token_hash": {
       "type": [
         "string",
@@ -188,7 +196,8 @@
               "max_upload_mb",
               "cors_origins",
               "api_token",
-              "diagnostics_dir"
+              "diagnostics_dir",
+              "reports_dir"
             ]
           },
           "description": "Nomes das chaves travadas."

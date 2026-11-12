@@ -85,6 +85,7 @@ nav:
       - Sequência e completude: especificacoes/sequencing.md
       - Numeração lida da imagem: especificacoes/numeracao-por-imagem.md
       - Coleta do beta e métricas: especificacoes/coleta-do-beta.md
+      - Relatório por caixa: especificacoes/relatorio-por-caixa.md
       - Correções e lote corrigido: especificacoes/corrections.md
       - Pontuação e veredito: especificacoes/scoring.md
       - Metadados: especificacoes/metadata.md

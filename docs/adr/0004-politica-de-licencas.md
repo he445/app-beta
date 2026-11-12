@@ -16,7 +16,8 @@ O código pode virar produto fechado no futuro. Algumas ferramentas de referênc
 
 Dependências atuais do núcleo: NumPy (BSD), OpenCV (Apache-2.0), Pillow (MIT-CMU),
 pypdfium2 (Apache-2.0/BSD-3), PyYAML (MIT), jsonschema (MIT), FastAPI/Starlette (MIT),
-uvicorn (BSD), python-multipart (Apache-2.0), platformdirs (MIT).
+uvicorn (BSD), python-multipart (Apache-2.0), platformdirs (MIT), ReportLab (BSD-3-Clause,
+gera o PDF do relatório por caixa; traz charset-normalizer, MIT).
 
 Modelos e inferência: onnxruntime (MIT), tokenizers (Apache-2.0); modelos
 PP-LCNet_x1_0_doc_ori, PP-OCRv5_mobile_det e PP-OCRv5_mobile_rec (Apache-2.0) e
