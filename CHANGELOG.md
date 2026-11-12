@@ -8,6 +8,11 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Tela de Gestão: lê os relatórios por caixa de `reports_dir` (todas as máquinas) ou, sem
+  ela, os deste computador; por conferente → caixas → processos, estado da pendência,
+  filtro por dia, semana ou mês com totais, PDF do relatório e versão do programa em
+  cada máquina. Sem tempo por caixa nem ranking. `GET /management` e
+  `/management/report.pdf` (contrato 0.14.0, `management.schema.json`).
 - Relatório por caixa: ao salvar (ou sob pedido), cada caixa concluída gera o relatório
   com páginas faltando e ilegíveis de cada processo, ou "Nenhuma pendência", em JSON
   (`box-report.schema.json`) e PDF (ReportLab, BSD-3-Clause, no ADR-0004), na pasta de

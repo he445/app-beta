@@ -7,6 +7,7 @@ export type Route =
   | { name: "profiles" }
   | { name: "settings" }
   | { name: "diagnostics" }
+  | { name: "management" }
   | { name: "batch"; id: string }
   | { name: "review"; id: string }
   | { name: "sequence"; id: string; doc?: string }
@@ -20,6 +21,7 @@ export function parseRoute(hash: string): Route {
   if (head === "profiles") return { name: "profiles" };
   if (head === "settings") return { name: "settings" };
   if (head === "admin" && id === "diagnostics") return { name: "diagnostics" };
+  if (head === "management") return { name: "management" };
   if (head === "batches" && id) {
     if (sub === "review") return { name: "review", id };
     if (sub === "sequence") return { name: "sequence", id, doc: extra };
@@ -42,6 +44,8 @@ export function href(route: Route): string {
       return "#/settings";
     case "diagnostics":
       return "#/admin/diagnostics";
+    case "management":
+      return "#/management";
     case "batch":
       return `#/batches/${route.id}`;
     case "review":

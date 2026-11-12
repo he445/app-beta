@@ -2,7 +2,7 @@
 
 # Referência da API
 
-Contrato **0.13.0**. A fonte é `contracts/openapi.yaml`, com os
+Contrato **0.14.0**. A fonte é `contracts/openapi.yaml`, com os
 formatos em `contracts/schemas/` (JSON Schema 2020-12), validados pelo Spectral na CI.
 Com o motor no ar, a versão interativa fica em `/docs`.
 
@@ -80,6 +80,8 @@ Erros seguem o RFC 9457 (`application/problem+json`).
 | --- | --- | --- |
 | `GET /batches/{batch_id}/box-reports` | Relatórios por caixa do lote (todas as versões) | 200, 401, 404 |
 | `POST /batches/{batch_id}/box-reports` | Gerar o relatório das caixas concluídas | 200, 401, 409 |
+| `GET /management` | Gestão (relatórios por caixa de todas as máquinas) | 200, 401, 422 |
+| `GET /management/report.pdf` | PDF de um relatório por caixa da Gestão | 200, 401, 404 |
 | `GET /box-reports/{report_id}.pdf` | PDF de uma versão do relatório por caixa | 200, 401, 404 |
 
 ## Diagnóstico, só com token de administrador (cabeçalho X-Admin-Token)

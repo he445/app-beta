@@ -13,6 +13,7 @@ import { Review } from "./screens/Review";
 import { Sequence } from "./screens/Sequence";
 import { Settings } from "./screens/Settings";
 import { Diagnostics } from "./screens/Diagnostics";
+import { Management } from "./screens/Management";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
 function useSession() {
@@ -56,6 +57,7 @@ function Shell({ engine }: { engine: Health }) {
           ) : (
             <a href={href({ name: "profiles" })}>Perfis</a>
           )}
+          {hasCapability(engine, "folder_export") && <a href={href({ name: "management" })}>Gestão</a>}
           {engine.admin && <a href={href({ name: "diagnostics" })}>Diagnóstico</a>}
           <span className="muted reviewer-name">{session.reviewer}</span>
           {!osSession && <button className="link" onClick={logout}>{session.token ? "Sair" : "Trocar"}</button>}
@@ -87,6 +89,8 @@ function Screen({ route }: { route: Route }) {
       return <Settings />;
     case "diagnostics":
       return <Diagnostics />;
+    case "management":
+      return <Management />;
     case "batch":
       return <Batch id={route.id} />;
     case "review":

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QA Automático de Digitalização — API do motor
-  version: 0.13.0
+  version: 0.14.0
   summary: Contrato entre a interface web, a linha de comando e o motor de análise.
   description: |
     Fonte da verdade do sistema (ADR-0002). Modelos de cada linguagem são gerados a partir
@@ -722,6 +722,52 @@ paths:
                     report: { $ref: "schemas/box-report.schema.json" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "409": { $ref: "#/components/responses/Problem" }
+  /management:
+    get:
+      tags: [reports]
+      operationId: getManagement
+      summary: Gestão (relatórios por caixa de todas as máquinas)
+      description: |
+        Lê os relatórios por caixa de `reports_dir` (todas as máquinas) ou, sem ela, os
+        deste computador. Uma caixa entra no período em que foi concluída; o estado é o da
+        versão mais nova até o fim do período. Arquivos ilegíveis ou fora do contrato são
+        pulados e contados em `source.skipped`.
+      parameters:
+        - name: since
+          in: query
+          description: Início do período (inclusive), ISO 8601
+          schema: { type: string }
+        - name: until
+          in: query
+          description: Fim do período (exclusive), ISO 8601
+          schema: { type: string }
+      responses:
+        "200":
+          description: Visão da Gestão
+          content:
+            application/json:
+              schema: { $ref: "schemas/management.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /management/report.pdf:
+    get:
+      tags: [reports]
+      operationId: getManagementReportPdf
+      summary: PDF de um relatório por caixa da Gestão
+      parameters:
+        - name: ref
+          in: query
+          required: true
+          description: O `ref` do item na resposta de /management
+          schema: { type: string }
+      responses:
+        "200":
+          description: PDF
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
   /box-reports/{report_id}.pdf:
     parameters:
       - name: report_id

@@ -532,6 +532,11 @@ class SqliteRepository:
         )
         return [{"id": r[0], "pendencies": r[1], "report": json.loads(r[2])} for r in rows]
 
+    def all_box_reports(self) -> list[tuple[str, dict[str, Any]]]:
+        """Todas as versões de todos os lotes deste computador (para a Gestão sem pasta)."""
+        rows = self._all("SELECT id, report_json FROM box_reports ORDER BY created_at")
+        return [(str(r[0]), json.loads(r[1])) for r in rows]
+
     def get_box_report(self, report_id: str) -> dict[str, Any] | None:
         """Uma versão de um relatório por caixa."""
         row = self._one("SELECT report_json FROM box_reports WHERE id = ?", (report_id,))

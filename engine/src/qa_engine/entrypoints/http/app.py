@@ -42,6 +42,7 @@ from qa_engine.adapters.local_folder import LocalFolderSource, is_within
 from qa_engine.adapters.metadata import PillowMetadataReader
 from qa_engine.adapters.page_versions import FilePageVersionStore
 from qa_engine.adapters.shared_diagnostics import SharedDiagnosticsFolder
+from qa_engine.adapters.shared_reports import SharedReportsFolder
 from qa_engine.adapters.sqlite import SqliteRepository
 from qa_engine.adapters.system import SystemClock, total_memory_mb
 from qa_engine.application.admin import AttemptLimiter, verify_token
@@ -82,6 +83,7 @@ from qa_engine.application.local_batch import (
     take_snapshot,
     wait_until_stable,
 )
+from qa_engine.application.management import management_view
 from qa_engine.application.models import verify_models
 from qa_engine.application.profile import Profile, load_profile, profile_from_dict
 from qa_engine.application.review import (
@@ -1020,6 +1022,57 @@ def create_app(
             raise HTTPException(422, "reviewer é obrigatório")
         batch_or_404(batch_id)
         return engine.generate_box_reports(batch_id, reviewer)
+
+    def management_reports() -> tuple[list[tuple[str, Mapping[str, Any]]], int, bool]:
+        if settings.reports_dir is None:
+            local = [(f"local:{rid}", rep) for rid, rep in engine.repo.all_box_reports()]
+            return list(local), 0, False
+
+        def valid(data: Any) -> bool:
+            try:
+                validate(data, "box-report.schema.json")
+            except ContractError:
+                return False
+            return True
+
+        found, skipped = SharedReportsFolder(settings.reports_dir).read(valid)
+        return [(f"shared:{rel}", rep) for rel, rep in found], skipped, True
+
+    @app.get("/management")
+    def management(since: str | None = None, until: str | None = None) -> dict[str, Any]:
+        for value in (since, until):
+            if value:
+                try:
+                    datetime.fromisoformat(value.replace("Z", "+00:00"))
+                except ValueError as exc:
+                    raise HTTPException(422, f"data inválida: {value}") from exc
+        reports, skipped, shared = management_reports()
+        view = management_view(reports, since, until, skipped, shared)
+        validate(view, "management.schema.json")
+        return view
+
+    @app.get("/management/report.pdf")
+    def management_pdf(ref: str) -> Response:
+        built: Mapping[str, Any] | None = None
+        if ref.startswith("local:"):
+            built = engine.repo.get_box_report(ref.removeprefix("local:"))
+        elif ref.startswith("shared:") and settings.reports_dir is not None:
+            path = SharedReportsFolder(settings.reports_dir).resolve(ref.removeprefix("shared:"))
+            if path is not None:
+                try:
+                    data = json.loads(path.read_text("utf-8"))
+                    validate(data, "box-report.schema.json")
+                    built = data
+                except (OSError, ValueError, ContractError):
+                    built = None
+        if built is None:
+            raise HTTPException(404, "relatório não encontrado")
+        name = f"{safe_name(built['box'])}-v{built['version']}.pdf"
+        return Response(
+            render_box_report_pdf(built),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{name}"'},
+        )
 
     @app.get("/box-reports/{report_id}.pdf")
     def box_report_pdf(report_id: str) -> Response:

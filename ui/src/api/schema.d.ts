@@ -593,6 +593,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/management": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Gestão (relatórios por caixa de todas as máquinas)
+         * @description Lê os relatórios por caixa de `reports_dir` (todas as máquinas) ou, sem ela, os
+         *     deste computador. Uma caixa entra no período em que foi concluída; o estado é o da
+         *     versão mais nova até o fim do período. Arquivos ilegíveis ou fora do contrato são
+         *     pulados e contados em `source.skipped`.
+         *
+         */
+        get: operations["getManagement"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/management/report.pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** PDF de um relatório por caixa da Gestão */
+        get: operations["getManagementReportPdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/box-reports/{report_id}.pdf": {
         parameters: {
             query?: never;
@@ -1621,6 +1662,66 @@ export interface components {
                 pages: number;
                 missing: number;
                 illegible: number;
+            };
+        };
+        /**
+         * Management
+         * @description Tela de Gestão: relatórios por caixa de todas as máquinas (reports_dir), por conferente, caixa e processo, no período. Sem tempo por caixa nem ranking.
+         */
+        "management.schema": {
+            period: {
+                since: string | null;
+                until: string | null;
+            };
+            totals: {
+                boxes: number;
+                boxes_pending: number;
+                processes: number;
+                pages: number;
+            };
+            reviewers: {
+                reviewer: string;
+                boxes: number;
+                pages: number;
+                items: {
+                    box: string;
+                    batch_name: string;
+                    machine: string;
+                    version: number;
+                    versions: number;
+                    /** @enum {unknown} */
+                    state: "clean" | "pending" | "resolved";
+                    /** @description Conclusão da caixa (primeira versão). */
+                    concluded_at: string;
+                    /** @description Versão mostrada (a mais nova até o fim do período). */
+                    updated_at: string;
+                    /** @description Referência para abrir o relatório (GET /management/report.pdf?ref=...). */
+                    ref: string;
+                    totals: {
+                        processes: number;
+                        pages: number;
+                        missing: number;
+                        illegible: number;
+                    };
+                    processes: {
+                        number: string;
+                        pages: number;
+                        clean: boolean;
+                        missing: number;
+                        illegible: number;
+                    }[];
+                }[];
+            }[];
+            machines: {
+                machine: string;
+                program_version: string;
+                last_report_at: string;
+            }[];
+            source: {
+                /** @description Verdadeiro quando os relatórios vieram de reports_dir; falso = só deste computador. */
+                shared: boolean;
+                reports: number;
+                skipped: number;
             };
         };
         /**
@@ -2669,6 +2770,58 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             409: components["responses"]["Problem"];
+        };
+    };
+    getManagement: {
+        parameters: {
+            query?: {
+                /** @description Início do período (inclusive), ISO 8601 */
+                since?: string;
+                /** @description Fim do período (exclusive), ISO 8601 */
+                until?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Visão da Gestão */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["management.schema"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    getManagementReportPdf: {
+        parameters: {
+            query: {
+                /** @description O `ref` do item na resposta de /management */
+                ref: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PDF */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["Problem"];
         };
     };
     getBoxReportPdf: {

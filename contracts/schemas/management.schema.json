@@ -1,0 +1,259 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "management.schema.json",
+  "title": "Management",
+  "description": "Tela de Gestão: relatórios por caixa de todas as máquinas (reports_dir), por conferente, caixa e processo, no período. Sem tempo por caixa nem ranking.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "period",
+    "totals",
+    "reviewers",
+    "machines",
+    "source"
+  ],
+  "properties": {
+    "period": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "since",
+        "until"
+      ],
+      "properties": {
+        "since": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "until": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boxes",
+        "boxes_pending",
+        "processes",
+        "pages"
+      ],
+      "properties": {
+        "boxes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "boxes_pending": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "processes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pages": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "reviewers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "reviewer",
+          "boxes",
+          "pages",
+          "items"
+        ],
+        "properties": {
+          "reviewer": {
+            "type": "string"
+          },
+          "boxes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "box",
+                "batch_name",
+                "machine",
+                "version",
+                "versions",
+                "state",
+                "concluded_at",
+                "updated_at",
+                "ref",
+                "totals",
+                "processes"
+              ],
+              "properties": {
+                "box": {
+                  "type": "string"
+                },
+                "batch_name": {
+                  "type": "string"
+                },
+                "machine": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "versions": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "state": {
+                  "enum": [
+                    "clean",
+                    "pending",
+                    "resolved"
+                  ]
+                },
+                "concluded_at": {
+                  "type": "string",
+                  "description": "Conclusão da caixa (primeira versão)."
+                },
+                "updated_at": {
+                  "type": "string",
+                  "description": "Versão mostrada (a mais nova até o fim do período)."
+                },
+                "ref": {
+                  "type": "string",
+                  "description": "Referência para abrir o relatório (GET /management/report.pdf?ref=...)."
+                },
+                "totals": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "processes",
+                    "pages",
+                    "missing",
+                    "illegible"
+                  ],
+                  "properties": {
+                    "processes": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "pages": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "missing": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "illegible": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                },
+                "processes": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "number",
+                      "pages",
+                      "clean",
+                      "missing",
+                      "illegible"
+                    ],
+                    "properties": {
+                      "number": {
+                        "type": "string"
+                      },
+                      "pages": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "clean": {
+                        "type": "boolean"
+                      },
+                      "missing": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "illegible": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "machines": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "machine",
+          "program_version",
+          "last_report_at"
+        ],
+        "properties": {
+          "machine": {
+            "type": "string"
+          },
+          "program_version": {
+            "type": "string"
+          },
+          "last_report_at": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "shared",
+        "reports",
+        "skipped"
+      ],
+      "properties": {
+        "shared": {
+          "type": "boolean",
+          "description": "Verdadeiro quando os relatórios vieram de reports_dir; falso = só deste computador."
+        },
+        "reports": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

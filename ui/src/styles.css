@@ -342,3 +342,10 @@ button.full { width: 100%; justify-content: center; }
 .seq-page[draggable="true"] { cursor: grab; }
 .seq-page.drop-before { box-shadow: inset 4px 0 0 var(--accent); }
 .seq-page.drop-after { box-shadow: inset -4px 0 0 var(--accent); }
+
+/* Gestão */
+.segmented { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.segmented button { border: none; border-radius: 0; background: var(--surface); }
+.segmented button.active { background: var(--accent); color: #fff; }
+.reviewer-group { border-top: 1px solid var(--border); padding: 0.5rem 0; }
+.reviewer-group summary { cursor: pointer; padding: 0.25rem 0; }
