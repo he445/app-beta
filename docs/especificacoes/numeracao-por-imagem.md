@@ -32,6 +32,10 @@ mesma em que a inclinação é medida, já girada quando a página veio de lado)
    vocabulário de número de folha (dígitos, `-`, letras de intercalação, `v`). Ficam só as
    leituras com formato de folha (`parse_folio`) e confiança de pelo menos 0,3. Caixa
    sem leitura válida é palavra ou rabisco: não vira marca, mas conta como **escrito**.
+   Para cada leitura com 1 ou 7, entra também a alternativa com o dígito trocado (um de
+   cada vez), com metade da confiança, se ainda não estiver entre as leituras: a letra de
+   mão troca 1 e 7 e o reconhecedor às vezes tem certeza do errado ("72-A" no lugar de
+   "12-A"). Ficam as três mais confiáveis; quem escolhe é o resolvedor, pela sequência.
 5. **Riscado.** Nota de 0 a 1 por caixa (com margem de 0,3 do tamanho, porque o risco
    costuma passar da caixa): traço quase reto que atravessa pelo menos 85% da largura da
    tinta na faixa do meio, ou dois traços cruzando no centro (X). A marca é riscada com

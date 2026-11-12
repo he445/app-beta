@@ -8,6 +8,8 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Leitor de numeração: alternativa com 1 e 7 trocados (metade da confiança) para o
+  resolvedor decidir pela sequência; corrige o cenário de intercalação no Windows.
 - Tela de Gestão: lê os relatórios por caixa de `reports_dir` (todas as máquinas) ou, sem
   ela, os deste computador; por conferente → caixas → processos, estado da pendência,
   filtro por dia, semana ou mês com totais, PDF do relatório e versão do programa em

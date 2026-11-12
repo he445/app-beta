@@ -39,6 +39,11 @@ LONE_STRUCK = 0.99
 """Nota de riscado exigida quando a página tem um número só."""
 EDGE_MARGIN = 0.01
 """Faixa junto à borda da página (fração do lado menor) ignorada na busca nos cantos."""
+CONFUSABLE = {"1": "7", "7": "1"}
+"""Dígitos que a letra de mão troca: o 1 com serifa parece um 7 e vice-versa."""
+CONFUSION_FACTOR = 0.5
+"""Confiança da alternativa trocada, relativa à leitura de onde ela saiu."""
+MAX_READINGS = 3
 MAX_ASPECT = 5.0
 """Caixa mais larga que isso (em alturas) é linha de texto impresso, não número de folha."""
 
@@ -142,10 +147,12 @@ class ImageNumberingReader:
             scores: list[float] = []
             for box in boxes:
                 patch = crop[box.y : box.y + box.h, box.x : box.x + box.w]
-                readings = tuple(
-                    Reading(r.text, r.confidence)
-                    for r in self.recognizer.read(patch)
-                    if parse_folio(r.text) is not None and r.confidence >= MIN_READING
+                readings = with_confusions(
+                    [
+                        Reading(r.text, r.confidence)
+                        for r in self.recognizer.read(patch)
+                        if parse_folio(r.text) is not None and r.confidence >= MIN_READING
+                    ]
                 )
                 if not readings:
                     continue  # palavra impressa ou rabisco: não é número de folha
@@ -186,6 +193,30 @@ class ImageNumberingReader:
                     continue
                 return True
         return False
+
+
+def with_confusions(readings: Sequence[Reading]) -> tuple[Reading, ...]:
+    """Acrescenta a alternativa com 1 e 7 trocados, com confiança menor.
+
+    O reconhecedor às vezes tem certeza do dígito errado ("72-A" no lugar de "12-A") e
+    a leitura certa nem aparece. Com a alternativa, o resolvedor decide pela sequência
+    do documento, como faz com qualquer leitura duvidosa; ele nunca aceita a alternativa
+    sozinha. Ficam as ``MAX_READINGS`` mais confiáveis.
+    """
+    if not readings:
+        return ()
+    seen = {r.text for r in readings}
+    extra: list[Reading] = []
+    for r in readings:
+        for i, ch in enumerate(r.text):
+            if ch not in CONFUSABLE:
+                continue
+            text = r.text[:i] + CONFUSABLE[ch] + r.text[i + 1 :]
+            if text not in seen and parse_folio(text) is not None:
+                seen.add(text)
+                extra.append(Reading(text, r.confidence * CONFUSION_FACTOR))
+    ranked = sorted([*readings, *extra], key=lambda r: -r.confidence)
+    return tuple(ranked[:MAX_READINGS])
 
 
 def _overlaps(a: TextBox, b: TextBox) -> bool:

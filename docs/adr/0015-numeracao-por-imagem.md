@@ -36,6 +36,9 @@ limpos (nota 0,6). Nas 36 páginas dos oito cenários, 34 com as marcas certas, 
 ## Consequências
 
 - O resolvedor não muda; o leitor só produz marcas no formato que ele já recebe.
+- 1 e 7 se confundem na letra de mão: o leitor acrescenta a alternativa trocada com
+  metade da confiança e o resolvedor decide pela sequência (no CI do Windows, o "12-A"
+  sintético saía só como "72-A").
 - `numbering.json` continua tendo prioridade: conformidade e demonstração não mudam.
 - Número sozinho riscado com traço fraco passa como não riscado (exigência de 0,99): a
   sequência do documento acusa a divergência e manda para o revisor.

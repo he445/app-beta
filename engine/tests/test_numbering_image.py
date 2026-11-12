@@ -316,3 +316,32 @@ def test_numbering_from_the_sidecar_also_keeps_the_page(
     by_file = {p["id"]: p["source_file"] for p in report["pages"]}
     blank = {by_file[f["target"]["id"]] for f in report["findings"] if f["rule"] == "blank_page"}
     assert blank == {"DOC/0002.tif"}
+
+
+def test_confusable_alternative_lets_the_sequence_decide() -> None:
+    from qa_engine.application.numbering_image import with_confusions
+    from qa_engine.domain.sequencing import Mark, Reading
+
+    # Leitura com certeza do dígito errado: a alternativa entra com confiança menor.
+    readings = with_confusions([Reading("72-A", 0.73)])
+    assert [(r.text, round(r.confidence, 3)) for r in readings] == [("72-A", 0.73), ("12-A", 0.365)]
+    assert [r.text for r in with_confusions([Reading("17", 0.9)])] == ["17", "77", "11"]
+    assert with_confusions([]) == ()
+
+    def page(pid: str, *texts: tuple[str, float]) -> PageCandidates:
+        return PageCandidates(pid, (Mark(with_confusions([Reading(t, c) for t, c in texts])),))
+
+    fixed = resolve(
+        [
+            page("p0", ("11", 0.98)),
+            page("p1", ("12", 0.99)),
+            page("p2", ("72-A", 0.73)),
+            page("p3", ("13", 0.77)),
+        ],
+        SequenceParams(),
+    )
+    assert [str(p.value) for p in fixed.pages] == ["11", "12", "12-A", "13"] and not fixed.repeated
+    kept = resolve(
+        [page("a", ("71", 0.9)), page("b", ("72", 0.9)), page("c", ("73", 0.9))], SequenceParams()
+    )
+    assert [str(p.value) for p in kept.pages] == ["71", "72", "73"]
