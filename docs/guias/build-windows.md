@@ -39,7 +39,10 @@ Windows → Run workflow) e quando muda o que afeta o pacote:
 
 Publicar uma versão: suba `__version__` em `engine/src/qa_engine/__init__.py` e em
 `engine/pyproject.toml`, feche a seção no `CHANGELOG.md`, faça o commit na `main` e crie
-a tag (`git tag -a v1.0.0 -m "..." && git push origin v1.0.0`).
+a tag (`git tag -a v1.0.0 -m "..." && git push origin v1.0.0`). Sem poder enviar tags,
+o mesmo pelo GitHub: Actions → Windows → Run workflow na `main`, com **publicar**
+marcado; o workflow testa, monta o pacote e cria a tag `v<versão>` e a Release naquele
+commit (recusa se a versão já foi publicada).
 
 ## Na sua máquina Windows
 

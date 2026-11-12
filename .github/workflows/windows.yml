@@ -22,6 +22,11 @@ on:
       - ui/**
       - .github/workflows/windows.yml
   workflow_dispatch:
+    inputs:
+      publicar:
+        description: "Publicar a versão (cria a tag v<versão> neste commit e a Release com o pacote); só na main"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -89,13 +94,23 @@ jobs:
           path: |
             build/dist/*.zip
             build/dist/*.zip.sha256
-      - name: Publicar a versão (tag v*) com o zip e o SHA-256
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Publicar a versão (tag v*, ou à mão na main) com o zip e o SHA-256
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publicar && github.ref == 'refs/heads/main')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $version = (uv run --project engine python -c "import qa_engine; print(qa_engine.__version__)").Trim()
-          if ("v$version" -ne $env:GITHUB_REF_NAME) { throw "tag $env:GITHUB_REF_NAME não bate com a versão $version do programa" }
+          $tag = "v$version"
+          if ($env:GITHUB_REF_TYPE -eq "tag") {
+            if ($tag -ne $env:GITHUB_REF_NAME) { throw "tag $env:GITHUB_REF_NAME não bate com a versão $version do programa" }
+            $where = @("--verify-tag")
+          } else {
+            # Disparo à mão na main: a tag nasce aqui, neste commit (testado acima).
+            gh release view $tag 2>$null
+            if ($LASTEXITCODE -eq 0) { throw "a versão $tag já foi publicada; suba a versão antes de publicar de novo" }
+            $global:LASTEXITCODE = 0
+            $where = @("--target", $env:GITHUB_SHA)
+          }
           $files = Get-ChildItem build/dist -File | Where-Object { $_.Name -like "*.zip" -or $_.Name -like "*.zip.sha256" } | ForEach-Object { $_.FullName }
           $notes = Join-Path $env:RUNNER_TEMP "notas.md"
           @"
@@ -104,6 +119,6 @@ jobs:
           - Confira o arquivo com o ``.sha256`` (``Get-FileHash -Algorithm SHA256 <zip>``); é o hash que a TI usa para liberar o programa no antivírus.
           - O executável não tem assinatura digital: o SmartScreen avisa (Mais informações → Executar assim mesmo).
           - Leia ``LEIA-ME.txt``; a documentação completa está em ``docs\index.html`` dentro do pacote. Para treinar: ``samples\lote-exemplo`` e o manual do conferente.
-          - O que mudou: [CHANGELOG](https://github.com/$env:GITHUB_REPOSITORY/blob/$env:GITHUB_REF_NAME/CHANGELOG.md).
+          - O que mudou: [CHANGELOG](https://github.com/$env:GITHUB_REPOSITORY/blob/$tag/CHANGELOG.md).
           "@ | Set-Content $notes -Encoding utf8
-          gh release create $env:GITHUB_REF_NAME @files --verify-tag --title "QA de Digitalização $version" --notes-file $notes
+          gh release create $tag @files @where --title "QA de Digitalização $version" --notes-file $notes
