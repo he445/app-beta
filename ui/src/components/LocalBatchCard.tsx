@@ -5,6 +5,7 @@ import { json } from "../api/client";
 import { keys, useProfiles } from "../api/hooks";
 import type { BatchStatus } from "../api/types";
 import { desktopApi, pickFolder } from "../lib/desktop";
+import { lockConflict } from "../lib/lock";
 import { navigate } from "../router";
 import { Card, ErrorBox, Loading } from "./ui";
 
@@ -29,17 +30,20 @@ export function LocalBatchCard() {
   const stations = (list.find((p) => p.id === chosen)?.stations ?? []).filter((s) => s.id);
 
   const open = useMutation({
-    mutationFn: () =>
+    mutationFn: (takeOver: boolean = false) =>
       json<BatchStatus>("/local-batches", "POST", {
         path: path.trim(),
         profile_id: chosen,
         ...(station ? { station_id: station } : {}),
+        ...(takeOver ? { take_over: true } : {}),
       }),
     onSuccess: (status) => {
       void qc.invalidateQueries({ queryKey: keys.batches });
       navigate({ name: "batch", id: status.id });
     },
   });
+
+  const conflict = lockConflict(open.error);
 
   return (
     <Card title="Abrir lote">
@@ -50,7 +54,7 @@ export function LocalBatchCard() {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (path.trim()) open.mutate();
+          if (path.trim()) open.mutate(false);
         }}
       >
         <label>
@@ -96,7 +100,21 @@ export function LocalBatchCard() {
             </select>
           </label>
         )}
-        <ErrorBox error={open.error} />
+        {conflict ? (
+          <div className="warning" role="alert">
+            {conflict.detail}
+            {conflict.stale && (
+              <div className="row tight">
+                <button type="button" className="primary" disabled={open.isPending} onClick={() => open.mutate(true)}>
+                  Assumir a caixa
+                </button>
+                <span className="small muted">Fica registrado que você assumiu.</span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <ErrorBox error={open.error} />
+        )}
         <button className="primary" disabled={!path.trim() || open.isPending}>
           {open.isPending ? "Abrindo…" : "Analisar lote"}
         </button>

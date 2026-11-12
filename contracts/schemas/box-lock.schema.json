@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "box-lock.schema.json",
+  "title": "BoxLock",
+  "description": "Quem está conferindo a caixa (conteúdo do arquivo <caixa>.lock, sem o identificador da abertura do programa).",
+  "type": "object",
+  "required": [
+    "box",
+    "reviewer",
+    "machine",
+    "acquired_at",
+    "renewed_at"
+  ],
+  "properties": {
+    "box": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "reviewer": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "machine": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "acquired_at": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "renewed_at": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "batch_name": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string",
+      "description": "Abertura do programa que tem a trava."
+    },
+    "taken_over_from": {
+      "type": "object",
+      "description": "Trava abandonada que foi assumida: quem tinha e até quando renovou."
+    }
+  }
+}

@@ -14,6 +14,11 @@ Guia para garantidores e conferentes. Para instalar e publicar, veja
    os arquivos não disserem de qual digitalizadora vieram, a estação. A pasta é lida no
    lugar e nunca alterada. Enquanto a digitalizadora ainda grava, o lote aparece como
    "Esperando a pasta parar de mudar".
+   **Caixa em conferência em outra máquina:** a tela diz quem está com ela, em qual
+   máquina e desde quando, e não abre. Se o outro programa fechou ou caiu (sem sinal há
+   mais de 10 minutos), aparece **Assumir a caixa**; fica registrado que você assumiu.
+   Sem a pasta compartilhada de relatórios configurada, a trava vale só neste computador
+   e a tela avisa.
    **Não espere a caixa inteira:** durante a análise, o cartão **Processos** mostra cada
    processo como *pronto*, *analisando* ou *na fila*; clique em **Conferir** no primeiro
    pronto. "Corrigir tudo", salvar o lote corrigido e o relatório da caixa esperam a

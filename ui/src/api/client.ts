@@ -77,6 +77,8 @@ export class ApiError extends Error {
     readonly title: string,
     readonly detail?: string,
     readonly problems: FieldProblem[] = [],
+    /** Corpo do erro (campos extras do problema, ex.: a trava da caixa). */
+    readonly body: Record<string, unknown> = {},
   ) {
     super(detail ? `${title}: ${detail}` : title);
   }
@@ -120,8 +122,10 @@ export async function raw(path: string, init: RequestInit = {}): Promise<Respons
     let title = response.statusText || `Erro ${response.status}`;
     let detail: string | undefined;
     let problems: FieldProblem[] = [];
+    let extra: Record<string, unknown> = {};
     try {
       const body = (await response.json()) as { title?: string; detail?: string; problems?: FieldProblem[] };
+      extra = body as Record<string, unknown>;
       title = body.title ?? title;
       detail = body.detail;
       problems = body.problems ?? [];
@@ -135,7 +139,7 @@ export async function raw(path: string, init: RequestInit = {}): Promise<Respons
     if (response.status === 502 || response.status === 503) {
       detail = detail ?? "O motor está reiniciando ou acordando. Tente de novo em alguns segundos.";
     }
-    throw new ApiError(response.status, title, detail, problems);
+    throw new ApiError(response.status, title, detail, problems, extra);
   }
   return response;
 }

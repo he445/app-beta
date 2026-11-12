@@ -31,6 +31,19 @@ def process_number(document_name: str) -> str:
     return parts[-1] if parts else document_name
 
 
+def boxes_in_files(files: Sequence[str], batch_name: str) -> list[str]:
+    """Caixas de um lote pelos arquivos, antes da análise.
+
+    A caixa é a primeira pasta de quem tem processo dentro dela; processo direto na raiz
+    é da caixa com o nome do lote.
+    """
+    found: set[str] = set()
+    for rel in files:
+        parts = [p for p in rel.replace("\\", "/").split("/") if p]
+        found.add(parts[0] if len(parts) >= 3 else batch_name)
+    return sorted(found) or [batch_name]
+
+
 def boxes(report: Mapping[str, Any]) -> dict[str, list[Mapping[str, Any]]]:
     """Documentos de cada caixa, na ordem do lote."""
     out: dict[str, list[Mapping[str, Any]]] = {}

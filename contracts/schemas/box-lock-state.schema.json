@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "box-lock-state.schema.json",
+  "title": "BoxLockState",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "shared",
+    "boxes"
+  ],
+  "properties": {
+    "shared": {
+      "type": "boolean",
+      "description": "Falso: a trava vale só neste computador (sem reports_dir)."
+    },
+    "boxes": {
+      "type": "array",
+      "items": {
+        "$ref": "box-lock.schema.json"
+      }
+    }
+  }
+}

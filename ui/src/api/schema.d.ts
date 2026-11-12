@@ -292,6 +292,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/batches/{batch_id}/lock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Travar ou renovar a trava das caixas do lote (a cada minuto, com o lote aberto)
+         * @description A trava fica em `reports_dir/travas/<caixa>.lock` (ou só neste computador, sem
+         *     `reports_dir`; `shared: false`). Trava sem renovação há mais de 10 minutos é
+         *     abandonada e pode ser assumida com `take_over`, com registro. Só no programa desktop.
+         *
+         */
+        post: operations["lockBatch"];
+        /** Soltar a trava das caixas do lote (também ao fechar o programa) */
+        delete: operations["unlockBatch"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/batches/{batch_id}": {
         parameters: {
             query?: never;
@@ -1319,6 +1345,33 @@ export interface components {
             station_id?: string;
             /** @description Nome do lote. Padrão: nome da pasta. */
             name?: string;
+            /**
+             * @description Assumir a caixa cuja trava foi abandonada (sem renovação há mais de 10 minutos). O fato fica registrado.
+             * @default false
+             */
+            take_over: boolean;
+        };
+        /**
+         * BoxLock
+         * @description Quem está conferindo a caixa (conteúdo do arquivo <caixa>.lock, sem o identificador da abertura do programa).
+         */
+        "box-lock.schema": {
+            box: string | null;
+            reviewer: string | null;
+            machine: string | null;
+            acquired_at: string | null;
+            renewed_at: string | null;
+            batch_name?: string;
+            /** @description Abertura do programa que tem a trava. */
+            id?: string;
+            /** @description Trava abandonada que foi assumida: quem tinha e até quando renovou. */
+            taken_over_from?: Record<string, never>;
+        };
+        /** BoxLockState */
+        "box-lock-state.schema": {
+            /** @description Falso: a trava vale só neste computador (sem reports_dir). */
+            shared: boolean;
+            boxes: components["schemas"]["box-lock.schema"][];
         };
         /** Batch */
         "batch.schema": {
@@ -2067,6 +2120,19 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
+        /** @description Caixa em conferência em outra máquina */
+        BoxLocked: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"] & {
+                    lock: components["schemas"]["box-lock.schema"];
+                    /** @description Trava abandonada (sem renovação há mais de 10 minutos): pode ser assumida. */
+                    stale: boolean;
+                };
+            };
+        };
         /** @description Token ausente ou inválido */
         Unauthorized: {
             headers: {
@@ -2474,7 +2540,62 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
+            409: components["responses"]["BoxLocked"];
             422: components["responses"]["Problem"];
+        };
+    };
+    lockBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    take_over?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Caixas travadas por esta abertura do programa */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["box-lock-state.schema"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["BoxLocked"];
+        };
+    };
+    unlockBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Trava solta */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["Problem"];
         };
     };
     getBatch: {

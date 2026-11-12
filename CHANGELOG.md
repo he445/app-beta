@@ -8,6 +8,11 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Trava por caixa: abrir o lote trava as caixas em `reports_dir/travas` (ou só nesta
+  máquina, com aviso); outra máquina vê quem está com a caixa, em qual máquina e desde
+  quando; renovação a cada minuto pela tela; trava abandonada (10 minutos) pode ser
+  assumida, com registro (migração 0011); fechar o programa solta as travas.
+  `/batches/{id}/lock` (contrato 0.18.0).
 - Permissões e histórico de configuração: perfis e ajustes das digitalizadoras só com o
   token de administrador fora da demonstração (403 sem token configurado); campos
   bloqueados na tela até destravar; toda mudança (perfil e este computador) entra no

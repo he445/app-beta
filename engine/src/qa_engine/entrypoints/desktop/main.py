@@ -18,6 +18,7 @@ import html
 import json
 import logging
 import secrets
+import signal
 import socket
 import sys
 import threading
@@ -324,6 +325,10 @@ CLI_COMMANDS = frozenset(
 """Subcomandos da linha de comando ``qa`` que o executável de suporte também atende."""
 
 
+def _interrupt(*_: object) -> None:
+    raise KeyboardInterrupt
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Abre o programa. Código de saída 0 ao fechar; 2 se a configuração for inválida."""
     given = list(sys.argv[1:] if argv is None else argv)
@@ -375,6 +380,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             # Para suporte: abre a interface num navegador desta máquina, uma vez.
             code = server.app.state.engine.issue_code()
             say(f"acesso: {server.url}/#code={code}")
+            # Encerramento pelo sistema (serviço, script de suporte): fecha como Ctrl+C,
+            # soltando as travas de caixa e fechando o banco.
+            signal.signal(signal.SIGTERM, _interrupt)
             with contextlib.suppress(KeyboardInterrupt):
                 server.thread.join()
         elif args.browser or not open_window(server, Bridge(token), server.stop):

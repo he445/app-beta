@@ -690,6 +690,32 @@ class SqliteRepository:
             for r in rows
         ]
 
+    def add_lock_event(
+        self, at: str, box: str, action: str, who: str, machine: str, details: Any = None
+    ) -> None:
+        """Registra um evento de trava de caixa."""
+        with self._tx() as c:
+            c.execute(
+                "INSERT INTO box_lock_events (at, box, action, who, machine, details_json)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                (at, box, action, who, machine, json.dumps(details, ensure_ascii=False)),
+            )
+
+    def lock_events(self, limit: int = 100) -> list[dict[str, Any]]:
+        """Eventos de trava, do mais novo ao mais antigo."""
+        rows = self._all(
+            "SELECT at, box, action, who, machine, details_json FROM box_lock_events"
+            " ORDER BY seq DESC LIMIT ?",
+            (limit,),
+        )
+        return [
+            {
+                **{k: r[k] for k in ("at", "box", "action", "who", "machine")},
+                "details": json.loads(r["details_json"]) if r["details_json"] else None,
+            }
+            for r in rows
+        ]
+
     def clear_numbering(self, page_id: str) -> None:
         """Desfaz a numeração digitada de uma página."""
         with self._tx() as c:

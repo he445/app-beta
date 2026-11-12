@@ -233,7 +233,7 @@ def test_folder_writer_publishes_only_when_complete(tmp_path: Path) -> None:
 
 def make_client(tmp_path: Path, repo: Path, **overrides: Any) -> TestClient:
     profiles = tmp_path / "profiles"
-    profiles.mkdir(exist_ok=True)
+    profiles.mkdir(parents=True, exist_ok=True)
     data = yaml.safe_load((repo / "profiles/sos-piloto.yaml").read_text("utf-8"))
     data["resolution"] = {"min_dpi": 150}
     (profiles / "sos-piloto.yaml").write_text(yaml.safe_dump(data, allow_unicode=True), "utf-8")
@@ -352,3 +352,67 @@ def test_purge_never_deletes_the_original_folder(
     assert sha_tree(local_batch) == before
     assert not (tmp_path / "data/batches" / batch_id).exists()
     shutil.rmtree(local_batch)
+
+
+# Trava por caixa (T28) -------------------------------------------------------------
+
+
+def test_second_machine_sees_who_is_checking_the_box_and_can_take_over_when_abandoned(
+    tmp_path: Path, repo: Path, local_batch: Path
+) -> None:
+    import json as _json
+    from datetime import UTC, datetime, timedelta
+
+    shared = tmp_path / "rede" / "relatorios"
+    with make_client(tmp_path / "a", repo, reports_dir=shared) as first:
+        opened = first.post("/local-batches", json={"path": str(local_batch)})
+        assert opened.status_code == 202, opened.text
+        lock_file = shared / "travas" / "Caixa 0412.lock"
+        lock = _json.loads(lock_file.read_text("utf-8"))
+        assert lock["box"] == "Caixa 0412" and lock["machine"] and lock["reviewer"]
+        renewed = first.post(f"/batches/{opened.json()['id']}/lock")
+        assert renewed.status_code == 200 and renewed.json()["shared"] is True
+
+        with make_client(tmp_path / "b", repo, reports_dir=shared) as second:
+            refused = second.post("/local-batches", json={"path": str(local_batch)})
+            assert refused.status_code == 409
+            body = refused.json()
+            assert body["detail"].startswith("Caixa Caixa 0412 em conferência por ")
+            assert "na máquina" in body["detail"] and body["stale"] is False
+            assert (
+                second.post(
+                    "/local-batches", json={"path": str(local_batch), "take_over": True}
+                ).status_code
+                == 409
+            )  # trava viva não pode ser assumida
+
+            # A primeira máquina caiu: 11 minutos sem renovar.
+            old = (datetime.now(tz=UTC) - timedelta(minutes=11)).isoformat(timespec="seconds")
+            lock["renewed_at"] = old
+            lock_file.write_text(_json.dumps(lock), "utf-8")
+            stale = second.post("/local-batches", json={"path": str(local_batch)})
+            assert stale.status_code == 409 and stale.json()["stale"] is True
+            taken = second.post(
+                "/local-batches", json={"path": str(local_batch), "take_over": True}
+            )
+            assert taken.status_code == 202, taken.text
+            now = _json.loads(lock_file.read_text("utf-8"))
+            assert now["taken_over_from"]["renewed_at"] == old
+
+            # Quem perdeu a caixa fica sabendo na próxima renovação.
+            lost = first.post(f"/batches/{opened.json()['id']}/lock")
+            assert lost.status_code == 409
+        assert not lock_file.exists()  # fechar o programa solta a trava
+
+
+def test_without_shared_folder_the_lock_is_only_on_this_machine(
+    desktop: TestClient, local_batch: Path, tmp_path: Path
+) -> None:
+    opened = desktop.post("/local-batches", json={"path": str(local_batch)})
+    assert opened.status_code == 202
+    state = desktop.post(f"/batches/{opened.json()['id']}/lock").json()
+    validate(state, "box-lock-state.schema.json")
+    assert state["shared"] is False and state["boxes"][0]["box"] == "Caixa 0412"
+    assert (tmp_path / "data" / "travas" / "Caixa 0412.lock").is_file()
+    assert desktop.delete(f"/batches/{opened.json()['id']}/lock").status_code == 204
+    assert not (tmp_path / "data" / "travas" / "Caixa 0412.lock").exists()

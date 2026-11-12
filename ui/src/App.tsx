@@ -14,6 +14,7 @@ import { Sequence } from "./screens/Sequence";
 import { Settings } from "./screens/Settings";
 import { Diagnostics } from "./screens/Diagnostics";
 import { Management } from "./screens/Management";
+import { BoxLockBanner } from "./components/BoxLockBanner";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
 function useSession() {
@@ -63,6 +64,7 @@ function Shell({ engine }: { engine: Health }) {
           {!osSession && <button className="link" onClick={logout}>{session.token ? "Sair" : "Trocar"}</button>}
         </div>
       </header>
+      {batchId && hasCapability(engine, "local_batches") && <BoxLockBanner batchId={batchId} />}
       <ErrorBoundary key={route.name}>
         <Screen route={route} />
       </ErrorBoundary>

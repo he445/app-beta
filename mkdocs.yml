@@ -85,6 +85,7 @@ nav:
       - Layout do lote: especificacoes/batch-layout.md
       - Lote local: especificacoes/lote-local.md
       - Liberação por processo: especificacoes/liberacao-por-processo.md
+      - Trava por caixa: especificacoes/trava-por-caixa.md
       - Sequência e completude: especificacoes/sequencing.md
       - Numeração lida da imagem: especificacoes/numeracao-por-imagem.md
       - Folha inserida depois: especificacoes/folha-inserida.md

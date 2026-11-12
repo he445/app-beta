@@ -28,6 +28,11 @@
       "type": "string",
       "minLength": 1,
       "description": "Nome do lote. Padrão: nome da pasta."
+    },
+    "take_over": {
+      "type": "boolean",
+      "default": false,
+      "description": "Assumir a caixa cuja trava foi abandonada (sem renovação há mais de 10 minutos). O fato fica registrado."
     }
   }
 }

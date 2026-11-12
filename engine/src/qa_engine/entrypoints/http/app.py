@@ -18,7 +18,7 @@ import shutil
 import threading
 import time
 import uuid
-from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
@@ -34,6 +34,7 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
 from qa_engine import __version__
+from qa_engine.adapters.box_locks import BoxLockedError, BoxLocks
 from qa_engine.adapters.box_report_pdf import render_box_report_pdf
 from qa_engine.adapters.corrected_folder import FolderTiffWriter
 from qa_engine.adapters.corrected_zip import ZipTiffWriter
@@ -51,6 +52,7 @@ from qa_engine.application.analyze import BatchAnalysis, PageTask, analyze_page,
 from qa_engine.application.beta import metrics_for
 from qa_engine.application.box_report import (
     boxes,
+    boxes_in_files,
     build_box_report,
     is_complete,
     pendencies_key,
@@ -176,6 +178,13 @@ class Engine:
         self.images = FileImageSource()
         self.folder = LocalFolderSource()
         self.feedback = SqliteFeedbackStore(self.repo, settings.data_dir)
+        shared_locks = settings.reports_dir is not None
+        self.locks = BoxLocks(
+            (settings.reports_dir or settings.data_dir) / "travas", shared=shared_locks
+        )
+        self.instance_id = str(uuid.uuid4())
+        self.held: dict[str, list[str]] = {}
+        """Caixas travadas por esta abertura do programa, por lote."""
         self.shared = (
             SharedDiagnosticsFolder(settings.diagnostics_dir) if settings.diagnostics_dir else None
         )
@@ -283,6 +292,64 @@ class Engine:
         if not snapshot.is_file():
             return []
         return compare_snapshot(self.folder, root, json.loads(snapshot.read_text("utf-8")))
+
+    def lock_holder(self, batch_name: str) -> dict[str, Any]:
+        """Quem trava: esta abertura do programa, o usuário do Windows e a máquina."""
+        return {
+            "id": self.instance_id,
+            "reviewer": os_user(),
+            "machine": platform.node() or "estação",
+            "batch_name": batch_name,
+        }
+
+    def lock_boxes(
+        self, batch_key: str, boxes_: Sequence[str], batch_name: str, take_over: bool = False
+    ) -> dict[str, Any]:
+        """Trava (ou renova) as caixas do lote; tudo ou nada.
+
+        Raises:
+            BoxLockedError: alguma caixa está em conferência em outra máquina.
+        """
+        now = self.now()
+        holder = self.lock_holder(batch_name)
+        taken: list[str] = []
+        states = []
+        try:
+            for box in boxes_:
+                before = self.locks.read(box)
+                state = self.locks.acquire(box, holder, now, take_over=take_over)
+                states.append(state)
+                if before is None or before.get("id") != holder["id"]:
+                    taken.append(box)
+                    action = "take_over" if "taken_over_from" in state else "acquire"
+                    self.repo.add_lock_event(
+                        iso(now),
+                        box,
+                        action,
+                        holder["reviewer"],
+                        holder["machine"],
+                        state.get("taken_over_from"),
+                    )
+        except BoxLockedError:
+            for box in taken:
+                self.locks.release(box, holder["id"])
+            raise
+        self.held[batch_key] = list(boxes_)
+        return {"shared": self.locks.shared, "boxes": states}
+
+    def release_boxes(self, batch_key: str) -> None:
+        """Solta as caixas que esta abertura travou para o lote."""
+        holder = self.lock_holder("")
+        for box in self.held.pop(batch_key, []):
+            if self.locks.release(box, holder["id"]):
+                self.repo.add_lock_event(
+                    iso(self.now()), box, "release", holder["reviewer"], holder["machine"]
+                )
+
+    def release_all_boxes(self) -> None:
+        """Ao fechar o programa: solta todas as travas desta abertura."""
+        for key in list(self.held):
+            self.release_boxes(key)
 
     def config_summary(self, profile: Profile) -> dict[str, Any]:
         """Resumo de configuração gravado com o lote: perfil, computador e histórico recente."""
@@ -762,6 +829,15 @@ NUMBERING_CROPS = "numbering"
 """Pasta, dentro da pasta de trabalho do lote, com o recorte da numeração de cada página."""
 
 
+def is_page_file(rel: str) -> bool:
+    """Arquivo de página do lote (imagem ou PDF), não um arquivo auxiliar da raiz."""
+    from qa_engine.adapters.images import SUPPORTED_SUFFIXES
+    from qa_engine.application.layout import RESERVED
+
+    name = rel.rsplit("/", 1)[-1]
+    return name not in RESERVED and Path(name).suffix.lower() in SUPPORTED_SUFFIXES
+
+
 def _orders(rows: Mapping[str, Mapping[str, Any]]) -> dict[str, ManualOrder]:
     return {
         doc: ManualOrder(tuple(o["page_ids"]), o["reviewer"], o["decided_at"])
@@ -844,6 +920,10 @@ def create_app(
         engine.purge()
         engine.ingest_crashes()
         yield
+        try:
+            engine.release_all_boxes()
+        except OSError:
+            log.warning("não foi possível soltar as travas de caixa ao fechar")
         engine.queue.shutdown(wait=False, cancel_futures=True)
         engine.corrections.shutdown(wait=False, cancel_futures=True)
         engine.repo.close()
@@ -1109,7 +1189,74 @@ def create_app(
         batch = open_local_batch(
             engine.folder, body["path"], settings.allowed_roots, is_within, body.get("name")
         )
-        return enqueue(str(uuid.uuid4()), batch.root, profile, batch.name, "local", station_id)
+        batch_id = str(uuid.uuid4())
+        try:
+            files = [rel for rel in engine.folder.listing(batch.root) if is_page_file(rel)]
+        except OSError:
+            files = []
+        try:
+            engine.lock_boxes(
+                batch_id,
+                boxes_in_files(files, batch.name),
+                batch.name,
+                bool(body.get("take_over")),
+            )
+        except BoxLockedError as exc:
+            return locked_response(exc)  # type: ignore[return-value]
+        return enqueue(batch_id, batch.root, profile, batch.name, "local", station_id)
+
+    def locked_response(exc: BoxLockedError) -> JSONResponse:
+        lock = exc.lock
+        since = lock.get("acquired_at", "")
+        try:
+            when = datetime.fromisoformat(since).astimezone().strftime("%Hh%M de %d/%m")
+        except ValueError:
+            when = since
+        detail = (
+            f"Caixa {lock.get('box')} em conferência por {lock.get('reviewer')}, "
+            f"na máquina {lock.get('machine')}, desde {when}."
+        )
+        if exc.stale:
+            detail += " A trava não é renovada há mais de 10 minutos: dá para assumir a caixa."
+        body = {
+            "title": "caixa em conferência em outra máquina",
+            "status": 409,
+            "detail": detail,
+            "lock": {
+                k: lock.get(k) for k in ("box", "reviewer", "machine", "acquired_at", "renewed_at")
+            },
+            "stale": exc.stale,
+        }
+        return JSONResponse(body, status_code=409, media_type="application/problem+json")
+
+    @app.post("/batches/{batch_id}/lock", response_model=None)
+    def lock_batch(
+        batch_id: str, body: Annotated[dict[str, Any] | None, Body()] = None
+    ) -> dict[str, Any] | JSONResponse:
+        if settings.mode != "desktop":
+            raise HTTPException(404, "trava por caixa só existe no programa desktop")
+        row = batch_or_404(batch_id)
+        held = engine.held.get(batch_id)
+        if held is None:
+            report = engine.repo.get_report(batch_id)
+            if report is not None:
+                held = list(boxes(report))
+            else:
+                try:
+                    listing = engine.folder.listing(row.root)
+                    held = boxes_in_files([r for r in listing if is_page_file(r)], row.name)
+                except OSError:
+                    held = [row.name]
+        try:
+            return engine.lock_boxes(batch_id, held, row.name, bool((body or {}).get("take_over")))
+        except BoxLockedError as exc:
+            return locked_response(exc)
+
+    @app.delete("/batches/{batch_id}/lock", status_code=204)
+    def unlock_batch(batch_id: str) -> Response:
+        batch_or_404(batch_id)
+        engine.release_boxes(batch_id)
+        return Response(status_code=204)
 
     def batch_or_404(batch_id: str) -> Any:
         row = engine.repo.get_batch(batch_id)
