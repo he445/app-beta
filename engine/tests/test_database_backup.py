@@ -5,6 +5,7 @@ from __future__ import annotations
 import shutil
 import sqlite3
 import time
+from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -52,7 +53,7 @@ def test_corrupt_or_newer_backup_is_refused(tmp_path: Path) -> None:
     broken.write_bytes(b"isto nao e um banco" * 100)
     assert check_backup(broken)
     newer = fresh_db(tmp_path / "nova.sqlite3")
-    with sqlite3.connect(newer) as conn:
+    with closing(sqlite3.connect(newer)) as conn, conn:
         conn.execute("INSERT INTO schema_migrations VALUES ('9999_futuro.sql')")
     problems = check_backup(newer)
     assert problems and "versão mais nova" in problems[0]

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import time
+from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -55,14 +56,14 @@ def settings_for(tmp_path: Path, repo: Path, reports: Path | None = None) -> Set
 
 def as_previous_version(db: Path) -> None:
     """Deixa o banco como a versão anterior o deixou (sem a última migração)."""
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn, conn:
         conn.execute("DELETE FROM schema_migrations WHERE name = ?", (LAST,))
         conn.execute("DROP TABLE program_versions")
 
 
 def as_newer_version(db: Path, version: str = "9.9.9") -> None:
     """Simula a versão nova: uma migração que esta versão não conhece."""
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn, conn:
         conn.execute("INSERT INTO schema_migrations VALUES ('9999_futuro.sql')")
         conn.execute("CREATE TABLE futuro (x INTEGER)")
         conn.execute(
@@ -154,7 +155,7 @@ def test_cli_restores_the_copy_from_before_the_update(tmp_path: Path) -> None:
     as_newer_version(db)
     assert cli(["backup", "restore", "--before-update", "--data-dir", str(data)]) == 0
     assert prepare_database(db, __version__, NOW) is None  # já migrado: abre direto
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn, conn:
         names = {r[0] for r in conn.execute("SELECT name FROM schema_migrations")}
     assert "9999_futuro.sql" not in names and LAST in names
 

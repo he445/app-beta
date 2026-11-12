@@ -171,10 +171,21 @@ def restore_backup(backup: Path, db: Path, now: datetime) -> Path | None:
                 current.backup(saved)
             finally:
                 saved.close()
+            # Leva o diário (WAL) para dentro do banco e o desliga: os arquivos -wal e -shm
+            # somem sem ser apagados à força (no Windows, apagar um em uso falha).
+            current.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            current.execute("PRAGMA journal_mode=DELETE")
+        except sqlite3.OperationalError as exc:
+            raise BackupError(
+                f"o banco está em uso; feche o programa e tente de novo ({exc})"
+            ) from exc
         finally:
             current.close()
-    for suffix in ("-wal", "-shm"):
-        db.with_name(db.name + suffix).unlink(missing_ok=True)
+    try:
+        for suffix in ("-wal", "-shm"):
+            db.with_name(db.name + suffix).unlink(missing_ok=True)
+    except PermissionError as exc:
+        raise BackupError("o banco está em uso; feche o programa e tente de novo") from exc
     partial = db.with_name(db.name + ".restaurando")
     partial.unlink(missing_ok=True)
     source = sqlite3.connect(f"file:{backup.as_posix()}?mode=ro", uri=True)
@@ -186,7 +197,11 @@ def restore_backup(backup: Path, db: Path, now: datetime) -> Path | None:
             dest.close()
     finally:
         source.close()
-    partial.replace(db)
+    try:
+        partial.replace(db)
+    except PermissionError as exc:
+        partial.unlink(missing_ok=True)
+        raise BackupError("o banco está em uso; feche o programa e tente de novo") from exc
     return previous
 
 
