@@ -85,8 +85,14 @@ class SqliteRepository:
         self._migrate()
 
     def close(self) -> None:
-        """Fecha a conexão."""
-        self._conn.close()
+        """Fecha a conexão, esperando quem a está usando.
+
+        Fechar no meio de uma consulta de outra thread (trabalho de fundo ainda rodando
+        ao fechar o programa) derruba o processo no Windows. Depois de fechado, cada
+        operação levanta ``sqlite3.ProgrammingError``, que o trabalho de fundo trata.
+        """
+        with self._lock:
+            self._conn.close()
 
     def _one(self, sql: str, params: tuple[Any, ...] = ()) -> sqlite3.Row | None:
         # A conexão é compartilhada entre as threads da API: toda leitura passa pelo lock.

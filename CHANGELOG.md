@@ -6,6 +6,12 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ## [Não lançado]
 
+### Corrigido
+
+- Fechar o programa com uma análise em andamento podia derrubar o processo no Windows
+  (conexão do banco fechada no meio de uma consulta): o fechamento espera a consulta
+  em curso e a análise para sem registrar erro.
+
 ### Adicionado
 
 - Manual do conferente (`docs/operacao/manual-do-conferente.md`): a caixa de exemplo do

@@ -188,6 +188,8 @@ class Engine:
             (settings.reports_dir or settings.data_dir) / "travas", shared=shared_locks
         )
         self.instance_id = str(uuid.uuid4())
+        self.closing = False
+        """O programa está fechando (trabalhos de fundo param sem registrar erro)."""
         machine = safe_name(platform.node() or "estacao")
         self.backup_folder = (
             settings.backup_dir / machine
@@ -846,6 +848,11 @@ class Engine:
             )
             self.release(batch_id, root, profile, analysis)
         except Exception as exc:
+            if self.closing:
+                # O programa fechou no meio da análise: o banco já foi fechado. O lote
+                # fica como estava e pode ser aberto de novo.
+                log.info("análise do lote %s interrompida ao fechar o programa", batch_id)
+                return
             log.exception("falha na análise do lote %s", batch_id)
             self.record_error(exc, "worker", "análise do lote", batch_id, "critical")
             self.repo.fail(batch_id, f"{exc.__class__.__name__}: {exc}"[:500])
@@ -969,6 +976,7 @@ def create_app(
             engine.release_all_boxes()
         except OSError:
             log.warning("não foi possível soltar as travas de caixa ao fechar")
+        engine.closing = True
         engine.queue.shutdown(wait=False, cancel_futures=True)
         engine.corrections.shutdown(wait=False, cancel_futures=True)
         engine.repo.close()
