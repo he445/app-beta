@@ -284,6 +284,11 @@ export interface paths {
          *     Se a pasta mudar durante a revisão, salvar o lote corrigido é recusado (409).
          *     Só existe quando o motor roda como programa desktop (`mode` em `/health`).
          *
+         *     Trava por caixa: abrir o lote trava cada caixa dele (na pasta compartilhada de
+         *     relatórios, ou só neste computador sem ela). Caixa em conferência por outra pessoa
+         *     ou máquina responde 409 com quem, onde e desde quando. Trava sem renovação há mais
+         *     de dez minutos é abandonada: com `take_over`, é assumida e o fato fica registrado.
+         *
          */
         post: operations["openLocalBatch"];
         delete?: never;
@@ -571,6 +576,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/batches/{batch_id}/box-locks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Travas das caixas do lote (quem conferia, se foi assumida, onde vale)
+         * @description Caixas que este lote travou: travada (`held`), assumida por outra máquina (`lost`,
+         *     com quem assumiu) ou solta quando a caixa foi concluída (`released`). `scope` diz
+         *     se a trava vale para todas as máquinas (pasta compartilhada) ou só neste
+         *     computador. Fora do programa desktop, ou em lote que não foi aberto por pasta,
+         *     `enabled` é falso.
+         *
+         */
+        get: operations["getBoxLocks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/batches/{batch_id}/box-reports": {
         parameters: {
             query?: never;
@@ -752,7 +784,8 @@ export interface paths {
          *     com as regras do lote (linha de base gravada) e lê o número. Entra na posição
          *     enviada ou, sem ela, na sugerida pelo número lido. A sequência é resolvida de novo
          *     (a lacuna fecha) e o relatório da caixa sai em versão nova se a caixa estava
-         *     concluída. Uma folha por arquivo. Só depois da análise da caixa.
+         *     concluída. Uma folha por arquivo. Só depois da análise da caixa. A caixa reaberta
+         *     volta a ser travada; em conferência noutra máquina, 409 (`box-locked.schema.json`).
          *
          */
         post: operations["insertDocumentPage"];
@@ -981,8 +1014,8 @@ export interface components {
              * @enum {unknown}
              */
             mode: "cloud" | "desktop" | "server";
-            /** @description O que este motor oferece; a interface mostra só o que está aqui. upload: enviar lote pelo navegador. demo_batches: lotes de demonstração no servidor. local_batches: abrir pasta local ou de rede (POST /local-batches). folder_export: gravar o lote corrigido em pasta. os_session: o revisor vem do usuário do sistema (GET /session), sem tela de entrada. synthetic_only: só documentos sintéticos ou públicos, com apagamento automático. settings: tela de configurações (GET e PUT /settings). */
-            capabilities: ("upload" | "demo_batches" | "local_batches" | "folder_export" | "os_session" | "synthetic_only" | "settings")[];
+            /** @description O que este motor oferece; a interface mostra só o que está aqui. upload: enviar lote pelo navegador. demo_batches: lotes de demonstração no servidor. local_batches: abrir pasta local ou de rede (POST /local-batches). folder_export: gravar o lote corrigido em pasta. os_session: o revisor vem do usuário do sistema (GET /session), sem tela de entrada. synthetic_only: só documentos sintéticos ou públicos, com apagamento automático. settings: tela de configurações (GET e PUT /settings). box_locks: trava por caixa ao abrir lote por pasta (GET /batches/{batch_id}/box-locks). */
+            capabilities: ("upload" | "demo_batches" | "local_batches" | "folder_export" | "os_session" | "synthetic_only" | "settings" | "box_locks")[];
             /** @description Conferência dos modelos embarcados (SHA-256 contra models.lock.json). Com problema, a análise fica bloqueada. */
             models?: {
                 checked: boolean;
@@ -1071,7 +1104,7 @@ export interface components {
              */
             diagnostics_dir: string | null;
             /**
-             * @description Pasta compartilhada da rede onde cada caixa concluída grava o relatório (JSON e PDF), lida pela tela de Gestão de qualquer computador. Vazio = só na pasta de saída deste computador. Variável: QA_REPORTS_DIR.
+             * @description Pasta compartilhada da rede onde cada caixa concluída grava o relatório (JSON e PDF), lida pela tela de Gestão de qualquer computador, e onde ficam as travas das caixas em conferência (subpasta travas). Vazio = relatórios só na pasta de saída e trava só neste computador. Variável: QA_REPORTS_DIR.
              * @default null
              */
             reports_dir: string | null;
@@ -1319,6 +1352,59 @@ export interface components {
             station_id?: string;
             /** @description Nome do lote. Padrão: nome da pasta. */
             name?: string;
+            /**
+             * @description Assumir as caixas cuja trava foi abandonada (sem renovação há mais de dez minutos). Fica registrado quem assumiu. Trava viva nunca é assumida.
+             * @default false
+             */
+            take_over: boolean;
+        };
+        /**
+         * BoxLock
+         * @description Trava de uma caixa: quem está conferindo, em qual máquina e desde quando. Renovada a cada minuto enquanto a caixa está aberta; sem renovação há mais de dez minutos, é abandonada e pode ser assumida.
+         */
+        "box-lock.schema": {
+            /** @description Caixa: a primeira pasta do lote (ou o lote, sem pastas). */
+            box: string;
+            /** @description Conferente (usuário do Windows). */
+            reviewer: string;
+            /** @description Nome do computador. */
+            machine: string;
+            /**
+             * Format: date-time
+             * @description Quando a caixa foi aberta.
+             */
+            since: string;
+            /**
+             * Format: date-time
+             * @description Última renovação.
+             */
+            renewed_at: string;
+            /** @description Sem renovação há mais de dez minutos (o programa fechou ou caiu). */
+            abandoned: boolean;
+            /** @description Frase pronta para a tela, com nome, máquina e horário. */
+            message: string;
+            /** @description Trava abandonada que esta assumiu. */
+            taken_over_from?: {
+                reviewer: string;
+                machine: string;
+                /** Format: date-time */
+                since: string;
+                /** Format: date-time */
+                renewed_at: string;
+            };
+        };
+        /**
+         * BoxLocked
+         * @description Problema (RFC 9457) de POST /local-batches quando alguma caixa do lote está em conferência noutra máquina ou por outra pessoa.
+         */
+        "box-locked.schema": {
+            title: string;
+            /** @constant */
+            status: 409;
+            detail: string;
+            locks: components["schemas"]["box-lock.schema"][];
+            /** @description Todas as travas estão abandonadas: abrir de novo com take_over assume a caixa (fica registrado). Trava viva nunca é assumida. */
+            can_take_over: boolean;
         };
         /** Batch */
         "batch.schema": {
@@ -1707,6 +1793,56 @@ export interface components {
             destination?: "zip" | "folder";
             /** @description Caminho da pasta gerada, quando o destino é pasta. */
             folder?: string | null;
+        };
+        /**
+         * BoxLocks
+         * @description Travas das caixas de um lote aberto neste computador.
+         */
+        "box-locks.schema": {
+            /** @description Há trava por caixa para este lote (programa desktop e lote por pasta). */
+            enabled: boolean;
+            /** @description Há pasta compartilhada de relatórios (reports_dir). Sem ela, a trava vale só neste computador. */
+            shared_configured: boolean;
+            boxes: {
+                box: string;
+                /**
+                 * @description held: travada por este lote; lost: outra máquina assumiu; released: caixa concluída.
+                 * @enum {unknown}
+                 */
+                state: "held" | "lost" | "released";
+                /**
+                 * @description shared: na pasta compartilhada, vale para todas as máquinas; local: só neste computador (sem pasta compartilhada, ou com ela fora do ar).
+                 * @enum {unknown}
+                 */
+                scope: "shared" | "local";
+                /** Format: date-time */
+                acquired_at: string;
+                /** Format: date-time */
+                ended_at?: string;
+                /** @description Quem assumiu a caixa (estado lost). */
+                holder?: components["schemas"]["box-lock.schema"];
+            }[];
+            events: {
+                /** Format: date-time */
+                at: string;
+                /**
+                 * @description acquired: caixa travada; taken_over: trava abandonada assumida; released: caixa concluída (ou lote apagado); lost: outra máquina assumiu a caixa.
+                 * @enum {unknown}
+                 */
+                kind: "acquired" | "taken_over" | "released" | "lost";
+                box: string;
+                who: string;
+                machine: string;
+                /** @enum {unknown} */
+                scope: "shared" | "local";
+                /** @description taken_over: a trava assumida; lost: a de quem assumiu. */
+                previous?: {
+                    reviewer: string;
+                    machine: string;
+                    since: string;
+                    renewed_at: string;
+                };
+            }[];
         };
         /**
          * BoxReport
@@ -2474,6 +2610,15 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
+            /** @description Caixa em conferência noutra máquina ou por outra pessoa */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["box-locked.schema"];
+                };
+            };
             422: components["responses"]["Problem"];
         };
     };
@@ -2849,6 +2994,30 @@ export interface operations {
                 };
                 content: {
                     "image/png": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    getBoxLocks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: components["parameters"]["BatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Travas */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["box-locks.schema"];
                 };
             };
             401: components["responses"]["Unauthorized"];

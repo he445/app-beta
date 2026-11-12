@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "box-lock.schema.json",
+  "title": "BoxLock",
+  "description": "Trava de uma caixa: quem está conferindo, em qual máquina e desde quando. Renovada a cada minuto enquanto a caixa está aberta; sem renovação há mais de dez minutos, é abandonada e pode ser assumida.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "box",
+    "reviewer",
+    "machine",
+    "since",
+    "renewed_at",
+    "abandoned",
+    "message"
+  ],
+  "properties": {
+    "box": {
+      "type": "string",
+      "description": "Caixa: a primeira pasta do lote (ou o lote, sem pastas)."
+    },
+    "reviewer": {
+      "type": "string",
+      "description": "Conferente (usuário do Windows)."
+    },
+    "machine": {
+      "type": "string",
+      "description": "Nome do computador."
+    },
+    "since": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Quando a caixa foi aberta."
+    },
+    "renewed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Última renovação."
+    },
+    "abandoned": {
+      "type": "boolean",
+      "description": "Sem renovação há mais de dez minutos (o programa fechou ou caiu)."
+    },
+    "message": {
+      "type": "string",
+      "description": "Frase pronta para a tela, com nome, máquina e horário."
+    },
+    "taken_over_from": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reviewer",
+        "machine",
+        "since",
+        "renewed_at"
+      ],
+      "properties": {
+        "reviewer": {
+          "type": "string"
+        },
+        "machine": {
+          "type": "string"
+        },
+        "since": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "renewed_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "description": "Trava abandonada que esta assumiu."
+    }
+  }
+}

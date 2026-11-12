@@ -17,6 +17,7 @@ com a suíte de `conformance/`.
 | [`coleta-do-beta.md`](coleta-do-beta.md) | Exemplos rotulados do beta e definição das métricas do piloto |
 | [`relatorio-por-caixa.md`](relatorio-por-caixa.md) | Pendências de cada processo da caixa, versões e onde são gravadas |
 | [`gestao.md`](gestao.md) | Relatórios de todas as máquinas por conferente, período e versão do programa |
+| [`trava-por-caixa.md`](trava-por-caixa.md) | Uma caixa conferida por uma máquina de cada vez: aviso, renovação e trava abandonada |
 | [`scoring.md`](scoring.md) | Severidade, estado do documento, veredito e amostragem |
 | [`metadata.md`](metadata.md) | Metadados do Decreto 10.278/2020 e técnicos |
 | [`corrections.md`](corrections.md) | Versão corrigida, "Corrigir tudo", desfazer em lote e lote corrigido |

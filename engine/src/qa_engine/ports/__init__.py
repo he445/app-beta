@@ -352,3 +352,52 @@ class FeedbackStore(Protocol):
     def purge(self, now_iso: str) -> int:
         """Apaga os vencidos; devolve quantos."""
         ...
+
+
+@dataclass(frozen=True, slots=True)
+class BoxLock:
+    """Trava de uma caixa: quem está conferindo, em qual máquina e desde quando.
+
+    ``renewed_at`` é renovado a cada minuto enquanto a caixa está aberta; parado há mais
+    de dez minutos, a trava é considerada abandonada (o programa fechou ou caiu).
+    """
+
+    box: str
+    reviewer: str
+    machine: str
+    since: str
+    renewed_at: str
+    batch_id: str
+    program_version: str = ""
+    taken_over_from: Mapping[str, Any] | None = None
+    """Trava abandonada que esta assumiu (quem, onde, desde quando e última renovação)."""
+
+
+class BoxLockStore(Protocol):
+    """Onde ficam as travas das caixas: pasta compartilhada da rede ou deste computador."""
+
+    shared: bool
+    """Verdadeiro na pasta compartilhada (vale para todas as máquinas)."""
+
+    def read(self, box: str) -> BoxLock | None:
+        """Trava atual da caixa, ou ``None`` se não há (arquivo ilegível também é ``None``).
+
+        Levanta ``OSError`` se a pasta não está acessível.
+        """
+        ...
+
+    def create(self, lock: BoxLock) -> bool:
+        """Cria a trava só se não existir nenhuma (falso se outra já existe)."""
+        ...
+
+    def write(self, lock: BoxLock) -> None:
+        """Grava por cima (renovar a própria trava ou assumir uma abandonada)."""
+        ...
+
+    def remove(self, box: str) -> None:
+        """Apaga a trava (caixa concluída)."""
+        ...
+
+    def log(self, event: Mapping[str, Any]) -> None:
+        """Acrescenta um fato ao histórico de travas da pasta (trava assumida)."""
+        ...

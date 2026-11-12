@@ -59,6 +59,8 @@ const { chromium } = require("playwright");
   await page.waitForURL(/#\/batches\/[0-9a-f-]+$/, { timeout: 30_000 });
   await page.getByRole("link", { name: "Relatório" }).waitFor({ timeout: 120_000 });
   await page.getByText(/Veredito|Aprovado|Reprovado/).first().waitFor({ timeout: 120_000 });
+  // Sem pasta compartilhada de relatórios, a trava da caixa vale só neste computador.
+  await page.getByText("A trava da caixa vale só neste computador").waitFor({ timeout: 30_000 });
   // Revisão: girar a página pelo teclado (E = 90° à direita) vira decisão auditada.
   await page.getByRole("link", { name: "Revisão" }).click();
   const rotateHeading = page.getByRole("heading", { name: "Girar a página" });

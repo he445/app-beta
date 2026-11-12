@@ -31,6 +31,9 @@ export type ComputerSettings = S["settings.schema"];
 export type ProfileRules = S["profile-rules.schema"];
 export type RuleView = ProfileRules[number];
 export type ParamView = RuleView["params"][number];
+export type BoxLock = S["box-lock.schema"];
+export type BoxLocked = S["box-locked.schema"];
+export type BoxLocks = S["box-locks.schema"];
 
 export interface DecisionResponse {
   finding: Finding;

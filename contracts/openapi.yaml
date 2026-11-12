@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QA Automático de Digitalização — API do motor
-  version: 0.17.0
+  version: 0.18.0
   summary: Contrato entre a interface web, a linha de comando e o motor de análise.
   description: |
     Fonte da verdade do sistema (ADR-0002). Modelos de cada linguagem são gerados a partir
@@ -338,6 +338,11 @@ paths:
         nenhum arquivo mudar e tira um retrato (tamanho, data e SHA-256 de cada arquivo).
         Se a pasta mudar durante a revisão, salvar o lote corrigido é recusado (409).
         Só existe quando o motor roda como programa desktop (`mode` em `/health`).
+
+        Trava por caixa: abrir o lote trava cada caixa dele (na pasta compartilhada de
+        relatórios, ou só neste computador sem ela). Caixa em conferência por outra pessoa
+        ou máquina responde 409 com quem, onde e desde quando. Trava sem renovação há mais
+        de dez minutos é abandonada: com `take_over`, é assumida e o fato fica registrado.
       requestBody:
         required: true
         content:
@@ -352,6 +357,11 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Problem" }
         "404": { $ref: "#/components/responses/Problem" }
+        "409":
+          description: Caixa em conferência noutra máquina ou por outra pessoa
+          content:
+            application/problem+json:
+              schema: { $ref: "schemas/box-locked.schema.json" }
         "422": { $ref: "#/components/responses/Problem" }
   /batches/{batch_id}:
     parameters: [{ $ref: "#/components/parameters/BatchId" }]
@@ -672,6 +682,26 @@ paths:
               schema: { type: string, format: binary }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/Problem" }
+  /batches/{batch_id}/box-locks:
+    parameters: [{ $ref: "#/components/parameters/BatchId" }]
+    get:
+      tags: [batches]
+      operationId: getBoxLocks
+      summary: Travas das caixas do lote (quem conferia, se foi assumida, onde vale)
+      description: |
+        Caixas que este lote travou: travada (`held`), assumida por outra máquina (`lost`,
+        com quem assumiu) ou solta quando a caixa foi concluída (`released`). `scope` diz
+        se a trava vale para todas as máquinas (pasta compartilhada) ou só neste
+        computador. Fora do programa desktop, ou em lote que não foi aberto por pasta,
+        `enabled` é falso.
+      responses:
+        "200":
+          description: Travas
+          content:
+            application/json:
+              schema: { $ref: "schemas/box-locks.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
   /batches/{batch_id}/box-reports:
     parameters: [{ $ref: "#/components/parameters/BatchId" }]
     get:
@@ -898,7 +928,8 @@ paths:
         com as regras do lote (linha de base gravada) e lê o número. Entra na posição
         enviada ou, sem ela, na sugerida pelo número lido. A sequência é resolvida de novo
         (a lacuna fecha) e o relatório da caixa sai em versão nova se a caixa estava
-        concluída. Uma folha por arquivo. Só depois da análise da caixa.
+        concluída. Uma folha por arquivo. Só depois da análise da caixa. A caixa reaberta
+        volta a ser travada; em conferência noutra máquina, 409 (`box-locked.schema.json`).
       requestBody:
         required: true
         content:

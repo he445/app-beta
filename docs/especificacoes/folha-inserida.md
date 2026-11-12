@@ -7,7 +7,9 @@ escolher posição). Rota: `POST /batches/{id}/documents/{doc}/pages`.
 ## O que o motor faz
 
 1. Confere o arquivo: TIFF, PNG, JPEG ou PDF, **uma folha por arquivo**; senão 422.
-   Só depois da análise da caixa (409 antes).
+   Só depois da análise da caixa (409 antes). No programa desktop, a caixa reaberta
+   volta a ser travada ([trava por caixa](trava-por-caixa.md)); em conferência noutra
+   máquina, 409 com quem está com ela.
 2. Guarda a folha na **área de complementos** da pasta de trabalho do lote
    (`complementos/`), nunca na pasta original. O `source_file` da página começa com
    `:complemento:/` (o `:` não existe em nome de arquivo no Windows, então nunca colide

@@ -14,6 +14,8 @@ máquinas, com o estado das pendências.
 
 Para ver todas as máquinas, a TI configura a pasta compartilhada de relatórios
 (`reports_dir`, em [configuração](../referencia/configuracao.md)) em todas as estações.
-Sem ela, a tela avisa e mostra só as caixas deste computador.
+Sem ela, a tela avisa e mostra só as caixas deste computador. A mesma pasta guarda as
+travas das caixas em conferência (subpasta `travas`), para duas máquinas não abrirem a
+mesma caixa ([trava por caixa](../especificacoes/trava-por-caixa.md)).
 
 A tela não mostra tempo por caixa nem compara conferentes, por decisão.

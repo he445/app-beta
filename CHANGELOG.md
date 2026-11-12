@@ -8,6 +8,14 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Trava por caixa (ADR-0019): abrir um lote por pasta trava cada caixa num arquivo em
+  `reports_dir/travas` (sem a pasta, ou com ela fora do ar, só neste computador), com
+  conferente, máquina e horário, renovado a cada minuto e apagado quando a caixa é
+  concluída. Outra máquina recebe 409 com "Caixa 0412 em conferência por fulano, na
+  máquina X, desde 14:05"; trava sem renovação há mais de dez minutos pode ser assumida
+  (`take_over`), com registro na trava, no histórico da pasta e no banco; a máquina que
+  perdeu a caixa vê o aviso no painel. `GET /batches/{id}/box-locks`, capacidade
+  `box_locks`, migração 0011, contrato 0.18.0.
 - Permissões e histórico de configuração: perfis e ajustes das digitalizadoras só com o
   token de administrador fora da demonstração (403 sem token configurado); campos
   bloqueados na tela até destravar; toda mudança (perfil e este computador) entra no

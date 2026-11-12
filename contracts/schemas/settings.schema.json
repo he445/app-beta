@@ -157,7 +157,7 @@
         "string",
         "null"
       ],
-      "description": "Pasta compartilhada da rede onde cada caixa concluída grava o relatório (JSON e PDF), lida pela tela de Gestão de qualquer computador. Vazio = só na pasta de saída deste computador. Variável: QA_REPORTS_DIR.",
+      "description": "Pasta compartilhada da rede onde cada caixa concluída grava o relatório (JSON e PDF), lida pela tela de Gestão de qualquer computador, e onde ficam as travas das caixas em conferência (subpasta travas). Vazio = relatórios só na pasta de saída e trava só neste computador. Variável: QA_REPORTS_DIR.",
       "default": null
     },
     "admin_token_hash": {

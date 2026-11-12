@@ -2,7 +2,7 @@
 
 # Referência da API
 
-Contrato **0.17.0**. A fonte é `contracts/openapi.yaml`, com os
+Contrato **0.18.0**. A fonte é `contracts/openapi.yaml`, com os
 formatos em `contracts/schemas/` (JSON Schema 2020-12), validados pelo Spectral na CI.
 Com o motor no ar, a versão interativa fica em `/docs`.
 
@@ -16,10 +16,11 @@ Erros seguem o RFC 9457 (`application/problem+json`).
 | `POST /batches` | Enviar um lote | 202, 400, 401, 413 |
 | `GET /demo-batches` | Lotes de demonstração prontos no servidor | 200, 401 |
 | `POST /demo-batches/{name}` | Analisar um lote de demonstração (sem enviar arquivos) | 202, 401, 404 |
-| `POST /local-batches` | Abrir um lote numa pasta local ou de rede (só no programa desktop) | 202, 401, 403, 404, 422 |
+| `POST /local-batches` | Abrir um lote numa pasta local ou de rede (só no programa desktop) | 202, 401, 403, 404, 409, 422 |
 | `GET /batches/{batch_id}` | Estado, progresso e veredito | 200, 401, 404 |
 | `GET /batches/{batch_id}/events` | Progresso em tempo real (Server-Sent Events) | 200, 401, 404 |
 | `GET /batches/{batch_id}/report` | Resultado completo, com as decisões registradas | 200, 401, 404, 409 |
+| `GET /batches/{batch_id}/box-locks` | Travas das caixas do lote (quem conferia, se foi assumida, onde vale) | 200, 401, 404 |
 | `GET /documents/{document_id}/metadata` | Metadados com fonte e confiança | 200, 401, 404 |
 | `PUT /documents/{document_id}/metadata/{name}` | Confirmar ou corrigir um metadado (tela 7) | 200, 401, 404 |
 | `POST /batches/{batch_id}/exports` | Gerar relatório, CSVs, JSON de metadados e ordem de retrabalho | 201, 401, 404, 409 |

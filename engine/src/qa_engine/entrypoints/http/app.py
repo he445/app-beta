@@ -34,6 +34,7 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
 from qa_engine import __version__
+from qa_engine.adapters.box_locks import LOCKS_FOLDER, FolderBoxLocks
 from qa_engine.adapters.box_report_pdf import render_box_report_pdf
 from qa_engine.adapters.corrected_folder import FolderTiffWriter
 from qa_engine.adapters.corrected_zip import ZipTiffWriter
@@ -49,7 +50,14 @@ from qa_engine.adapters.system import SystemClock, total_memory_mb
 from qa_engine.application.admin import AttemptLimiter, verify_token
 from qa_engine.application.analyze import BatchAnalysis, PageTask, analyze_page, evaluate_page
 from qa_engine.application.beta import metrics_for
+from qa_engine.application.box_lock import (
+    RENEW_SECONDS,
+    BoxLockedError,
+    BoxLocks,
+    boxes_of_files,
+)
 from qa_engine.application.box_report import (
+    box_of,
     boxes,
     build_box_report,
     is_complete,
@@ -189,6 +197,65 @@ class Engine:
         self.service = CorrectionService(
             self.repo, self.images, PillowMetadataReader(), SystemClock(), __version__
         )
+        self.box_locks: BoxLocks | None = None
+        if settings.mode == "desktop":
+            shared = (
+                FolderBoxLocks(settings.reports_dir / LOCKS_FOLDER, shared=True)
+                if settings.reports_dir is not None
+                else None
+            )
+            self.box_locks = BoxLocks(
+                shared,
+                FolderBoxLocks(settings.data_dir / LOCKS_FOLDER, shared=False),
+                self.repo,
+                machine=platform.node() or "estação",
+                reviewer=os_user(),
+                program_version=__version__,
+                now=lambda: self.now(),
+            )
+        self._stop = threading.Event()
+        self._renewer: threading.Thread | None = None
+
+    def start_lock_renewal(self) -> None:
+        """Renova as travas das caixas abertas a cada minuto, a começar já (retoma as de antes)."""
+        if self.box_locks is None or self._renewer is not None:
+            return
+
+        def loop() -> None:
+            while True:
+                self.renew_box_locks()
+                if self._stop.wait(RENEW_SECONDS):
+                    return
+
+        self._renewer = threading.Thread(target=loop, name="box-locks", daemon=True)
+        self._renewer.start()
+
+    def stop_lock_renewal(self) -> None:
+        """Para de renovar. As travas ficam: sem renovação, viram abandonadas em dez minutos."""
+        self._stop.set()
+        if self._renewer is not None:
+            self._renewer.join(timeout=5)
+            self._renewer = None
+
+    def renew_box_locks(self) -> None:
+        """Uma rodada de renovação (também chamada nos testes)."""
+        if self.box_locks is None:
+            return
+        try:
+            self.box_locks.renew()
+        except Exception as exc:
+            log.exception("falha ao renovar as travas das caixas")
+            self.record_error(exc, "engine", "trava por caixa", None, "warning")
+
+    def release_box_locks(self, batch_id: str, boxes_done: list[str] | None = None) -> None:
+        """Solta as travas do lote (todas, ou só as das caixas concluídas)."""
+        if self.box_locks is None:
+            return
+        try:
+            self.box_locks.release(batch_id, boxes_done)
+        except Exception as exc:
+            log.exception("falha ao soltar as travas do lote %s", batch_id)
+            self.record_error(exc, "engine", "trava por caixa", batch_id, "warning")
 
     def now(self) -> datetime:
         """Agora, em UTC."""
@@ -356,9 +423,11 @@ class Engine:
         for item in self.repo.box_reports(batch_id):
             history.setdefault(item["report"]["box"], []).append(item)
         made: list[dict[str, Any]] = []
+        concluded: list[str] = []
         for box, docs in boxes(report).items():
             if not is_complete(report, docs):
                 continue
+            concluded.append(box)
             previous = history.get(box, [])
             last = previous[-1] if previous else None
             built = build_box_report(
@@ -380,6 +449,8 @@ class Engine:
             self.repo.add_box_report(report_id, built, key)
             self.write_box_report(built)
             made.append({"id": report_id, "report": built})
+        if concluded:
+            self.release_box_locks(batch_id, concluded)
         return made
 
     def write_box_report(self, built: Mapping[str, Any]) -> None:
@@ -427,6 +498,12 @@ class Engine:
         suffix = Path(filename).suffix.lower()
         if suffix not in {".tif", ".tiff", ".png", ".jpg", ".jpeg", ".pdf"}:
             raise HTTPException(422, "a folha precisa ser TIFF, PNG, JPEG ou PDF")
+        if self.box_locks is not None and row.source == "local":
+            analyzed = self.repo.get_report(batch_id) or {"documents": []}
+            doc = next((d for d in analyzed["documents"] if d["id"] == document_id), None)
+            if doc is not None:
+                # A caixa reaberta volta a ser travada; travada por outra máquina, 409.
+                self.box_locks.ensure(batch_id, box_of(doc["name"], row.name))
         ctx = self.context(batch_id)
         profile = ctx.profile
         folder = self.batch_dir(batch_id) / COMPLEMENTS_DIR
@@ -698,6 +775,9 @@ class Engine:
             if metrics is not None:
                 self.repo.save_beta_metrics(batch_id, metrics["created_at"], metrics)
         self.feedback.purge(iso(self.now()))
+        for batch_id in self.repo.batches_before(cutoff):
+            self.release_box_locks(batch_id)
+            self.repo.delete_box_holds(batch_id)
         for batch_id in self.repo.purge_before(cutoff):
             shutil.rmtree(self.batch_dir(batch_id), ignore_errors=True)
 
@@ -752,6 +832,7 @@ class Engine:
             log.exception("falha na análise do lote %s", batch_id)
             self.record_error(exc, "worker", "análise do lote", batch_id, "critical")
             self.repo.fail(batch_id, f"{exc.__class__.__name__}: {exc}"[:500])
+            self.release_box_locks(batch_id)
 
 
 CONFIG_SUMMARY = "configuracao.json"
@@ -784,7 +865,7 @@ def capabilities(settings: Settings, demo_batches: int, editable: bool = False) 
         editable: há camada de configuração editável pela tela.
     """
     if settings.mode == "desktop":
-        caps = ["local_batches", "folder_export", "os_session"]
+        caps = ["local_batches", "folder_export", "os_session", "box_locks"]
         return [*caps, "settings"] if editable else caps
     caps = ["upload", "folder_export"] if settings.mode == "server" else ["upload"]
     if demo_batches:
@@ -843,7 +924,9 @@ def create_app(
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         engine.purge()
         engine.ingest_crashes()
+        engine.start_lock_renewal()
         yield
+        engine.stop_lock_renewal()
         engine.queue.shutdown(wait=False, cancel_futures=True)
         engine.corrections.shutdown(wait=False, cancel_futures=True)
         engine.repo.close()
@@ -928,6 +1011,18 @@ def create_app(
     @app.exception_handler(LocalBatchError)
     async def local_batch_error(_: Request, exc: LocalBatchError) -> JSONResponse:
         return problem(exc.status, "Pasta não pode ser aberta como lote", str(exc))
+
+    @app.exception_handler(BoxLockedError)
+    async def box_locked(_: Request, exc: BoxLockedError) -> JSONResponse:
+        body = {
+            "title": "Caixa em conferência noutra máquina",
+            "status": 409,
+            "detail": str(exc),
+            "locks": exc.locks,
+            "can_take_over": exc.can_take_over,
+        }
+        validate(body, "box-locked.schema.json")
+        return JSONResponse(body, status_code=409, media_type="application/problem+json")
 
     @app.exception_handler(SourceChangedError)
     async def source_changed(_: Request, exc: SourceChangedError) -> JSONResponse:
@@ -1109,7 +1204,42 @@ def create_app(
         batch = open_local_batch(
             engine.folder, body["path"], settings.allowed_roots, is_within, body.get("name")
         )
-        return enqueue(str(uuid.uuid4()), batch.root, profile, batch.name, "local", station_id)
+        batch_id = str(uuid.uuid4())
+        if engine.box_locks is not None:
+            listing = engine.folder.listing(batch.root)
+            names = boxes_of_files(listing, batch.name, multipage(batch.root))
+            engine.box_locks.acquire(batch_id, names, bool(body.get("take_over")))
+        try:
+            return enqueue(batch_id, batch.root, profile, batch.name, "local", station_id)
+        except Exception:
+            engine.release_box_locks(batch_id)
+            raise
+
+    def multipage(root: Path) -> Callable[[str], bool]:
+        def check(rel: str) -> bool:
+            if Path(rel).suffix.lower() not in {".tif", ".tiff"}:
+                return False
+            try:
+                return engine.images.page_count(root / rel) > 1
+            except LoadError:
+                return False
+
+        return check
+
+    @app.get("/batches/{batch_id}/box-locks")
+    def batch_box_locks(batch_id: str) -> dict[str, Any]:
+        row = batch_or_404(batch_id)
+        if engine.box_locks is None or row.source != "local":
+            view: dict[str, Any] = {
+                "enabled": False,
+                "shared_configured": settings.reports_dir is not None,
+                "boxes": [],
+                "events": [],
+            }
+        else:
+            view = engine.box_locks.status(batch_id)
+        validate(view, "box-locks.schema.json")
+        return view
 
     def batch_or_404(batch_id: str) -> Any:
         row = engine.repo.get_batch(batch_id)

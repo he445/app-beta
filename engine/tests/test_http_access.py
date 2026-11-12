@@ -170,7 +170,7 @@ def test_port_follows_the_hosting_platform() -> None:
     ("mode", "expected"),
     [
         ("cloud", ["upload", "synthetic_only"]),
-        ("desktop", ["local_batches", "folder_export", "os_session"]),
+        ("desktop", ["local_batches", "folder_export", "os_session", "box_locks"]),
         ("server", ["upload", "folder_export"]),
     ],
 )

@@ -1,11 +1,13 @@
 // Telas 2 e 3: processamento ao vivo e painel do lote.
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { keys, useBatch, useReport } from "../api/hooks";
+import { useCapability } from "../api/engine";
+import { keys, useBatch, useBoxLocks, useReport } from "../api/hooks";
 import { streamEvents } from "../api/sse";
 import type { Analysis, BatchStatus } from "../api/types";
 import { BulkBatchButton } from "../components/BulkButton";
 import { Bar, Card, ErrorBox, Loading, SeverityBadge, Stat } from "../components/ui";
+import { lockNotices } from "../lib/boxLocks";
 import { SEVERITIES, VERDICT_LABEL, pct, ruleLabel } from "../lib/format";
 import { href } from "../router";
 
@@ -60,6 +62,7 @@ function Processing({ status }: { status: BatchStatus }) {
   return (
     <div className="page narrow">
       <h1>{status.name}</h1>
+      <BoxLockBanner batchId={status.id} />
       <Card>
         <p>{status.status === "queued" ? "Na fila…" : `Analisando ${done} de ${total} páginas`}</p>
         <div className="progress" role="progressbar" aria-valuenow={done} aria-valuemax={total}>
@@ -69,6 +72,23 @@ function Processing({ status }: { status: BatchStatus }) {
       </Card>
       {status.documents && <ReleaseQueue batchId={status.id} queue={status.documents} />}
     </div>
+  );
+}
+
+/** Avisos da trava por caixa: caixa assumida por outra máquina ou trava só neste computador. */
+function BoxLockBanner({ batchId }: { batchId: string }) {
+  // Lote que não veio de pasta responde enabled: false, e a faixa não aparece.
+  const locks = useBoxLocks(batchId, useCapability("box_locks"));
+  const notices = lockNotices(locks.data);
+  if (notices.length === 0) return null;
+  return (
+    <>
+      {notices.map((n) => (
+        <div key={n.text} className={n.tone === "bad" ? "error" : "warning"} role="status">
+          {n.text}
+        </div>
+      ))}
+    </>
   );
 }
 
@@ -163,6 +183,8 @@ function Dashboard({ report }: { report: Analysis }) {
           ))}
         </Card>
       </div>
+
+      <BoxLockBanner batchId={id} />
 
       {s.lossy_files.length > 0 && (
         <div className="warning">

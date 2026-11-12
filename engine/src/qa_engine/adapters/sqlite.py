@@ -690,6 +690,108 @@ class SqliteRepository:
             for r in rows
         ]
 
+    # Trava por caixa ------------------------------------------------------
+
+    def hold_box(self, batch_id: str, box: str, scope: str, at: str) -> None:
+        """Registra a caixa como travada por este lote."""
+        with self._tx() as c:
+            c.execute(
+                "INSERT INTO box_locks (batch_id, box, scope, state, acquired_at, renewed_at)"
+                " VALUES (?, ?, ?, 'held', ?, ?) ON CONFLICT(batch_id, box) DO UPDATE SET"
+                " scope = excluded.scope, state = 'held', acquired_at = excluded.acquired_at,"
+                " renewed_at = excluded.renewed_at, ended_at = NULL, holder_json = NULL",
+                (batch_id, box, scope, at, at),
+            )
+
+    def update_box_hold(self, batch_id: str, box: str, **fields: Any) -> None:
+        """Muda ``scope``, ``state``, ``renewed_at``, ``ended_at`` ou ``holder``."""
+        columns = {"scope", "state", "renewed_at", "ended_at", "holder"}
+        unknown = set(fields) - columns
+        if unknown:
+            raise ValueError(f"campos desconhecidos: {sorted(unknown)}")
+        if "holder" in fields:
+            holder = fields.pop("holder")
+            fields["holder_json"] = (
+                json.dumps(holder, ensure_ascii=False) if holder is not None else None
+            )
+        if not fields:
+            return
+        assignments = ", ".join(f"{name} = ?" for name in fields)
+        with self._tx() as c:
+            c.execute(
+                f"UPDATE box_locks SET {assignments} WHERE batch_id = ? AND box = ?",
+                (*fields.values(), batch_id, box),
+            )
+
+    def box_holds(
+        self, batch_id: str | None = None, state: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Caixas travadas por esta máquina, na ordem em que foram travadas."""
+        where, params = [], []
+        if batch_id is not None:
+            where.append("batch_id = ?")
+            params.append(batch_id)
+        if state is not None:
+            where.append("state = ?")
+            params.append(state)
+        sql = "SELECT * FROM box_locks"
+        if where:
+            sql += " WHERE " + " AND ".join(where)
+        rows = self._all(sql + " ORDER BY acquired_at, rowid", tuple(params))
+        out = []
+        for r in rows:
+            item = dict(r)
+            raw = item.pop("holder_json")
+            item["holder"] = json.loads(raw) if raw else None
+            out.append(item)
+        return out
+
+    def add_box_lock_event(self, event: Mapping[str, Any]) -> None:
+        """Acrescenta um fato ao histórico das travas."""
+        previous = event.get("previous")
+        with self._tx() as c:
+            c.execute(
+                "INSERT INTO box_lock_events (at, kind, batch_id, box, who, machine, scope,"
+                " previous_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    event["at"],
+                    event["kind"],
+                    event["batch_id"],
+                    event["box"],
+                    event["who"],
+                    event["machine"],
+                    event["scope"],
+                    json.dumps(previous, ensure_ascii=False) if previous else None,
+                ),
+            )
+
+    def box_lock_events(self, batch_id: str) -> list[dict[str, Any]]:
+        """Fatos das travas de um lote, do mais antigo ao mais novo."""
+        rows = self._all(
+            "SELECT at, kind, box, who, machine, scope, previous_json FROM box_lock_events"
+            " WHERE batch_id = ? ORDER BY seq",
+            (batch_id,),
+        )
+        out = []
+        for r in rows:
+            item: dict[str, Any] = {
+                "at": r[0],
+                "kind": r[1],
+                "box": r[2],
+                "who": r[3],
+                "machine": r[4],
+                "scope": r[5],
+            }
+            if r[6]:
+                item["previous"] = json.loads(r[6])
+            out.append(item)
+        return out
+
+    def delete_box_holds(self, batch_id: str) -> None:
+        """Esquece as travas de um lote apagado pela retenção (o histórico fica)."""
+        with self._tx() as c:
+            c.execute("DELETE FROM box_locks WHERE batch_id = ?", (batch_id,))
+
     def clear_numbering(self, page_id: str) -> None:
         """Desfaz a numeração digitada de uma página."""
         with self._tx() as c:

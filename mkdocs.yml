@@ -79,6 +79,7 @@ nav:
           - "0016 Diagnóstico com token de administrador": adr/0016-diagnostico-com-token-de-administrador.md
           - "0017 Documentação numa pasta só": adr/0017-documentacao-em-uma-pasta.md
           - "0018 Liberação por processo": adr/0018-liberacao-por-processo.md
+          - "0019 Trava por caixa": adr/0019-trava-por-caixa-na-pasta-compartilhada.md
           - Modelo: adr/0000-template.md
   - Especificações:
       - especificacoes/index.md
@@ -91,6 +92,7 @@ nav:
       - Coleta do beta e métricas: especificacoes/coleta-do-beta.md
       - Relatório por caixa: especificacoes/relatorio-por-caixa.md
       - Gestão: especificacoes/gestao.md
+      - Trava por caixa: especificacoes/trava-por-caixa.md
       - Correções e lote corrigido: especificacoes/corrections.md
       - Pontuação e veredito: especificacoes/scoring.md
       - Metadados: especificacoes/metadata.md

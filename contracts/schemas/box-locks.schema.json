@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "box-locks.schema.json",
+  "title": "BoxLocks",
+  "description": "Travas das caixas de um lote aberto neste computador.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "enabled",
+    "shared_configured",
+    "boxes",
+    "events"
+  ],
+  "properties": {
+    "enabled": {
+      "type": "boolean",
+      "description": "Há trava por caixa para este lote (programa desktop e lote por pasta)."
+    },
+    "shared_configured": {
+      "type": "boolean",
+      "description": "Há pasta compartilhada de relatórios (reports_dir). Sem ela, a trava vale só neste computador."
+    },
+    "boxes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "box",
+          "state",
+          "scope",
+          "acquired_at"
+        ],
+        "properties": {
+          "box": {
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "held",
+              "lost",
+              "released"
+            ],
+            "description": "held: travada por este lote; lost: outra máquina assumiu; released: caixa concluída."
+          },
+          "scope": {
+            "enum": [
+              "shared",
+              "local"
+            ],
+            "description": "shared: na pasta compartilhada, vale para todas as máquinas; local: só neste computador (sem pasta compartilhada, ou com ela fora do ar)."
+          },
+          "acquired_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ended_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "holder": {
+            "$ref": "box-lock.schema.json",
+            "description": "Quem assumiu a caixa (estado lost)."
+          }
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "at",
+          "kind",
+          "box",
+          "who",
+          "machine",
+          "scope"
+        ],
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "kind": {
+            "enum": [
+              "acquired",
+              "taken_over",
+              "released",
+              "lost"
+            ],
+            "description": "acquired: caixa travada; taken_over: trava abandonada assumida; released: caixa concluída (ou lote apagado); lost: outra máquina assumiu a caixa."
+          },
+          "box": {
+            "type": "string"
+          },
+          "who": {
+            "type": "string"
+          },
+          "machine": {
+            "type": "string"
+          },
+          "scope": {
+            "enum": [
+              "shared",
+              "local"
+            ]
+          },
+          "previous": {
+            "type": "object",
+            "description": "taken_over: a trava assumida; lost: a de quem assumiu.",
+            "required": [
+              "reviewer",
+              "machine",
+              "since",
+              "renewed_at"
+            ],
+            "properties": {
+              "reviewer": {
+                "type": "string"
+              },
+              "machine": {
+                "type": "string"
+              },
+              "since": {
+                "type": "string"
+              },
+              "renewed_at": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -6,6 +6,7 @@ import type { components } from "./schema";
 import type {
   Analysis,
   BatchStatus,
+  BoxLocks,
   BulkCorrection,
   CorrectedBatch,
   CorrectedPlan,
@@ -40,6 +41,16 @@ export function useBatch(id: string) {
 
 export function isRunning(b: BatchStatus): boolean {
   return b.status === "queued" || b.status === "processing";
+}
+
+/** Travas das caixas do lote (capacidade box_locks); renovadas pelo motor a cada minuto. */
+export function useBoxLocks(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["box-locks", id] as const,
+    queryFn: () => api<BoxLocks>(`/batches/${id}/box-locks`),
+    enabled,
+    refetchInterval: 60_000,
+  });
 }
 
 export function useReport(id: string, enabled = true) {

@@ -47,10 +47,11 @@
           "folder_export",
           "os_session",
           "synthetic_only",
-          "settings"
+          "settings",
+          "box_locks"
         ]
       },
-      "description": "O que este motor oferece; a interface mostra só o que está aqui. upload: enviar lote pelo navegador. demo_batches: lotes de demonstração no servidor. local_batches: abrir pasta local ou de rede (POST /local-batches). folder_export: gravar o lote corrigido em pasta. os_session: o revisor vem do usuário do sistema (GET /session), sem tela de entrada. synthetic_only: só documentos sintéticos ou públicos, com apagamento automático. settings: tela de configurações (GET e PUT /settings)."
+      "description": "O que este motor oferece; a interface mostra só o que está aqui. upload: enviar lote pelo navegador. demo_batches: lotes de demonstração no servidor. local_batches: abrir pasta local ou de rede (POST /local-batches). folder_export: gravar o lote corrigido em pasta. os_session: o revisor vem do usuário do sistema (GET /session), sem tela de entrada. synthetic_only: só documentos sintéticos ou públicos, com apagamento automático. settings: tela de configurações (GET e PUT /settings). box_locks: trava por caixa ao abrir lote por pasta (GET /batches/{batch_id}/box-locks)."
     },
     "models": {
       "type": "object",
