@@ -34,6 +34,12 @@ from qa_engine.application.corrections import (
     refresh_page,
     render_chain,
 )
+from qa_engine.application.decree_metadata import (
+    PROCESS_FILE,
+    page_tags,
+    process_metadata,
+    xmp_packet,
+)
 from qa_engine.application.exports import decisions_csv, findings_csv
 from qa_engine.application.profile import Profile
 from qa_engine.application.review import decide, finding_from_json, recompute_summary
@@ -83,6 +89,20 @@ class SaveBlockedError(ConflictError):
         self.blockers = list(blockers)
         names = "; ".join(b["message"] for b in self.blockers)
         super().__init__(f"Há página faltando sem decisão. {names}")
+
+
+DESCRIPTIVE = (
+    "make",
+    "model",
+    "datetime",
+    "artist",
+    "document_name",
+    "description",
+    "page_name",
+    "host_computer",
+    "copyright",
+)
+"""Tags do original preservadas no TIFF corrigido."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -598,6 +618,7 @@ class CorrectionService:
         pages = {p["id"]: p for p in report["pages"]}
         parsed = [finding_from_json(f) for f in report["findings"]]
         tags_cache: dict[str, dict[str, str]] = {}
+        fields: Mapping[str, Any] = report.get("metadata", {})
         writer = writer_factory(now)
         try:
             for doc in plan["documents"]:
@@ -610,13 +631,32 @@ class CorrectionService:
                     image = self._final_image(ctx, page, parsed)
                     if image is None:
                         image = self._loader(ctx, page)()
+                    original = self._tags(ctx, page["source_file"], tags_cache)
+                    changes = [c["text"] for c in item.get("changes", [])]
                     item["target_sha256"] = writer.add_page(
                         item["target_file"],
                         image,
                         item["dpi"],
                         page.get("color_mode") == "bilevel",
-                        self._tags(ctx, page["source_file"], tags_cache),
+                        page_tags(original, self.engine_version, changes, now),
+                        xmp_packet(
+                            fields.get(doc["document_id"], []),
+                            changes,
+                            original.get("datetime"),
+                            self.engine_version,
+                            now,
+                        ),
                     )
+                folder = f"{doc['folder']}/" if doc.get("folder") else ""
+                writer.add_text(
+                    f"{folder}{PROCESS_FILE}",
+                    json.dumps(
+                        process_metadata(doc, fields.get(doc["document_id"], []), iso(now)),
+                        ensure_ascii=False,
+                        indent=2,
+                    )
+                    + "\n",
+                )
             manifest = {
                 "batch_id": ctx.batch_id,
                 "batch_name": ctx.name,
@@ -670,7 +710,7 @@ class CorrectionService:
                 tags = dict(self.metadata.read(page_path(ctx.root, ctx.work, source)).tags)
             except OSError:
                 tags = {}
-            kept = {k: str(tags[k]) for k in ("make", "model", "datetime", "artist") if tags.get(k)}
-            kept["software"] = f"qa-digitalizacao {self.engine_version} (lote corrigido)"
+            # Tags descritivas do original (software e data vêm da correção, em page_tags).
+            kept = {k: str(tags[k]) for k in DESCRIPTIVE if tags.get(k)}
             cache[source] = kept
         return cache[source]

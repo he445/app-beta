@@ -96,6 +96,7 @@ nav:
       - Correções e lote corrigido: especificacoes/corrections.md
       - Pontuação e veredito: especificacoes/scoring.md
       - Metadados: especificacoes/metadata.md
+      - Metadados no lote corrigido: especificacoes/metadados-no-lote-corrigido.md
       - Regras de página:
           - black_borders: especificacoes/detectors/black_borders.md
           - blank_page: especificacoes/detectors/blank_page.md

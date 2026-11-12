@@ -8,6 +8,10 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Metadados do Decreto no lote corrigido: tags descritivas do original preservadas no
+  TIFF, `Software` e `DateTime` registrando a correção e qual, XMP com os campos do
+  Decreto e a origem de cada valor; `metadados.json` por processo com os campos e o
+  SHA-256 de cada arquivo entregue (`process-metadata.schema.json`).
 - Backup do banco local: cópia consistente (API de backup do SQLite) ao abrir, uma vez
   por dia e ao fechar, para `backup_dir/<máquina>` (nova chave) ou `backups` na pasta de
   dados, guardando as 14 mais novas; `qa backup list|now|restore` (também pelo

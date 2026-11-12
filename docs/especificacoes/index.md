@@ -20,6 +20,7 @@ com a suíte de `conformance/`.
 | [`gestao.md`](gestao.md) | Relatórios de todas as máquinas por conferente, período e versão do programa |
 | [`scoring.md`](scoring.md) | Severidade, estado do documento, veredito e amostragem |
 | [`metadata.md`](metadata.md) | Metadados do Decreto 10.278/2020 e técnicos |
+| [`metadados-no-lote-corrigido.md`](metadados-no-lote-corrigido.md) | Tags e XMP no TIFF e `metadados.json` por processo, com o SHA-256 de cada arquivo |
 | [`corrections.md`](corrections.md) | Versão corrigida, "Corrigir tudo", desfazer em lote e lote corrigido |
 
 ## Convenções

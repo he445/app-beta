@@ -17,11 +17,27 @@ from numpy.typing import NDArray
 from PIL import Image
 
 TIFF_COMPRESSION = "tiff_adobe_deflate"
-_TAGS = {"make": 271, "model": 272, "software": 305, "datetime": 306, "artist": 315}
+_TAGS = {
+    "make": 271,
+    "model": 272,
+    "software": 305,
+    "datetime": 306,
+    "artist": 315,
+    "document_name": 269,
+    "description": 270,
+    "page_name": 285,
+    "host_computer": 316,
+    "copyright": 33432,
+}
+XMP_TAG = 700
 
 
 def encode_tiff(
-    image: NDArray[np.uint8], dpi: float | None, bilevel: bool, tags: Mapping[str, str]
+    image: NDArray[np.uint8],
+    dpi: float | None,
+    bilevel: bool,
+    tags: Mapping[str, str],
+    xmp: bytes | None = None,
 ) -> bytes:
     """Codifica uma página em TIFF Deflate.
 
@@ -29,12 +45,15 @@ def encode_tiff(
         image: página em cinza (2D) ou RGB (3D).
         dpi: resolução a gravar (a do original).
         bilevel: grava em 1 bit, como o original monocromático.
-        tags: ``make``, ``model``, ``software``, ``datetime``, ``artist``.
+        tags: tags descritivas por nome (``make``, ``model``, ``software``, ``datetime``...).
+        xmp: pacote XMP (metadados do Decreto), gravado na tag 700.
     """
     img = Image.fromarray(image)
     if bilevel:
         img = img.convert("L").point(lambda v: 255 if v >= 128 else 0).convert("1")
-    info = {_TAGS[k]: str(v) for k, v in tags.items() if k in _TAGS and v}
+    info: dict[int, str | bytes] = {_TAGS[k]: str(v) for k, v in tags.items() if k in _TAGS and v}
+    if xmp:
+        info[XMP_TAG] = xmp
     buf = io.BytesIO()
     kwargs: dict[str, object] = {"compression": TIFF_COMPRESSION, "tiffinfo": info}
     if dpi:
@@ -65,9 +84,10 @@ class ZipTiffWriter:
         dpi: float | None,
         bilevel: bool,
         tags: Mapping[str, str],
+        xmp: bytes | None = None,
     ) -> str:
         """Grava a página (o TIFF já vem comprimido: o zip só armazena)."""
-        data = encode_tiff(image, dpi, bilevel, tags)
+        data = encode_tiff(image, dpi, bilevel, tags, xmp)
         self._zip.writestr(self._info(path, zipfile.ZIP_STORED), data)
         return hashlib.sha256(data).hexdigest()
 

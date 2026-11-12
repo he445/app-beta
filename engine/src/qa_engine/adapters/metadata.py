@@ -18,7 +18,18 @@ from PIL import Image, ImageSequence, UnidentifiedImageError
 from qa_engine.adapters.images import PDF_SUFFIXES
 from qa_engine.ports import FileMetadata
 
-_TIFF_TAGS = {306: "datetime", 271: "make", 272: "model", 305: "software", 315: "artist"}
+_TIFF_TAGS = {
+    306: "datetime",
+    271: "make",
+    272: "model",
+    305: "software",
+    315: "artist",
+    269: "document_name",
+    270: "description",
+    285: "page_name",
+    316: "host_computer",
+    33432: "copyright",
+}
 _EXIF_IFD = 0x8769
 _EXIF_DATETIME_ORIGINAL = 36867
 _EXIF_BODY_SERIAL = 42033

@@ -97,6 +97,8 @@ um arquivo multipágina vira uma pasta com o nome do arquivo sem extensão.
   arquivo e página de origem, arquivo de destino, posição antiga e nova, correções com
   quem decidiu e quando, SHA-256 de origem e destino, removidas e o motivo,
   redigitalizar, páginas faltando e a decisão;
+- `metadados.json` em cada processo, e tags e XMP em cada TIFF
+  ([metadados no lote corrigido](metadados-no-lote-corrigido.md)).
 - `configuracao.json`: o resumo de configuração do lote (perfil, computador e histórico
   recente de mudanças de configuração).
 - `report.json` (relatório com as decisões vigentes), `findings.csv` e `decisions.csv`

@@ -305,6 +305,7 @@ def test_local_batch_is_read_in_place_and_exported_to_a_folder(
         "Processo 1/0001.tif",
         "Processo 1/0002.tif",
         "Processo 1/0003.tif",
+        "Processo 1/metadados.json",
         "configuracao.json",
         "decisions.csv",
         "findings.csv",

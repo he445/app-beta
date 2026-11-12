@@ -340,6 +340,9 @@ def test_corrected_zip(client: TestClient, correction_batch: Path, tmp_path: Pat
             *(f"CX1/DOC2/{i:04d}.tif" for i in range(1, 5)),
             "CX2/DOC3/0001.tif",
             "CX2/DOC3/0002.tif",
+            "CX1/DOC1/metadados.json",
+            "CX1/DOC2/metadados.json",
+            "CX2/DOC3/metadados.json",
             "manifest.json",
             "manifest.csv",
             "report.json",
@@ -350,6 +353,18 @@ def test_corrected_zip(client: TestClient, correction_batch: Path, tmp_path: Pat
     )
     manifest = json.loads(archive.read("manifest.json"))
     validate(manifest, "corrected-manifest.schema.json")
+    # Metadados do Decreto: por processo, com o SHA-256 de cada arquivo entregue, e no TIFF.
+    process = json.loads(archive.read("CX1/DOC1/metadados.json"))
+    validate(process, "process-metadata.schema.json")
+    for item in process["files"]:
+        assert hashlib.sha256(archive.read(item["file"])).hexdigest() == item["sha256"]
+    assert {f["source"] for f in process["fields"]} - {"unavailable"}
+    changed = next(f for f in process["files"] if f["changes"])
+    tiff = Image.open(io.BytesIO(archive.read(changed["file"])))
+    assert tiff.tag_v2[305].startswith("qa-digitalizacao") and "lote corrigido:" in tiff.tag_v2[305]
+    assert tiff.tag_v2[271] == "Kodak"  # tag do original preservada
+    xmp = bytes(tiff.tag_v2[700]).decode("utf-8")
+    assert "<qa:campos>" in xmp and "<qa:origem>" in xmp and "<qa:correcoes>" in xmp
     assert manifest["compression"] == "tiff_deflate"
     docs = {d["name"]: d for d in manifest["documents"]}
 

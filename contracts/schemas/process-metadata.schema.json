@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "process-metadata.schema.json",
+  "title": "ProcessMetadata",
+  "description": "metadados.json de cada processo no lote corrigido: campos do Decreto 10.278/2020 com a origem de cada valor e o SHA-256 de cada arquivo entregue.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "document",
+    "generated_at",
+    "fields",
+    "files"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "document": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "fields": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "value",
+          "source",
+          "source_label",
+          "required_by_decree",
+          "confirmed"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "value": {},
+          "source": {
+            "type": "string",
+            "description": "Origem: file_tag, file_mtime, profile, generated, computed, ocr, reviewer ou unavailable."
+          },
+          "source_label": {
+            "type": "string"
+          },
+          "required_by_decree": {
+            "type": "boolean"
+          },
+          "confirmed": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "file",
+          "sha256",
+          "source_file",
+          "source_sha256",
+          "changes"
+        ],
+        "properties": {
+          "file": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "source_file": {
+            "type": "string"
+          },
+          "source_sha256": {
+            "type": "string"
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -195,8 +195,13 @@ class CorrectedBatchWriter(Protocol):
         dpi: float | None,
         bilevel: bool,
         tags: Mapping[str, str],
+        xmp: bytes | None = None,
     ) -> str:
-        """Grava uma página; devolve o SHA-256 do arquivo escrito."""
+        """Grava uma página; devolve o SHA-256 do arquivo escrito.
+
+        ``tags`` são as tags descritivas por nome; ``xmp``, o pacote com os metadados do
+        Decreto.
+        """
         ...
 
     def add_text(self, path: str, text: str) -> None:

@@ -56,9 +56,10 @@ class FolderTiffWriter:
         dpi: float | None,
         bilevel: bool,
         tags: Mapping[str, str],
+        xmp: bytes | None = None,
     ) -> str:
         """Grava a página em TIFF Deflate; devolve o SHA-256 do arquivo."""
-        data = encode_tiff(image, dpi, bilevel, tags)
+        data = encode_tiff(image, dpi, bilevel, tags, xmp)
         self._path(path).write_bytes(data)
         self._size += len(data)
         return hashlib.sha256(data).hexdigest()
