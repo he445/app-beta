@@ -8,6 +8,7 @@ Uso::
 
     uv run --project engine python tools/synth/numbering.py lote --out lote-numeracao
     uv run --project engine python tools/synth/numbering.py recortes --out recortes --n 300
+    uv run --project engine python tools/synth/numbering.py sequencia --out lote-sequencia
 """
 
 from __future__ import annotations
@@ -189,6 +190,20 @@ def build_batch(out: Path, seed: int = 20261112) -> dict[str, Any]:
     return key
 
 
+def build_sequence_batch(out: Path, seed: int = 20261114) -> None:
+    """Lote para o roteiro da tela de Sequência: um documento de três folhas sem número.
+
+    Nenhuma folha tem número escrito: as três ficam sem numeração e o revisor resolve o
+    documento só no teclado.
+    """
+    rng = random.Random(seed)
+    if out.exists():
+        shutil.rmtree(out)
+    for i in range(1, 4):
+        gray = render_sheet(Sheet(None), rng, i, 3)
+        synth.save_tiff(out / f"SEM-NUMERO/{i:04d}.tif", synth.Page(gray), synth.STATIONS[0], 1)
+
+
 # Recortes para o bench ---------------------------------------------------------------
 
 
@@ -238,13 +253,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("mode", choices=["lote", "recortes"])
+    parser.add_argument("mode", choices=["lote", "recortes", "sequencia"])
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--n", type=int, default=300, help="quantos recortes")
     parser.add_argument("--seed", type=int, default=None)
     args = parser.parse_args()
     if args.mode == "lote":
         build_batch(args.out, args.seed or 20261112)
+    elif args.mode == "sequencia":
+        build_sequence_batch(args.out, args.seed or 20261114)
     else:
         build_crops(args.out, args.n, args.seed or 20261113)
     print(f"gerado em {args.out}")

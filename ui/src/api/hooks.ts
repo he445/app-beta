@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
+import type { SequenceStep } from "../lib/sequence";
 import { api, blobUrl, download, getSession, json } from "./client";
+import type { components } from "./schema";
 import type {
   Analysis,
   BatchStatus,
@@ -235,6 +237,52 @@ export function useSetNumbering(batchId: string) {
       void qc.invalidateQueries({ queryKey: keys.report(batchId) });
       void qc.invalidateQueries({ queryKey: keys.plan(batchId) });
     },
+  });
+}
+
+export type DocumentNumbering = components["schemas"]["document-numbering.schema"];
+
+/** Tela de Sequência: números digitados e ordem do documento, num passo só. */
+export function useSetDocumentNumbering(batchId: string, documentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (step: SequenceStep) =>
+      json<DocumentNumbering>(`/batches/${batchId}/documents/${documentId}/numbering`, "PUT", {
+        reviewer: reviewer(),
+        values: step.values,
+        ...(step.order === undefined ? {} : { order: step.order }),
+      }),
+    onSuccess: (res) => {
+      // Troca no relatório só o que mudou neste documento: a tela não pisca.
+      patchReport(qc, batchId, (r) => {
+        const ids = new Set([documentId, ...res.document.page_ids]);
+        return {
+          ...r,
+          batch: { ...r.batch, summary: res.summary },
+          documents: r.documents.map((d) => (d.id === documentId ? res.document : d)),
+          pages: r.pages.map((p) => (res.pages[p.id] ? { ...p, numbering: res.pages[p.id] } : p)),
+          findings: [
+            ...r.findings.filter((f) => !(ids.has(f.target.id) && SEQUENCE_RULES.has(f.rule))),
+            ...res.findings,
+          ],
+        };
+      });
+      void qc.invalidateQueries({ queryKey: keys.plan(batchId) });
+    },
+  });
+}
+
+const SEQUENCE_RULES = new Set(["missing_page", "out_of_order", "numbering_review", "completeness_unverifiable"]);
+
+/** Recorte da região onde a numeração foi lida (só quando veio da imagem). */
+export function useNumberingCrop(pageId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["numbering-crop", pageId] as const,
+    queryFn: () => blobUrl(`/pages/${pageId}/numbering-crop`),
+    enabled,
+    staleTime: Infinity,
+    gcTime: 10 * 60_000,
+    retry: false,
   });
 }
 

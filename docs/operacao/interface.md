@@ -44,9 +44,21 @@ página, Q, E e W (ou os botões **Girar a página**) giram a cópia; o giro é 
 já está aplicado. Cada giro é uma decisão registrada com seu nome e horário e vai para o
 lote corrigido; voltar à orientação original registra "não girar".
 
-5. **Sequência:** miniaturas na ordem do arquivo com a numeração lida e o canto ampliado.
-   Toque ou clique numa página (ou Enter) para corrigir a numeração; **Ampliar**, duplo
-   clique ou Z abre a página inteira, com Original/Corrigida, setas e Esc.
+5. **Sequência:** miniaturas na ordem do arquivo com a numeração e o estado de cada
+   página. Quando a numeração foi lida da imagem, o canto mostra o recorte exato onde ela
+   foi procurada. **Ampliar**, duplo clique ou Z abre a página inteira, com
+   Original/Corrigida, setas e Esc.
+   - **Digitação rápida:** o cursor já começa na primeira página com dúvida. Digite o
+     número e Enter: grava e vai para a próxima com dúvida. Tab passa sem gravar; Esc
+     volta ao valor anterior. Pode digitar sem esperar: as gravações vão em fila. A
+     etiqueta da página passa a dizer "digitado".
+   - **Mudar a ordem:** arraste a página para o lugar certo ou use Alt + seta para a
+     esquerda/direita na página (ou no campo do número). A faixa passa a se chamar
+     "Ordem escolhida pelo revisor", com seu nome e horário, e essa ordem vale no lote
+     corrigido ("movida da posição X para a Y pelo revisor"). **Voltar à ordem do
+     arquivo** desfaz.
+   - **Desfazer** (ou Ctrl+Z fora do campo) desfaz a última numeração ou mudança de
+     ordem, uma de cada vez.
    - **Corrigir tudo** aplica as correções automáticas do documento (no painel e na
      revisão, **Corrigir o lote inteiro**). A tela de carregamento mostra quantas páginas
      já foram corrigidas. Depois aparecem as faixas **Antes** (como está no arquivo) e

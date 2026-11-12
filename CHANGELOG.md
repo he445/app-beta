@@ -8,6 +8,12 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Tela de Sequência: digitação rápida embaixo de cada página (Enter grava e vai para a
+  próxima com dúvida, Tab passa, Esc volta; gravações em fila), recorte da região onde a
+  numeração foi lida, arrastar e Alt + setas para reordenar (ordem do revisor no lote
+  corrigido), **Voltar à ordem do arquivo** e **Desfazer**/Ctrl+Z. Roteiro desktop
+  resolve um documento de três folhas sem número só no teclado
+  (`tools/synth/numbering.py sequencia`).
 - Tela de Sequência, motor: `PUT /batches/{id}/documents/{doc}/numbering` (caso de uso
   `set_manual_numbering`) grava numeração digitada (`null` desfaz) e ordem escolhida pelo
   revisor (`manual_order`, com revisor e horário; `null` desfaz), valida tudo antes de

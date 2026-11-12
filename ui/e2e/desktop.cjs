@@ -1,11 +1,13 @@
 // Programa desktop sem janela (QA --headless), interface aberta pelo link de acesso de uso
 // único: sem tela de entrada, "Abrir lote" por caminho, análise e "Salvar na pasta de saída".
 // Com token de administrador, confere também a tela de Diagnóstico com um erro forçado.
-// Uso: node e2e/desktop.cjs <link de acesso> <pasta do lote> [pasta de capturas] [token de admin]
+// Com a pasta de um lote de três folhas sem número, confere a tela de Sequência: o
+// documento resolvido só no teclado e a reordenação indo para o lote corrigido.
+// Uso: node e2e/desktop.cjs <link de acesso> <pasta do lote> [capturas] [token de admin] [lote de sequência]
 const { chromium } = require("playwright");
 
 (async () => {
-  const [link, folder, shots, adminToken] = process.argv.slice(2);
+  const [link, folder, shots, adminToken, sequenceFolder] = process.argv.slice(2);
   if (!link || !folder) throw new Error("uso: desktop.cjs <link> <pasta do lote> [capturas]");
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1366, height: 860 } });
@@ -97,9 +99,67 @@ const { chromium } = require("playwright");
     if (shots) await page.screenshot({ path: `${shots}/desktop-diagnostico.png`, fullPage: true });
     console.log("diagnóstico ok");
   }
+  if (sequenceFolder) {
+    await sequence(page, sequenceFolder, shots).catch(async (err) => {
+      if (shots) await page.screenshot({ path: `${shots}/desktop-sequencia-erro.png`, fullPage: true });
+      throw err;
+    });
+  }
   await browser.close();
   console.log("fluxo desktop ok");
 })().catch((err) => {
   console.error(err);
   process.exit(1);
 });
+
+/** Tela de Sequência só no teclado: digitar 1, 3, 2; mover com Alt + seta; desfazer; refazer. */
+async function sequence(page, folder, shots) {
+  await page.getByRole("link", { name: "QA de Digitalização" }).click();
+  await page.getByLabel("Pasta do lote").fill(folder);
+  await page.getByRole("button", { name: "Analisar lote" }).click();
+  await page.waitForURL(/#\/batches\/[0-9a-f-]+$/, { timeout: 30_000 });
+  await page.getByRole("link", { name: "Relatório" }).waitFor({ timeout: 120_000 });
+  await page.getByText(/Veredito|Aprovado|Reprovado/).first().waitFor({ timeout: 120_000 });
+  const batchId = /#\/batches\/([0-9a-f-]+)/.exec(page.url())[1];
+  await page.goto(page.url().replace(/#.*$/, `#/batches/${batchId}/sequence`));
+  const field = (n) => page.getByLabel(`Numeração da página na posição ${n}`);
+  await field(1).waitFor({ timeout: 30_000 });
+  // O foco já está na primeira folha com dúvida: digitar e Enter, três vezes.
+  await page.waitForFunction(() => document.activeElement?.getAttribute("aria-label")?.includes("posição 1"), null, { timeout: 10_000 });
+  // Digitado de uma vez, sem esperar a gravação: nada se perde.
+  for (const value of ["1", "3", "2"]) {
+    await page.keyboard.type(value);
+    await page.keyboard.press("Enter");
+  }
+  const typed = () =>
+    page.evaluate(async (id) => {
+      const headers = { Authorization: `Bearer ${sessionStorage.getItem("qa.token")}` };
+      const report = await (await fetch(`/batches/${id}/report`, { headers })).json();
+      return report.documents[0].page_ids.map((pid) => report.pages.find((p) => p.id === pid).numbering?.typed ?? "").join();
+    }, batchId);
+  for (let i = 0; i < 60 && (await typed()) !== "1,3,2"; i++) await page.waitForTimeout(500);
+  if ((await typed()) !== "1,3,2") throw new Error(`numeração gravada: ${await typed()}`);
+  const values = async () => Promise.all([1, 2, 3].map((n) => field(n).inputValue()));
+  if ((await values()).join() !== "1,3,2") throw new Error(`numeração digitada: ${await values()}`);
+  // A folha 2 está na posição 3: Alt + seta para a esquerda a traz para a posição 2.
+  await field(3).focus();
+  await page.keyboard.press("Alt+ArrowLeft");
+  await page.getByRole("heading", { name: /ordem escolhida pelo revisor/i }).waitFor({ timeout: 30_000 });
+  await page.waitForFunction(() => [...document.querySelectorAll(".seq-input")].map((i) => i.value).join() === "1,2,3", null, { timeout: 30_000 });
+  // Desfazer volta a ordem do arquivo; mover de novo.
+  await page.locator("body").click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press("Control+z");
+  await page.waitForFunction(() => [...document.querySelectorAll(".seq-input")].map((i) => i.value).join() === "1,3,2", null, { timeout: 30_000 });
+  await field(3).focus();
+  await page.keyboard.press("Alt+ArrowLeft");
+  await page.getByRole("heading", { name: /ordem escolhida pelo revisor/i }).waitFor({ timeout: 30_000 });
+  if (shots) await page.screenshot({ path: `${shots}/desktop-sequencia.png`, fullPage: true });
+  const plan = await page.evaluate(async (id) => {
+    const headers = { Authorization: `Bearer ${sessionStorage.getItem("qa.token")}` };
+    return (await fetch(`/batches/${id}/corrected-plan`, { headers })).json();
+  }, batchId);
+  const doc = plan.documents[0];
+  const moved = doc.pages.filter((p) => p.moved).map((p) => `${p.old_position}->${p.new_position}`).sort();
+  if (!doc.reordered || moved.join() !== "2->3,3->2") throw new Error(`lote corrigido sem a ordem manual: ${moved}`);
+  console.log("sequência ok:", moved.join(", "));
+}

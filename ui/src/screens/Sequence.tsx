@@ -6,7 +6,9 @@ import {
   useDecide,
   usePlan,
   useReport,
+  useNumberingCrop,
   useSaveCorrected,
+  useSetDocumentNumbering,
   useStartBulk,
   useUndo,
   useUndoBulk,
@@ -39,7 +41,19 @@ import {
   unsavedOperations,
 } from "../lib/corrections";
 import { DECISION_LABEL, NUMBERING_STATE_LABEL, ruleLabel } from "../lib/format";
-import { thumbnailKey } from "../lib/keys";
+import { isTyping, thumbnailKey } from "../lib/keys";
+import {
+  dropAt,
+  firstToType,
+  inverse,
+  moveItem,
+  needsTyping,
+  nextToType,
+  sequenceKey,
+  typedChange,
+  workingOrder,
+  type SequenceStep,
+} from "../lib/sequence";
 import { href, navigate } from "../router";
 import { NumberingDialog } from "./Review";
 
@@ -89,6 +103,7 @@ export function Sequence({ id, doc }: { id: string; doc?: string }) {
       <main className="page sequence-main">
         {selected && (
           <DocumentSequence
+            key={selected.id}
             report={r}
             document={selected}
             docPlan={docPlans.get(selected.id)}
@@ -147,7 +162,9 @@ function DocumentSequence({
   const batchId = report.batch.id;
   const pages = useMemo(() => new Map(report.pages.map((p) => [p.id, p])), [report.pages]);
   const items = useMemo(() => new Map((docPlan?.pages ?? []).map((p) => [p.page_id, p])), [docPlan]);
-  const docPages = document.page_ids.map((pid) => pages.get(pid)).filter((p): p is Page => Boolean(p));
+  const order = workingOrder(document);
+  const docPages = order.map((pid) => pages.get(pid)).filter((p): p is Page => Boolean(p));
+  const numbering = useMemo(() => Object.fromEntries(docPages.map((p) => [p.id, p.numbering])), [docPages]);
   const findings = report.findings.filter((f) => f.target.id === document.id || document.page_ids.includes(f.target.id));
   const byPage = new Map<string, Finding[]>();
   for (const f of findings) if (f.target.kind === "page") byPage.set(f.target.id, [...(byPage.get(f.target.id) ?? []), f]);
@@ -159,6 +176,73 @@ function DocumentSequence({
   const save = useSaveCorrected(batchId, report.batch.name);
   const decide = useDecide(batchId);
   const [editing, setEditing] = useState<Page | null>(null);
+  const setDoc = useSetDocumentNumbering(batchId, document.id);
+  const [history, setHistory] = useState<SequenceStep[]>([]);
+  const inputs = useRef<(HTMLInputElement | null)[]>([]);
+  const [focusAt, setFocusAt] = useState<number | null>(() =>
+    docPages.some((p) => needsTyping(p.numbering)) ? firstToType(order, numbering) : null,
+  );
+
+  // O foco vai para a página indicada (na digitação, já; ao mover, depois de gravar).
+  useEffect(() => {
+    if (focusAt === null) return;
+    const input = inputs.current[focusAt];
+    if (input) {
+      input.focus();
+      input.select();
+    }
+    setFocusAt(null);
+  }, [focusAt, report]);
+
+  // As gravações vão em fila: quem digita rápido não perde nada e as respostas chegam em ordem.
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
+  function enqueue(step: SequenceStep, onDone?: () => void) {
+    queue.current = queue.current
+      .then(() => setDoc.mutateAsync(step))
+      .then(onDone, () => undefined);
+  }
+
+  function apply(step: SequenceStep, focusAfterSave?: number | null) {
+    const typed = Object.fromEntries(docPages.map((p) => [p.id, p.numbering?.typed]));
+    const undo = inverse(step, { typed, manualOrder: document.manual_order?.page_ids });
+    enqueue(step, () => {
+      setHistory((h) => [...h, undo]);
+      if (focusAfterSave !== undefined) setFocusAt(focusAfterSave);
+    });
+  }
+
+  function undoLast() {
+    const last = history.at(-1);
+    if (!last) return;
+    setHistory((h) => h.slice(0, -1));
+    enqueue(last);
+  }
+
+  function commit(index: number, draft: string) {
+    const pid = order[index];
+    if (!pid) return;
+    const value = typedChange(draft, numbering[pid]);
+    const next = nextToType(order, value ? { ...numbering, [pid]: { ...numbering[pid]!, typed: value } } : numbering, index);
+    if (value) apply({ values: { [pid]: value } });
+    setFocusAt(next);
+  }
+
+  function move(index: number, delta: 1 | -1) {
+    const next = moveItem(order, index, delta);
+    if (next !== order) apply({ values: {}, order: next }, index + delta);
+  }
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (isTyping(e.target)) return;
+      if (sequenceKey(e)?.type === "undo") {
+        e.preventDefault();
+        undoLast();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
   const [zoom, setZoom] = useState<{ pages: ZoomPage[]; index: number; preferCorrected: boolean } | null>(null);
 
   const active = activeOperation(ops);
@@ -209,8 +293,9 @@ function DocumentSequence({
         <div>
           <h1>{document.name}</h1>
           <p className="muted">
-            {docPages.length} página(s). Toque ou clique numa página para corrigir a numeração (Enter);
-            “Ampliar”, duplo clique ou Z abre a página inteira.
+            {docPages.length} página(s). Digite a numeração embaixo de cada página: Enter grava e vai
+            para a próxima com dúvida, Tab passa sem gravar. Arraste a página ou use Alt + setas para
+            mudar a ordem; Ctrl+Z desfaz. “Ampliar”, duplo clique ou Z abre a página inteira.
           </p>
         </div>
         <div className="row wrap">
@@ -222,10 +307,13 @@ function DocumentSequence({
           >
             Corrigir tudo
           </button>
+          <button onClick={undoLast} disabled={!history.length || setDoc.isPending} title="Desfaz a última numeração ou mudança de ordem (Ctrl+Z)">
+            Desfazer
+          </button>
           <a className="button" href={href({ name: "metadata", id: batchId, doc: document.id })}>Metadados</a>
         </div>
       </div>
-      <ErrorBox error={start.error} />
+      <ErrorBox error={start.error ?? setDoc.error} />
 
       {unsaved && (
         <div className="unsaved" role="alert">
@@ -281,13 +369,36 @@ function DocumentSequence({
         </Card>
       )}
 
-      <h2>{changed ? "Antes — como está no arquivo" : "Como está no arquivo"}</h2>
+      {document.manual_order ? (
+        <div className="row wrap">
+          <h2>{changed ? "Antes — ordem escolhida pelo revisor" : "Ordem escolhida pelo revisor"}</h2>
+          <span className="small muted">
+            {document.manual_order.reviewer} · {new Date(document.manual_order.decided_at).toLocaleString("pt-BR")}
+          </span>
+          <button className="small-btn" disabled={setDoc.isPending} onClick={() => apply({ values: {}, order: null })}>
+            Voltar à ordem do arquivo
+          </button>
+        </div>
+      ) : (
+        <h2>{changed ? "Antes — como está no arquivo" : "Como está no arquivo"}</h2>
+      )}
       <div className="strip" aria-label="Antes">
         {before.map((s, i) => (
           <StripItem key={s.page.id} s={s} findings={byPage.get(s.page.id) ?? []} mode="before"
             onClick={() => clicks.click({ strip: before, index: i })}
             onDoubleClick={() => clicks.doubleClick({ strip: before, index: i })}
             onKey={(k) => (k === "numbering" ? setEditing(s.page) : openZoom(before, i))}
+            position={i + 1}
+            inputRef={(el) => {
+              inputs.current[i] = el;
+            }}
+            onCommit={(draft) => commit(i, draft)}
+            onMove={(delta) => move(i, delta)}
+            onUndo={undoLast}
+            onDropPage={(id, after) => {
+              const next = dropAt(order, id, after ? i + 1 : i);
+              if (next.join() !== order.join()) apply({ values: {}, order: next });
+            }}
             after={gapsAfter(s.page.id).map((g) => <MissingCard key={g.finding_id} gap={g} batchId={batchId} />)}
           />
         ))}
@@ -340,7 +451,17 @@ function DocumentSequence({
   );
 }
 
-function Corner({ pageId, variant }: { pageId: string; variant: "original" | "corrected" }) {
+function Corner({ page, variant }: { page: Page; variant: "original" | "corrected" }) {
+  const fromImage = page.numbering?.source === "image" && variant === "original";
+  const crop = useNumberingCrop(page.id, fromImage);
+  const pageId = page.id;
+  if (crop.data) {
+    return (
+      <div className="corner-wrap crop" title="Onde a numeração foi lida">
+        <img src={crop.data} alt="" />
+      </div>
+    );
+  }
   return (
     <div className="corner-wrap" title="Canto da numeração ampliado">
       <Thumb pageId={pageId} width={360} variant={variant} className="corner-img" />
@@ -356,6 +477,12 @@ function StripItem({
   onDoubleClick,
   onKey,
   after,
+  position,
+  inputRef,
+  onCommit,
+  onMove,
+  onUndo,
+  onDropPage,
 }: {
   s: StripPage;
   findings: Finding[];
@@ -364,7 +491,24 @@ function StripItem({
   onDoubleClick: () => void;
   onKey: (k: "numbering" | "zoom") => void;
   after?: React.ReactNode;
+  position?: number;
+  inputRef?: (el: HTMLInputElement | null) => void;
+  onCommit?: (draft: string) => void;
+  onMove?: (delta: 1 | -1) => void;
+  onUndo?: () => void;
+  onDropPage?: (id: string, after: boolean) => void;
 }) {
+  const [dropSide, setDropSide] = useState<"before" | "after" | null>(null);
+  const field = useRef<HTMLInputElement | null>(null);
+  const editable = mode === "before" && onCommit;
+  const shortcut = (e: React.KeyboardEvent) => {
+    const k = sequenceKey(e);
+    if (!k || (k.type === "undo" && e.currentTarget.tagName === "INPUT")) return false;
+    e.preventDefault();
+    if (k.type === "move") onMove?.(k.delta);
+    else onUndo?.();
+    return true;
+  };
   const { page, item } = s;
   const n = page.numbering;
   const removed = item?.status === "removed";
@@ -379,15 +523,44 @@ function StripItem({
     removed ? "removed" : "",
     rescan.length || unreadable ? "rescan" : "",
     mode === "after" && (item?.corrected || item?.moved) ? "changed" : "",
+    dropSide ? `drop-${dropSide}` : "",
   ].join(" ");
+  const current = n?.typed ?? n?.value ?? "";
+  // O valor vigente muda depois de gravar; quem está digitando no campo não perde o rascunho.
+  useEffect(() => {
+    if (field.current && window.document.activeElement !== field.current) field.current.value = current;
+  }, [current]);
   return (
     <>
-      <div className={classes}>
+      <div
+        className={classes}
+        draggable={Boolean(editable)}
+        onDragStart={(e) => {
+          e.dataTransfer.setData("text/x-qa-page", page.id);
+          e.dataTransfer.effectAllowed = "move";
+        }}
+        onDragOver={(e) => {
+          if (!onDropPage || !e.dataTransfer.types.includes("text/x-qa-page")) return;
+          e.preventDefault();
+          const box = e.currentTarget.getBoundingClientRect();
+          setDropSide(e.clientX > box.left + box.width / 2 ? "after" : "before");
+        }}
+        onDragLeave={() => setDropSide(null)}
+        onDrop={(e) => {
+          const id = e.dataTransfer.getData("text/x-qa-page");
+          const side = dropSide;
+          setDropSide(null);
+          if (!id || !onDropPage) return;
+          e.preventDefault();
+          onDropPage(id, side === "after");
+        }}
+      >
         <button
           className="seq-hit"
           onClick={onClick}
           onDoubleClick={onDoubleClick}
           onKeyDown={(e) => {
+            if (shortcut(e)) return;
             const k = thumbnailKey(e);
             if (!k) return;
             e.preventDefault();
@@ -397,12 +570,13 @@ function StripItem({
           aria-label={`Página ${page.index + 1}${removed ? ", removida" : ""}: corrigir numeração`}
         >
           <Thumb pageId={page.id} width={120} variant={variant} />
-          <Corner pageId={page.id} variant={variant} />
+          <Corner page={page} variant={variant} />
           {mode === "after" ? (
             <div className="seq-label">{item?.target_file?.split("/").pop()}</div>
           ) : (
             <div className="seq-label">
-              {n?.value ?? "—"} {n && <span className={`state-tag st-${n.state}`}>{NUMBERING_STATE_LABEL[n.state]}</span>}
+              {n?.value ?? "—"}{" "}
+              {n && <span className={`state-tag st-${n.typed !== undefined ? "typed" : n.state}`}>{n.typed !== undefined ? "digitado" : NUMBERING_STATE_LABEL[n.state]}</span>}
             </div>
           )}
           {mode === "before" && n && n.previous.length > 0 && <div className="small struck">{n.previous.join(", ")}</div>}
@@ -425,6 +599,30 @@ function StripItem({
             </div>
           )}
         </button>
+        {editable && (
+          <input
+            ref={(el) => {
+              field.current = el;
+              inputRef?.(el);
+            }}
+            className={`seq-input ${needsTyping(n) ? "doubt" : ""}`}
+            defaultValue={current}
+            placeholder="fls."
+            aria-label={`Numeração da página na posição ${position}`}
+            autoComplete="off"
+            onFocus={(e) => e.currentTarget.select()}
+            onKeyDown={(e) => {
+              if (shortcut(e)) return;
+              if (e.key === "Enter") {
+                e.preventDefault();
+                onCommit(e.currentTarget.value);
+              } else if (e.key === "Escape") {
+                e.currentTarget.value = current;
+                e.currentTarget.blur();
+              }
+            }}
+          />
+        )}
         <button className="zoom-btn" onClick={() => onKey("zoom")} aria-label={`Ampliar a página ${page.index + 1}`}>
           Ampliar
         </button>
