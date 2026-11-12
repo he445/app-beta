@@ -635,6 +635,9 @@ class CorrectionService:
             )
             writer.add_text("manifest.csv", manifest_csv(manifest))
             writer.add_text("report.json", json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+            summary = ctx.work / "configuracao.json" if ctx.work is not None else None
+            if summary is not None and summary.is_file():
+                writer.add_text("configuracao.json", summary.read_text("utf-8"))
             page_index = {p["id"]: p for p in report["pages"]}
             writer.add_text("findings.csv", findings_csv(report["findings"], page_index))
             writer.add_text("decisions.csv", decisions_csv(self.store.decision_log(ctx.batch_id)))

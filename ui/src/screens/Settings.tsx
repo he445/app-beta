@@ -2,11 +2,14 @@
 // deste computador. Cada valor mostra de onde veio; valor inválido é recusado antes de salvar.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { ApiError, api, json } from "../api/client";
+import { ApiError, api, json, raw } from "../api/client";
+import { useEngine } from "../api/engine";
 import { keys, useProfiles } from "../api/hooks";
+import type { components } from "../api/schema";
 import type { ParamView, Profile, RuleView, SettingsView } from "../api/types";
 import { Card, ErrorBox, Loading } from "../components/ui";
 import { ruleLabel } from "../lib/format";
+import { useAdminToken } from "../lib/useAdminToken";
 import {
   LAYER_LABEL,
   formatComputerField,
@@ -31,6 +34,7 @@ export function Settings() {
         </button>
       </div>
       {tab === "scanners" ? <ScannersTab /> : <ComputerTab />}
+      <HistoryCard />
     </div>
   );
 }
@@ -61,12 +65,27 @@ function ScannersTab() {
 
   useEffect(() => setDrafts({}), [profile?.id, stationId]);
 
+  const engine = useEngine();
+  const [token, setToken] = useAdminToken();
+  const [typed, setTyped] = useState("");
+  const locked = !token;
   const save = useMutation({
-    mutationFn: (next: Profile) => json<Profile>(`/profiles/${next.id}`, "PUT", next),
+    mutationFn: async (next: Profile) => {
+      const res = await raw(`/profiles/${next.id}`, {
+        method: "PUT",
+        body: JSON.stringify(next),
+        headers: { "Content-Type": "application/json", "X-Admin-Token": token },
+      });
+      return (await res.json()) as Profile;
+    },
     onSuccess: () => {
       setDrafts({});
       void qc.invalidateQueries({ queryKey: keys.profiles });
       void qc.invalidateQueries({ queryKey: ["profile-rules"] });
+      void qc.invalidateQueries({ queryKey: ["config-history"] });
+    },
+    onError: (error) => {
+      if (error instanceof ApiError && error.status === 401) setToken("");
     },
   });
 
@@ -100,6 +119,35 @@ function ScannersTab() {
   if (profiles.isLoading) return <Loading />;
   return (
     <>
+      {locked && (
+        <Card>
+          {engine.admin ? (
+            <form
+              className="row wrap"
+              onSubmit={(e) => {
+                e.preventDefault();
+                setToken(typed);
+                setTyped("");
+              }}
+            >
+              <span className="small">
+                Ajustes das digitalizadoras, limites e perfis exigem o <strong>token de administrador</strong>. Sem ele, os
+                campos ficam bloqueados.
+              </span>
+              <label>
+                Token de administrador
+                <input type="password" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" required />
+              </label>
+              <button className="primary">Destravar</button>
+            </form>
+          ) : (
+            <p className="small">
+              Ajustes das digitalizadoras, limites e perfis exigem o token de administrador, que ainda não foi gerado neste
+              computador. A TI gera com <code>QA-suporte.exe admin token</code>.
+            </p>
+          )}
+        </Card>
+      )}
       <Card>
         <p className="small muted">
           Ordem de aplicação de cada valor: padrão da regra → perfil → estação. Mudar aqui grava no perfil;
@@ -133,11 +181,11 @@ function ScannersTab() {
             <input
               type="checkbox"
               checked={rule.enabled}
-              disabled={save.isPending}
+              disabled={locked || save.isPending}
               onChange={(e) => apply((p) => withRuleChange(p, level, rule.rule, { enabled: e.target.checked }))}
             />
             Ligada <Origin source={rule.enabled_source} />
-            {rule.enabled_source === (level ? "station" : "profile") && (
+            {!locked && rule.enabled_source === (level ? "station" : "profile") && (
               <button className="link small" onClick={() => apply((p) => withRuleChange(p, level, rule.rule, { enabled: undefined }))}>
                 voltar ao herdado
               </button>
@@ -166,6 +214,7 @@ function ScannersTab() {
                             type="checkbox"
                             aria-label={param.name}
                             checked={Boolean(draft ?? param.value)}
+                            disabled={locked}
                             onChange={(e) => setDrafts({ ...drafts, [key]: e.target.checked })}
                           />
                         ) : (
@@ -173,6 +222,7 @@ function ScannersTab() {
                             aria-label={param.name}
                             aria-invalid={Boolean(error)}
                             inputMode="decimal"
+                            disabled={locked}
                             value={String(draft ?? param.value)}
                             onChange={(e) => setDrafts({ ...drafts, [key]: e.target.value })}
                           />
@@ -181,7 +231,7 @@ function ScannersTab() {
                       </td>
                       <td>
                         <Origin source={param.source} />
-                        {own && (
+                        {own && !locked && (
                           <button
                             className="link small"
                             onClick={() => apply((p) => withRuleChange(p, level, rule.rule, { param: param.name, value: undefined }))}
@@ -236,6 +286,7 @@ function ComputerTab() {
   const save = useMutation({
     mutationFn: (body: { changes: Record<string, unknown>; reset: string[] }) => json<SettingsView>("/settings", "PUT", body),
     onSuccess: (next) => {
+      void qc.invalidateQueries({ queryKey: ["config-history"] });
       setDrafts({});
       qc.setQueryData(["settings"], next);
     },
@@ -324,6 +375,42 @@ function ComputerTab() {
       </div>
       {save.error && !serverProblems.length && <ErrorBox error={save.error} />}
       {save.isSuccess && <div className="ok-box">Configuração salva.</div>}
+    </Card>
+  );
+}
+
+// Histórico ---------------------------------------------------------------------------
+
+type Change = components["schemas"]["config-change.schema"];
+
+function show(value: unknown): string {
+  if (value === null || value === undefined) return "—";
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
+function HistoryCard() {
+  const history = useQuery({ queryKey: ["config-history"], queryFn: () => api<Change[]>("/config-history?limit=100") });
+  return (
+    <Card title="Histórico de configuração">
+      <p className="small muted">Toda mudança fica registrada: quem mudou, quando, o valor anterior e o novo. Vai também com cada lote.</p>
+      <ErrorBox error={history.error} />
+      <table className="table small">
+        <thead><tr><th>Quando</th><th>Quem</th><th>O quê</th><th>Antes</th><th>Depois</th></tr></thead>
+        <tbody>
+          {(history.data ?? []).map((c) => (
+            <tr key={c.id}>
+              <td>{new Date(c.at).toLocaleString("pt-BR")}</td>
+              <td>{c.who}</td>
+              <td>
+                <span className="muted">{c.scope === "profile" ? `perfil ${c.target}` : "este computador"}:</span> <code>{c.key}</code>
+              </td>
+              <td><code>{show(c.before)}</code></td>
+              <td><code>{show(c.after)}</code></td>
+            </tr>
+          ))}
+          {history.data?.length === 0 && <tr><td colSpan={5} className="muted">Nenhuma mudança registrada.</td></tr>}
+        </tbody>
+      </table>
     </Card>
   );
 }

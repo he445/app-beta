@@ -645,6 +645,51 @@ class SqliteRepository:
         )
         return [dict(r) for r in rows]
 
+    def add_config_changes(
+        self, at: str, who: str, scope: str, target: str, items: Sequence[tuple[str, Any, Any]]
+    ) -> None:
+        """Registra mudanças de configuração (chave, antes, depois)."""
+        if not items:
+            return
+        with self._tx() as c:
+            c.executemany(
+                "INSERT INTO config_history (at, who, scope, target, key, before_json, after_json)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (
+                        at,
+                        who,
+                        scope,
+                        target,
+                        key,
+                        json.dumps(before, ensure_ascii=False),
+                        json.dumps(after, ensure_ascii=False),
+                    )
+                    for key, before, after in items
+                ],
+            )
+
+    def config_history(self, limit: int = 200) -> list[dict[str, Any]]:
+        """Mudanças de configuração, da mais nova para a mais antiga."""
+        rows = self._all(
+            "SELECT seq, at, who, scope, target, key, before_json, after_json FROM config_history"
+            " ORDER BY seq DESC LIMIT ?",
+            (limit,),
+        )
+        return [
+            {
+                "id": r[0],
+                "at": r[1],
+                "who": r[2],
+                "scope": r[3],
+                "target": r[4],
+                "key": r[5],
+                "before": json.loads(r[6]) if r[6] is not None else None,
+                "after": json.loads(r[7]) if r[7] is not None else None,
+            }
+            for r in rows
+        ]
+
     def clear_numbering(self, page_id: str) -> None:
         """Desfaz a numeração digitada de uma página."""
         with self._tx() as c:

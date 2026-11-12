@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ApiError, raw } from "../api/client";
 import type { components } from "../api/schema";
 import { Card, ErrorBox, Loading, Stat } from "../components/ui";
+import { useAdminToken } from "../lib/useAdminToken";
 
 type S = components["schemas"];
 type DiagnosticsBody = S["diagnostics.schema"];
@@ -21,7 +22,6 @@ const ORIGIN: Record<Group["origin"], string> = {
 };
 const COLORS: Record<Group["severity"], string> = { critical: "var(--critical)", error: "var(--high)", warning: "var(--medium)" };
 
-let memoryToken = "";
 
 async function admin<T>(path: string, token: string, init: RequestInit = {}): Promise<T> {
   const res = await raw(path, { ...init, headers: { "X-Admin-Token": token } });
@@ -29,7 +29,7 @@ async function admin<T>(path: string, token: string, init: RequestInit = {}): Pr
 }
 
 export function Diagnostics() {
-  const [token, setToken] = useState(memoryToken);
+  const [token, setToken] = useAdminToken();
   const [typed, setTyped] = useState("");
   const [filters, setFilters] = useState<Record<string, string>>({ status: "open" });
   const [selected, setSelected] = useState<string | null>(null);
@@ -75,8 +75,7 @@ export function Diagnostics() {
           className="card login-card"
           onSubmit={(e) => {
             e.preventDefault();
-            memoryToken = typed.trim();
-            setToken(memoryToken);
+            setToken(typed);
           }}
         >
           <p className="muted small">Área de administração. O token é gerado com <code>qa admin token</code> e fica só nesta aba.</p>

@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "config-change.schema.json",
+  "title": "ConfigChange",
+  "description": "Uma mudança de configuração: quem mudou, quando, o valor anterior e o novo.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "at",
+    "who",
+    "scope",
+    "target",
+    "key",
+    "before",
+    "after"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer"
+    },
+    "at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "who": {
+      "type": "string",
+      "description": "Usuário do Windows no programa desktop; \"demonstração\" na nuvem."
+    },
+    "scope": {
+      "enum": [
+        "settings",
+        "profile"
+      ],
+      "description": "Configuração deste computador ou perfil (ajustes das digitalizadoras, regras, numeração)."
+    },
+    "target": {
+      "type": "string",
+      "description": "Perfil (id) ou camada de configuração (user)."
+    },
+    "key": {
+      "type": "string",
+      "description": "Caminho com pontos, ex.: stations.cg-e3.overrides.black_borders.params.dark_level."
+    },
+    "before": {
+      "description": "Valor anterior (null = não existia)."
+    },
+    "after": {
+      "description": "Valor novo (null = removido)."
+    }
+  }
+}

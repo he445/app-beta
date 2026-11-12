@@ -4,6 +4,17 @@ No programa desktop, **Configurações** (no topo, à direita) tem duas abas. Ca
 mostra de onde veio, e um valor inválido é recusado antes de salvar, com o motivo ao
 lado do campo.
 
+## Quem pode mudar o quê
+
+| Configuração | Quem muda |
+| --- | --- |
+| Ajustes das digitalizadoras, limites de orientação, riscado, confiança e regiões de numeração, perfis e estações | Só com o token de administrador (o mesmo do Diagnóstico) |
+| Pastas, estação padrão deste computador, recursos e nível de log | O próprio usuário |
+
+Sem o token, os campos da aba **Digitalizadoras** ficam bloqueados: digite o token e
+clique em **Destravar** (ele fica só nesta janela). Se o token ainda não foi gerado no
+computador, a tela avisa; a TI gera com `QA-suporte.exe admin token`.
+
 ## Digitalizadoras
 
 Ajustes das regras por perfil e por estação ([como os valores se combinam](../guias/configurar-estacao.md)).
@@ -18,6 +29,13 @@ Ajustes das regras por perfil e por estação ([como os valores se combinam](../
 
 A mudança grava no perfil. Lotes já analisados continuam explicados pelo perfil com que
 foram analisados.
+
+## Histórico de configuração
+
+No fim da tela, toda mudança de configuração (das duas abas) aparece com quem mudou,
+quando, o valor anterior e o novo. O histórico recente também vai no resumo de
+configuração de cada lote (`configuracao.json`, na pasta de trabalho do lote e no lote
+corrigido).
 
 ## Este computador
 

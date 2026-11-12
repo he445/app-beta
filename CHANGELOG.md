@@ -8,6 +8,12 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Permissões e histórico de configuração: perfis e ajustes das digitalizadoras só com o
+  token de administrador fora da demonstração (403 sem token configurado); campos
+  bloqueados na tela até destravar; toda mudança (perfil e este computador) entra no
+  histórico com quem, quando, antes e depois (`GET /config-history`, migração 0010),
+  mostrado em Configurações e gravado no resumo de configuração de cada lote
+  (`configuracao.json`, também no lote corrigido). Contrato 0.17.0.
 - Folha inserida depois: arrastar o arquivo para a Sequência (no ponto certo ou em
   "Adicionar folha") guarda a folha na área de complementos do lote (nunca na pasta
   original), analisa com a linha de base do lote, lê o número, sugere a posição por ele,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import os
 import subprocess
@@ -17,9 +18,12 @@ from fastapi.testclient import TestClient
 
 from qa_engine.adapters.instance import InstanceLock
 from qa_engine.adapters.logs import mask_paths, write_crash
+from qa_engine.application.admin import hash_token
 from qa_engine.entrypoints.desktop.main import Bridge, desktop_settings, error_page, free_port
 from qa_engine.entrypoints.http.app import create_app
 from qa_engine.entrypoints.http.settings import Settings
+
+ADMIN = "token-de-administrador-de-teste"
 
 
 def base_settings(tmp_path: Path, repo: Path) -> Settings:
@@ -212,6 +216,7 @@ def with_settings(tmp_path: Path, repo: Path) -> Iterator[tuple[TestClient, Path
     paths.machine_config.write_text('[locked]\nkeys = ["allowed_roots"]\n', "utf-8")
     source = LayeredSettings.for_desktop(paths, env={})
     settings = desktop_settings(base_settings(tmp_path, repo), 51234, "tk")
+    settings = dataclasses.replace(settings, admin_token_hash=hash_token(ADMIN))
     app = create_app(settings, source)
     with TestClient(app, base_url="http://127.0.0.1:51234") as client:
         client.headers["Authorization"] = "Bearer tk"
@@ -285,7 +290,7 @@ def test_profile_params_out_of_range_are_refused(
     client, _ = with_settings
     profile = client.get("/profiles/sos-piloto").json()
     profile["stations"][0]["overrides"]["black_borders"]["params"]["dark_level"] = -5
-    r = client.put("/profiles/sos-piloto", json=profile)
+    r = client.put("/profiles/sos-piloto", json=profile, headers={"X-Admin-Token": ADMIN})
     assert r.status_code == 422
     assert "black_borders.dark_level: esperado ≥ 0" in r.json()["title"] + r.json().get(
         "detail", ""
@@ -322,3 +327,39 @@ def test_support_executable_answers_cli_commands(capsys: pytest.CaptureFixture[s
 
     assert main(["rules"]) == 0
     assert "orientation" in capsys.readouterr().out
+
+
+def test_scanner_adjustments_need_the_admin_token_and_go_to_the_history(
+    with_settings: tuple[TestClient, Path],
+) -> None:
+    client, _ = with_settings
+    profile = client.get("/profiles/sos-piloto").json()
+    station = profile["stations"][0]
+    before = station["overrides"]["black_borders"]["params"]["dark_level"]
+    station["overrides"]["black_borders"]["params"]["dark_level"] = before + 5
+    assert client.put("/profiles/sos-piloto", json=profile).status_code == 401
+    assert (
+        client.put(
+            "/profiles/sos-piloto", json=profile, headers={"X-Admin-Token": "errado"}
+        ).status_code
+        == 401
+    )
+    r = client.put("/profiles/sos-piloto", json=profile, headers={"X-Admin-Token": ADMIN})
+    assert r.status_code == 200, r.text
+    assert client.put("/settings", json={"changes": {"log_level": "debug"}}).status_code == 200
+    history = client.get("/config-history").json()
+    from qa_engine.application.contracts import validate
+
+    for item in history:
+        validate(item, "config-change.schema.json")
+    key = f"stations.{station['id']}.overrides.black_borders.params.dark_level"
+    change = next(h for h in history if h["key"] == key)
+    assert (change["scope"], change["target"], change["before"], change["after"]) == (
+        "profile",
+        "sos-piloto",
+        before,
+        before + 5,
+    )
+    log = next(h for h in history if h["key"] == "log_level")
+    assert (log["scope"], log["before"], log["after"]) == ("settings", "info", "debug")
+    assert history[0]["key"] == "log_level"  # mais nova primeiro

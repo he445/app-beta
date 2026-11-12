@@ -97,6 +97,8 @@ um arquivo multipágina vira uma pasta com o nome do arquivo sem extensão.
   arquivo e página de origem, arquivo de destino, posição antiga e nova, correções com
   quem decidiu e quando, SHA-256 de origem e destino, removidas e o motivo,
   redigitalizar, páginas faltando e a decisão;
+- `configuracao.json`: o resumo de configuração do lote (perfil, computador e histórico
+  recente de mudanças de configuração).
 - `report.json` (relatório com as decisões vigentes), `findings.csv` e `decisions.csv`
   (registro de todas as decisões, inclusive as desfeitas, com quem e quando);
 - destino `zip`: `<lote>/exports/lote-corrigido.zip` (arquivo parcial renomeado no fim);

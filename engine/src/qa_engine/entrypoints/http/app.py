@@ -65,6 +65,7 @@ from qa_engine.application.complements import (
     remove_page,
     suggest_position,
 )
+from qa_engine.application.config_history import changes as config_changes
 from qa_engine.application.contracts import ContractError, validate
 from qa_engine.application.correction_service import (
     CORRECTED_ZIP,
@@ -282,6 +283,23 @@ class Engine:
         if not snapshot.is_file():
             return []
         return compare_snapshot(self.folder, root, json.loads(snapshot.read_text("utf-8")))
+
+    def config_summary(self, profile: Profile) -> dict[str, Any]:
+        """Resumo de configuração gravado com o lote: perfil, computador e histórico recente."""
+        hidden = {"api_token", "admin_token_hash"}
+        computer = {
+            "mode": self.settings.mode,
+            "default_station": self.settings.default_station,
+            "workers": self.settings.workers,
+            "models": self.models.checked,
+            "program_version": __version__,
+        }
+        return {
+            "generated_at": iso(self.now()),
+            "profile": dict(profile.raw),
+            "computer": {k: v for k, v in computer.items() if k not in hidden},
+            "history": self.repo.config_history(50),
+        }
 
     def release(self, batch_id: str, root: Path, profile: Profile, analysis: BatchAnalysis) -> None:
         """Grava um relatório parcial (processo pronto) ou o final, mesclando com o gravado.
@@ -711,6 +729,10 @@ class Engine:
             (work / PROFILE_SNAPSHOT).write_text(
                 json.dumps(dict(profile.raw), ensure_ascii=False, indent=2), encoding="utf-8"
             )
+            (work / CONFIG_SUMMARY).write_text(
+                json.dumps(self.config_summary(profile), ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
             analysis = run_analysis(
                 root,
                 profile,
@@ -732,6 +754,8 @@ class Engine:
             self.repo.fail(batch_id, f"{exc.__class__.__name__}: {exc}"[:500])
 
 
+CONFIG_SUMMARY = "configuracao.json"
+"""Resumo de configuração gravado na pasta de trabalho de cada lote e no lote corrigido."""
 THUMB_WIDTH = 256
 """Largura da miniatura guardada nos exemplos de orientação da coleta do beta."""
 NUMBERING_CROPS = "numbering"
@@ -1615,7 +1639,20 @@ def create_app(
                     for k in refused
                 ]
             )
+        before = dict(source.load().values)
         resolved = source.save_user(changes, reset)
+        after = dict(resolved.values)
+        engine.repo.add_config_changes(
+            iso(engine.now()),
+            os_user() if settings.mode == "desktop" else "usuário",
+            "settings",
+            "user",
+            [
+                (key, before.get(key), after.get(key))
+                for key in sorted(set(changes) | set(reset))
+                if before.get(key) != after.get(key)
+            ],
+        )
         restart["required"] = True
         log.info("configuração do usuário alterada: %s", sorted(set(changes) | set(reset)))
         return settings_view(resolved, True)
@@ -1719,7 +1756,18 @@ def create_app(
         return dict(engine.profile(profile_id).raw)
 
     @app.put("/profiles/{profile_id}")
-    def put_profile(profile_id: str, body: Annotated[dict[str, Any], Body()]) -> dict[str, Any]:
+    def put_profile(
+        profile_id: str, body: Annotated[dict[str, Any], Body()], request: Request
+    ) -> dict[str, Any]:
+        # Perfis e ajustes das digitalizadoras: só com token de administrador (fora da
+        # demonstração, onde os perfis são sintéticos).
+        if settings.mode != "cloud" and settings.admin_token_hash is None:
+            raise HTTPException(
+                403,
+                "ajustes de perfil e das digitalizadoras exigem o token de administrador; "
+                "a TI gera com QA-suporte.exe admin token",
+            )
+        who = "demonstração" if settings.mode == "cloud" else require_admin(request)
         if body.get("id") != profile_id:
             raise HTTPException(422, "o id do corpo deve ser igual ao da rota")
         try:
@@ -1727,8 +1775,18 @@ def create_app(
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
         path = settings.profiles_dir / f"{profile.id}.yaml"
+        previous: dict[str, Any] = {}
+        if path.is_file():
+            previous = yaml.safe_load(path.read_text("utf-8")) or {}
         path.write_text(yaml.safe_dump(body, allow_unicode=True, sort_keys=False), "utf-8")
+        engine.repo.add_config_changes(
+            iso(engine.now()), who, "profile", profile.id, config_changes(previous, body)
+        )
         return dict(profile.raw)
+
+    @app.get("/config-history")
+    def config_history(limit: int = 200) -> list[dict[str, Any]]:
+        return engine.repo.config_history(max(1, min(limit, 1000)))
 
     # Interface na mesma origem: sem CORS e sem VITE_API_URL (ADR-0010). Montada por
     # último, só atende o que nenhuma rota da API atendeu.

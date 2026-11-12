@@ -345,6 +345,7 @@ def test_corrected_zip(client: TestClient, correction_batch: Path, tmp_path: Pat
             "report.json",
             "findings.csv",
             "decisions.csv",
+            "configuracao.json",
         ]
     )
     manifest = json.loads(archive.read("manifest.json"))

@@ -26,11 +26,24 @@ const { chromium } = require("playwright");
   await page.getByLabel("Ajustar para").selectOption("cg-e3");
   const dark = page.getByLabel("dark_level");
   await dark.waitFor({ timeout: 30_000 });
+  // Sem o token de administrador, os ajustes das digitalizadoras ficam bloqueados.
+  if (!(await dark.isDisabled())) throw new Error("ajuste da digitalizadora liberado sem token");
+  if (!adminToken) {
+    console.log("sem token de administrador: pulando a edição dos ajustes");
+  } else {
+    await page.getByLabel("Token de administrador").fill(adminToken);
+    await page.getByRole("button", { name: "Destravar" }).click();
+    await page.waitForFunction(() => !document.querySelector('input[aria-label="dark_level"]').disabled);
+  }
   if ((await dark.inputValue()) !== "60") throw new Error("dark_level da estação cg-e3 deveria ser 60");
-  await dark.fill("-5");
-  await page.getByText("mínimo 0").waitFor();
-  if (await page.getByRole("button", { name: /Salvar 1 mudança/ }).isEnabled()) throw new Error("salvar liberado com valor inválido");
-  await page.getByRole("button", { name: "Descartar" }).click();
+  if (adminToken) {
+    // Sem salvar: o perfil do programa é o do pacote (o histórico é coberto nos testes do motor).
+    await dark.fill("-5");
+    await page.getByText("mínimo 0").waitFor();
+    if (await page.getByRole("button", { name: /Salvar 1 mudança/ }).isEnabled()) throw new Error("salvar liberado com valor inválido");
+    await page.getByRole("button", { name: "Descartar" }).click();
+  }
+  await page.getByText("Histórico de configuração").waitFor();
   await page.getByRole("tab", { name: "Este computador" }).click();
   const workers = page.getByLabel("Processos de análise");
   await workers.fill("0");

@@ -912,8 +912,36 @@ export interface paths {
         };
         /** Ler um perfil */
         get: operations["getProfile"];
-        /** Criar ou atualizar um perfil (validado contra o esquema) */
+        /**
+         * Criar ou atualizar um perfil (validado contra o esquema)
+         * @description Perfis, ajustes das digitalizadoras, limites de orientação e numeração: fora da
+         *     demonstração, exigem o token de administrador (`X-Admin-Token`); sem token
+         *     configurado no computador, 403. Cada mudança entra no histórico de configuração.
+         *
+         */
         put: operations["putProfile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/config-history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Histórico de configuração (mais nova primeiro)
+         * @description Quem mudou, quando, o valor anterior e o novo, para a configuração deste
+         *     computador e para os perfis. Também vai no resumo de configuração de cada lote.
+         *
+         */
+        get: operations["getConfigHistory"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -2004,6 +2032,30 @@ export interface components {
                 description?: string;
             }[];
         }[];
+        /**
+         * ConfigChange
+         * @description Uma mudança de configuração: quem mudou, quando, o valor anterior e o novo.
+         */
+        "config-change.schema": {
+            id: number;
+            /** Format: date-time */
+            at: string;
+            /** @description Usuário do Windows no programa desktop; "demonstração" na nuvem. */
+            who: string;
+            /**
+             * @description Configuração deste computador ou perfil (ajustes das digitalizadoras, regras, numeração).
+             * @enum {unknown}
+             */
+            scope: "settings" | "profile";
+            /** @description Perfil (id) ou camada de configuração (user). */
+            target: string;
+            /** @description Caminho com pontos, ex.: stations.cg-e3.overrides.black_borders.params.dark_level. */
+            key: string;
+            /** @description Valor anterior (null = não existia). */
+            before: unknown;
+            /** @description Valor novo (null = removido). */
+            after: unknown;
+        };
     };
     responses: {
         /** @description Erro */
@@ -3286,7 +3338,9 @@ export interface operations {
     putProfile: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Admin-Token"?: string;
+            };
             path: {
                 profile_id: string;
             };
@@ -3308,7 +3362,32 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+            429: components["responses"]["Problem"];
+        };
+    };
+    getConfigHistory: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Mudanças */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["config-change.schema"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
 }

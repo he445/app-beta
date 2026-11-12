@@ -1,7 +1,8 @@
 // Tela 9: perfis do cliente (limiares e regras como configuração, validados pelo motor).
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { json } from "../api/client";
+import { raw } from "../api/client";
+import { adminToken } from "../lib/admin";
 import { keys, useProfiles } from "../api/hooks";
 import type { Profile } from "../api/types";
 import { ErrorBox, Loading } from "../components/ui";
@@ -24,7 +25,12 @@ export function Profiles() {
     setSaved(false);
     try {
       const body = JSON.parse(text) as Profile;
-      await json<Profile>(`/profiles/${body.id}`, "PUT", body);
+      // Fora da demonstração, salvar perfil exige o token de administrador (o do Diagnóstico).
+      await raw(`/profiles/${body.id}`, {
+        method: "PUT",
+        body: JSON.stringify(body),
+        headers: { "Content-Type": "application/json", ...(adminToken() ? { "X-Admin-Token": adminToken() } : {}) },
+      });
       await qc.invalidateQueries({ queryKey: keys.profiles });
       setSelected(body.id);
       setSaved(true);
