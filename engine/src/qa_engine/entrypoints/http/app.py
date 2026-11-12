@@ -15,6 +15,7 @@ import logging
 import platform
 import secrets
 import shutil
+import sqlite3
 import threading
 import time
 import uuid
@@ -38,6 +39,9 @@ from qa_engine.adapters.box_locks import LOCKS_FOLDER, FolderBoxLocks
 from qa_engine.adapters.box_report_pdf import render_box_report_pdf
 from qa_engine.adapters.corrected_folder import FolderTiffWriter
 from qa_engine.adapters.corrected_zip import ZipTiffWriter
+from qa_engine.adapters.database_backup import EVERY as BACKUP_EVERY
+from qa_engine.adapters.database_backup import RETRY as BACKUP_RETRY
+from qa_engine.adapters.database_backup import backup_folder, list_backups, take_backup
 from qa_engine.adapters.feedback import SqliteFeedbackStore
 from qa_engine.adapters.images import FileImageSource
 from qa_engine.adapters.local_folder import LocalFolderSource, is_within
@@ -214,28 +218,96 @@ class Engine:
                 now=lambda: self.now(),
             )
         self._stop = threading.Event()
-        self._renewer: threading.Thread | None = None
+        self._maintenance: threading.Thread | None = None
+        self.backups = settings.mode == "desktop"
+        identity = (platform.node() or "estação", os_user())
+        self.backup_folder = (
+            backup_folder(settings.backup_dir, *identity) if settings.backup_dir else None
+        )
+        self.local_backup_folder = backup_folder(settings.data_dir / "backups", *identity)
+        self._last_backup: datetime | None = None
+        self._next_backup_try: datetime | None = None
+        self._backup_lock = threading.Lock()
 
-    def start_lock_renewal(self) -> None:
-        """Renova as travas das caixas abertas a cada minuto, a começar já (retoma as de antes)."""
-        if self.box_locks is None or self._renewer is not None:
+    def start_maintenance(self) -> None:
+        """A cada minuto: renova as travas das caixas e faz a cópia diária do banco.
+
+        A primeira rodada é já: retoma as travas de antes e copia o banco se a última
+        cópia tiver mais de um dia.
+        """
+        if (self.box_locks is None and not self.backups) or self._maintenance is not None:
             return
 
         def loop() -> None:
             while True:
                 self.renew_box_locks()
+                self.backup_if_due()
                 if self._stop.wait(RENEW_SECONDS):
                     return
 
-        self._renewer = threading.Thread(target=loop, name="box-locks", daemon=True)
-        self._renewer.start()
+        self._maintenance = threading.Thread(target=loop, name="manutencao", daemon=True)
+        self._maintenance.start()
 
-    def stop_lock_renewal(self) -> None:
-        """Para de renovar. As travas ficam: sem renovação, viram abandonadas em dez minutos."""
+    def stop_maintenance(self) -> None:
+        """Para a manutenção e copia o banco ao fechar.
+
+        As travas ficam: sem renovação, viram abandonadas em dez minutos.
+        """
         self._stop.set()
-        if self._renewer is not None:
-            self._renewer.join(timeout=5)
-            self._renewer = None
+        if self._maintenance is not None:
+            self._maintenance.join(timeout=5)
+            self._maintenance = None
+        if self.backups:
+            self.run_backup("ao fechar")
+
+    def backup_if_due(self) -> None:
+        """Cópia diária: só se a última tiver mais de um dia (e sem repetir falha a cada minuto)."""
+        if not self.backups:
+            return
+        now = self.now()
+        if self._last_backup is None:
+            newest = list_backups(self.backup_folder or self.local_backup_folder)
+            self._last_backup = newest[0].taken_at if newest else datetime.min.replace(tzinfo=UTC)
+        if now - self._last_backup < BACKUP_EVERY:
+            return
+        if self._next_backup_try is not None and now < self._next_backup_try:
+            return
+        self.run_backup("diária")
+
+    def run_backup(self, reason: str) -> Path | None:
+        """Copia o banco para ``backup_dir``; fora do ar, para ``data_dir/backups``."""
+        with self._backup_lock:
+            now = self.now()
+            db = self.settings.data_dir / "qa.sqlite3"
+            if self.backup_folder is not None:
+                try:
+                    target = take_backup(db, self.backup_folder, now)
+                except (OSError, sqlite3.Error) as exc:
+                    log.warning("cópia %s do banco na pasta compartilhada falhou: %s", reason, exc)
+                    self.record_error(exc, "engine", "cópia do banco", None, "warning")
+                    self._next_backup_try = now + BACKUP_RETRY
+                else:
+                    self._last_backup = now
+                    self._next_backup_try = None
+                    log.info("cópia %s do banco gravada", reason)
+                    return target
+            # Sem pasta compartilhada, ou com ela fora do ar: a cópia fica neste computador.
+            newest = list_backups(self.local_backup_folder)
+            if (
+                self.backup_folder is not None
+                and newest
+                and now - newest[0].taken_at < BACKUP_EVERY
+            ):
+                return None
+            try:
+                target = take_backup(db, self.local_backup_folder, now)
+            except (OSError, sqlite3.Error) as exc:
+                log.warning("cópia %s do banco neste computador falhou: %s", reason, exc)
+                self.record_error(exc, "engine", "cópia do banco", None, "warning")
+                return None
+            if self.backup_folder is None:
+                self._last_backup = now
+            return target
 
     def renew_box_locks(self) -> None:
         """Uma rodada de renovação (também chamada nos testes)."""
@@ -924,9 +996,9 @@ def create_app(
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         engine.purge()
         engine.ingest_crashes()
-        engine.start_lock_renewal()
+        engine.start_maintenance()
         yield
-        engine.stop_lock_renewal()
+        engine.stop_maintenance()
         engine.queue.shutdown(wait=False, cancel_futures=True)
         engine.corrections.shutdown(wait=False, cancel_futures=True)
         engine.repo.close()

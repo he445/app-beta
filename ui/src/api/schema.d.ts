@@ -1109,6 +1109,11 @@ export interface components {
              */
             reports_dir: string | null;
             /**
+             * @description Pasta compartilhada da rede onde o programa grava, uma vez por dia e ao fechar, uma cópia consistente do banco local (decisões e auditoria), numa subpasta por máquina e usuário, guardando as 14 mais recentes. Vazio = cópias só neste computador, em backups dentro de data_dir. Restaurar: qa backup restore. Variável: QA_BACKUP_DIR.
+             * @default null
+             */
+            backup_dir: string | null;
+            /**
              * @description Hash (scrypt) do token de administrador, gravado por `qa admin token`. Só vale no arquivo da máquina. Vazio = área de administração desligada.
              * @default null
              */
@@ -1116,7 +1121,7 @@ export interface components {
             /** @description Só no arquivo da máquina: chaves que as camadas seguintes (arquivo do usuário, variáveis e argumentos) não podem mudar. */
             locked?: {
                 /** @description Nomes das chaves travadas. */
-                keys?: ("workers" | "max_memory_mb" | "data_dir" | "output_dir" | "temp_dir" | "allowed_roots" | "default_station" | "batch_settle_seconds" | "retention_days" | "log_level" | "profiles_dir" | "ui_dir" | "demo_dir" | "models_dir" | "max_upload_mb" | "cors_origins" | "api_token" | "diagnostics_dir" | "reports_dir")[];
+                keys?: ("workers" | "max_memory_mb" | "data_dir" | "output_dir" | "temp_dir" | "allowed_roots" | "default_station" | "batch_settle_seconds" | "retention_days" | "log_level" | "profiles_dir" | "ui_dir" | "demo_dir" | "models_dir" | "max_upload_mb" | "cors_origins" | "api_token" | "diagnostics_dir" | "reports_dir" | "backup_dir")[];
             };
         };
         /**

@@ -9,18 +9,19 @@ O comando `qa` usa os mesmos casos de uso da API, sem interface. Rode com
 
 ```text
 usage: qa [-h] [--version]
-          {analyze,rules,validate-profile,admin,feedback,beta,validate-report} ...
+          {analyze,rules,validate-profile,admin,feedback,beta,backup,validate-report} ...
 
 QA automático de digitalização
 
 positional arguments:
-  {analyze,rules,validate-profile,admin,feedback,beta,validate-report}
+  {analyze,rules,validate-profile,admin,feedback,beta,backup,validate-report}
     analyze             analisar um lote local
     rules               listar as regras registradas
     validate-profile    validar um perfil contra o contrato
     admin               administração desta máquina
     feedback            coleta do beta (exemplos confirmados)
     beta                acompanhamento do piloto
+    backup              cópias do banco local (decisões e auditoria)
     validate-report     validar um report.json contra o contrato
 
 options:
@@ -146,6 +147,62 @@ options:
   --json               saída em JSON (beta-report.schema.json)
   --out OUT            gravar num arquivo em vez de mostrar
   --data-dir DATA_DIR  pasta de dados (padrão: a desta conta)
+```
+
+## `qa backup`
+
+```text
+usage: qa backup [-h] {list,now,restore} ...
+
+positional arguments:
+  {list,now,restore}
+    list              listar as cópias
+    now               fazer uma cópia agora
+    restore           restaurar uma cópia (com o programa fechado)
+
+options:
+  -h, --help          show this help message and exit
+```
+
+## `qa backup list`
+
+```text
+usage: qa backup list [-h] [--data-dir DATA_DIR] [--backup-dir BACKUP_DIR] [--all]
+
+options:
+  -h, --help            show this help message and exit
+  --data-dir DATA_DIR   pasta de dados (padrão: a desta conta)
+  --backup-dir BACKUP_DIR
+                        pasta das cópias (padrão: backup_dir da configuração)
+  --all                 de todas as máquinas e usuários
+```
+
+## `qa backup now`
+
+```text
+usage: qa backup now [-h] [--data-dir DATA_DIR] [--backup-dir BACKUP_DIR]
+
+options:
+  -h, --help            show this help message and exit
+  --data-dir DATA_DIR   pasta de dados (padrão: a desta conta)
+  --backup-dir BACKUP_DIR
+                        pasta das cópias (padrão: backup_dir da configuração)
+```
+
+## `qa backup restore`
+
+```text
+usage: qa backup restore [-h] [--data-dir DATA_DIR] [--backup-dir BACKUP_DIR] [--latest] [file]
+
+positional arguments:
+  file                  arquivo da cópia
+
+options:
+  -h, --help            show this help message and exit
+  --data-dir DATA_DIR   pasta de dados (padrão: a desta conta)
+  --backup-dir BACKUP_DIR
+                        pasta das cópias (padrão: backup_dir da configuração)
+  --latest              a cópia mais nova desta conta
 ```
 
 ## `qa validate-report`

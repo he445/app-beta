@@ -41,6 +41,25 @@ log_level = "info"
 Use aspas simples em caminhos do Windows: nelas a barra invertida não precisa ser
 dobrada.
 
+## Pastas compartilhadas da rede
+
+A TI configura, no arquivo da máquina, três pastas da rede que todas as estações
+enxergam:
+
+| Chave | Para quê |
+| --- | --- |
+| `reports_dir` | Relatórios por caixa (lidos pela [Gestão](../operacao/gestao.md)) e [travas das caixas](../especificacoes/trava-por-caixa.md) |
+| `backup_dir` | [Cópias do banco](../especificacoes/backup-do-banco.md) de cada máquina, uma vez por dia e ao fechar |
+| `diagnostics_dir` | Erros de todas as máquinas, para o [Diagnóstico](../operacao/diagnostico.md) |
+
+```toml
+reports_dir = '\\servidor\qa\relatorios'
+backup_dir = '\\servidor\qa\backups'
+diagnostics_dir = '\\servidor\qa\diagnostico'
+```
+
+Sem elas o programa funciona, mas cada coisa fica só no computador.
+
 ## Travar chaves
 
 Só o arquivo da máquina pode travar chaves. Uma chave travada não é mudada por nenhuma

@@ -69,6 +69,8 @@ class Settings:
         diagnostics_dir: pasta compartilhada de diagnóstico; vazio = só neste computador.
         reports_dir: pasta compartilhada dos relatórios por caixa (Gestão); vazio = só na
             pasta de saída deste computador.
+        backup_dir: pasta compartilhada das cópias diárias do banco; vazio = cópias em
+            ``backups`` dentro de ``data_dir``.
         admin_token_hash: hash do token de administrador; vazio = administração desligada.
         output_dir: destino do lote corrigido gravado em pasta.
         temp_dir: arquivos temporários de correção.
@@ -95,6 +97,7 @@ class Settings:
     models_dir: Path | None = None
     diagnostics_dir: Path | None = None
     reports_dir: Path | None = None
+    backup_dir: Path | None = None
     admin_token_hash: str | None = None
     output_dir: Path | None = None
     temp_dir: Path | None = None

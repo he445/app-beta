@@ -8,6 +8,13 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Backup do banco: o programa desktop copia o banco local (decisões e auditoria) pela
+  API de backup do SQLite uma vez por dia e ao fechar, para
+  `backup_dir/<máquina>/<usuário>` (nova chave, `QA_BACKUP_DIR`), guardando as 14 mais
+  recentes; sem a pasta, ou com ela fora do ar, em `data_dir/backups`, com aviso no
+  Diagnóstico e nova tentativa depois de uma hora. `qa backup list`, `now` e
+  `restore` (também no `QA-suporte.exe`): restaurar exige o programa fechado, confere a
+  integridade e a versão da cópia e guarda o banco atual ao lado.
 - Trava por caixa (ADR-0019): abrir um lote por pasta trava cada caixa num arquivo em
   `reports_dir/travas` (sem a pasta, ou com ela fora do ar, só neste computador), com
   conferente, máquina e horário, renovado a cada minuto e apagado quando a caixa é

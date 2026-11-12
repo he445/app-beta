@@ -93,6 +93,7 @@ nav:
       - Relatório por caixa: especificacoes/relatorio-por-caixa.md
       - Gestão: especificacoes/gestao.md
       - Trava por caixa: especificacoes/trava-por-caixa.md
+      - Backup do banco: especificacoes/backup-do-banco.md
       - Correções e lote corrigido: especificacoes/corrections.md
       - Pontuação e veredito: especificacoes/scoring.md
       - Metadados: especificacoes/metadata.md

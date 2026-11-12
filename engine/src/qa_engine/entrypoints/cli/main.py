@@ -9,6 +9,8 @@ Exemplos::
     qa admin token                         # gera o token de administrador desta máquina
     qa feedback export --out coleta.zip    # exemplos do beta para o ajuste fino (só local)
     qa beta report --since 2026-12-01      # métricas do piloto a partir do banco local
+    qa backup list --all                   # cópias do banco de todas as máquinas
+    qa backup restore --latest             # volta a cópia mais nova (programa fechado)
 """
 
 from __future__ import annotations
@@ -190,6 +192,105 @@ def _beta_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def _backup_places(args: argparse.Namespace) -> tuple[Path, Path, Path]:
+    """Banco, pasta raiz das cópias e pasta desta máquina e deste usuário."""
+    import getpass
+    import platform
+
+    from qa_engine.adapters.database_backup import backup_folder
+
+    data_dir = _data_dir(args)
+    root: Path | None = args.backup_dir
+    if root is None and not args.data_dir:
+        from qa_engine.adapters.paths import AppPaths
+        from qa_engine.adapters.settings import LayeredSettings
+
+        root = LayeredSettings.for_desktop(AppPaths.detect()).load().settings.backup_dir
+    root = root or data_dir / "backups"
+    try:
+        user = getpass.getuser()
+    except (KeyError, OSError):
+        user = "usuário"
+    return data_dir / "qa.sqlite3", root, backup_folder(root, platform.node() or "estação", user)
+
+
+def _backup_list(args: argparse.Namespace) -> int:
+    """Lista as cópias desta máquina (ou de todas, com --all)."""
+    from qa_engine.adapters.database_backup import all_backups, list_backups
+
+    _, root, mine = _backup_places(args)
+    if args.all:
+        rows = [(f"{m}/{u}", b) for m, u, b in all_backups(root)]
+    else:
+        rows = [("", b) for b in list_backups(mine)]
+    if not rows:
+        print(f"nenhuma cópia em {root if args.all else mine}")
+        return 1
+    for who, item in rows:
+        when = item.taken_at.astimezone().strftime("%d/%m/%Y %H:%M:%S")
+        size = item.path.stat().st_size / 1024
+        print(f"{when}  {size:9.0f} KB  {who + '  ' if who else ''}{item.path}")
+    return 0
+
+
+def _backup_now(args: argparse.Namespace) -> int:
+    """Faz uma cópia agora (também com o programa aberto: a API de backup é consistente)."""
+    import sqlite3
+    from datetime import UTC, datetime
+
+    from qa_engine.adapters.database_backup import take_backup
+
+    db, _, mine = _backup_places(args)
+    if not db.is_file():
+        print(f"banco não encontrado em {db}: nada a copiar", file=sys.stderr)
+        return 1
+    try:
+        target = take_backup(db, mine, datetime.now(tz=UTC))
+    except (OSError, sqlite3.Error) as exc:
+        print(f"a cópia falhou: {exc}", file=sys.stderr)
+        return 1
+    print(f"cópia gravada em {target}")
+    return 0
+
+
+def _backup_restore(args: argparse.Namespace) -> int:
+    """Troca o banco desta conta por uma cópia; o atual é guardado ao lado antes."""
+    from datetime import UTC, datetime
+
+    from qa_engine.adapters.database_backup import BackupError, list_backups, restore_backup
+    from qa_engine.adapters.instance import InstanceLock
+    from qa_engine.adapters.sqlite import SqliteRepository
+
+    db, _, mine = _backup_places(args)
+    if args.file is not None:
+        chosen = args.file
+    elif args.latest:
+        newest = list_backups(mine)
+        if not newest:
+            print(f"nenhuma cópia em {mine}; use qa backup list --all", file=sys.stderr)
+            return 1
+        chosen = newest[0].path
+    else:
+        print("diga qual cópia: o arquivo ou --latest (veja qa backup list)", file=sys.stderr)
+        return 2
+    lock = InstanceLock(db.parent)
+    if not lock.acquire():
+        print("feche o programa antes de restaurar (ele está aberto nesta conta)", file=sys.stderr)
+        return 1
+    try:
+        previous = restore_backup(chosen, db, datetime.now(tz=UTC))
+    except BackupError as exc:
+        print(f"não restaurado: {exc}", file=sys.stderr)
+        return 1
+    finally:
+        lock.release()
+    SqliteRepository(db).close()  # cópia de versão anterior: aplica as migrações que faltam
+    print(f"banco restaurado de {chosen}")
+    if previous is not None:
+        print(f"o banco que existia foi guardado em {previous}")
+    return 0
+
+
 def _rules(_: argparse.Namespace) -> int:
     for rule in RULES:
         m = manifest(rule)
@@ -266,6 +367,25 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument("--out", type=Path, help="gravar num arquivo em vez de mostrar")
     report.add_argument("--data-dir", type=Path, help="pasta de dados (padrão: a desta conta)")
     report.set_defaults(func=_beta_report)
+
+    backup = sub.add_parser("backup", help="cópias do banco local (decisões e auditoria)")
+    backup_sub = backup.add_subparsers(dest="backup_command", required=True)
+    places = argparse.ArgumentParser(add_help=False)
+    places.add_argument("--data-dir", type=Path, help="pasta de dados (padrão: a desta conta)")
+    places.add_argument(
+        "--backup-dir", type=Path, help="pasta das cópias (padrão: backup_dir da configuração)"
+    )
+    blist = backup_sub.add_parser("list", parents=[places], help="listar as cópias")
+    blist.add_argument("--all", action="store_true", help="de todas as máquinas e usuários")
+    blist.set_defaults(func=_backup_list)
+    bnow = backup_sub.add_parser("now", parents=[places], help="fazer uma cópia agora")
+    bnow.set_defaults(func=_backup_now)
+    restore = backup_sub.add_parser(
+        "restore", parents=[places], help="restaurar uma cópia (com o programa fechado)"
+    )
+    restore.add_argument("file", type=Path, nargs="?", help="arquivo da cópia")
+    restore.add_argument("--latest", action="store_true", help="a cópia mais nova desta conta")
+    restore.set_defaults(func=_backup_restore)
 
     vr = sub.add_parser("validate-report", help="validar um report.json contra o contrato")
     vr.add_argument("report", type=Path)
