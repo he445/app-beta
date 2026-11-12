@@ -225,6 +225,24 @@
         }
       },
       "description": "Coleta do beta (docs/especificacoes/coleta-do-beta.md). Depende do aval de quem cuida de LGPD."
+    },
+    "delivery_metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "description": "Metadados do Decreto 10.278/2020 no lote corrigido (docs/especificacoes/metadata.md). As tags técnicas do original, a marca da correção nas tags de software e data e hashes.sha256 vão sempre; aqui se escolhe onde vão os campos do Decreto.",
+      "properties": {
+        "embed_xmp": {
+          "type": "boolean",
+          "default": true,
+          "description": "Gravar os campos do Decreto num XMP dentro de cada TIFF entregue."
+        },
+        "document_file": {
+          "type": "boolean",
+          "default": true,
+          "description": "Gravar metadados/<processo>.json com o valor e a origem de cada campo e o SHA-256 de cada arquivo."
+        }
+      }
     }
   }
 }

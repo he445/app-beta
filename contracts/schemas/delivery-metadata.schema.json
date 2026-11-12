@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "delivery-metadata.schema.json",
+  "title": "DeliveryMetadata",
+  "description": "metadados/<processo>.json do lote corrigido: os campos do Decreto 10.278/2020 e os técnicos, com o valor e a origem de cada um, e o SHA-256 de cada arquivo entregue.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "batch_id", "batch_name", "document", "folder", "generated_at", "engine_version", "embedded_xmp", "decree", "technical", "files"],
+  "$defs": {
+    "field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "value", "source", "source_label", "confidence", "confirmed", "required_by_decree"],
+      "properties": {
+        "name": { "type": "string" },
+        "value": { "description": "Valor efetivo (null = não disponível)." },
+        "source": {
+          "enum": ["file_tag", "file_mtime", "profile", "generated", "computed", "ocr", "reviewer", "unavailable"],
+          "description": "Origem do valor: do arquivo, data do arquivo, do perfil, gerado, calculado, OCR, informado pelo revisor ou não disponível."
+        },
+        "source_label": { "type": "string", "description": "A origem em português, para quem lê o arquivo." },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "confirmed": { "type": "boolean", "description": "Confirmado pelo revisor na tela de Metadados." },
+        "required_by_decree": { "type": "boolean" }
+      }
+    }
+  },
+  "properties": {
+    "schema_version": { "const": "1" },
+    "batch_id": { "type": "string" },
+    "batch_name": { "type": "string" },
+    "document": { "type": "string", "description": "Processo (documento)." },
+    "folder": { "type": "string", "description": "Pasta do processo no lote corrigido (vazio = raiz)." },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "engine_version": { "type": "string" },
+    "embedded_xmp": { "type": "boolean", "description": "Os campos do Decreto também foram gravados num XMP dentro de cada TIFF." },
+    "decree": { "type": "array", "items": { "$ref": "#/$defs/field" }, "description": "Anexo II, item a, na ordem do Decreto." },
+    "technical": { "type": "array", "items": { "$ref": "#/$defs/field" }, "description": "Técnicos (Anexo I) do arquivo original." },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["target_file", "sha256", "source_file", "source_page", "source_sha256", "corrected", "changes", "preserved_tags", "xmp"],
+        "properties": {
+          "target_file": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 do arquivo entregue." },
+          "source_file": { "type": "string" },
+          "source_page": { "type": "integer", "minimum": 0 },
+          "source_sha256": { "type": "string" },
+          "corrected": { "type": "boolean", "description": "A imagem foi corrigida (a tag DateTime passa a ser a da correção; a original vai para DateTimeOriginal no XMP)." },
+          "changes": { "type": "array", "items": { "type": "string" }, "description": "O que o programa fez com a página (também na tag Software)." },
+          "preserved_tags": { "type": "array", "items": { "type": "integer" }, "description": "Números das tags TIFF do original mantidas no arquivo entregue." },
+          "xmp": { "enum": ["decree", "original", null], "description": "decree: XMP com os campos do Decreto; original: o XMP que o original já tinha foi mantido; null: sem XMP." }
+        }
+      }
+    }
+  }
+}

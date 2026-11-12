@@ -41,6 +41,9 @@ limiares, e como a numeração e as estações são tratadas.
 | `feedback` | objeto |  |  | Coleta do beta (docs/especificacoes/coleta-do-beta.md). Depende do aval de quem cuida de LGPD. |
 | `feedback.enabled` | sim/não |  | `false` | Guardar as confirmações do garantidor como exemplos rotulados (só nesta máquina). |
 | `feedback.retention_days` | inteiro |  | `180` | Dias até um exemplo ser apagado. mín. 1, máx. 3650 |
+| `delivery_metadata` | objeto |  |  | Metadados do Decreto 10.278/2020 no lote corrigido (docs/especificacoes/metadata.md). As tags técnicas do original, a marca da correção nas tags de software e data e hashes.sha256 vão sempre; aqui se escolhe onde vão os campos do Decreto. |
+| `delivery_metadata.embed_xmp` | sim/não |  | `true` | Gravar os campos do Decreto num XMP dentro de cada TIFF entregue. |
+| `delivery_metadata.document_file` | sim/não |  | `true` | Gravar metadados/<processo>.json com o valor e a origem de cada campo e o SHA-256 de cada arquivo. |
 
 ## Regras e parâmetros
 

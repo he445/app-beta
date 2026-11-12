@@ -308,8 +308,10 @@ def test_local_batch_is_read_in_place_and_exported_to_a_folder(
         "configuracao.json",
         "decisions.csv",
         "findings.csv",
+        "hashes.sha256",
         "manifest.csv",
         "manifest.json",
+        "metadados/Processo 1.json",
         "report.json",
     ]
     assert body["sha256"] == hashlib.sha256((out / "manifest.json").read_bytes()).hexdigest()

@@ -2150,6 +2150,19 @@ export interface components {
                  */
                 retention_days: number;
             };
+            /** @description Metadados do Decreto 10.278/2020 no lote corrigido (docs/especificacoes/metadata.md). As tags técnicas do original, a marca da correção nas tags de software e data e hashes.sha256 vão sempre; aqui se escolhe onde vão os campos do Decreto. */
+            delivery_metadata?: {
+                /**
+                 * @description Gravar os campos do Decreto num XMP dentro de cada TIFF entregue.
+                 * @default true
+                 */
+                embed_xmp: boolean;
+                /**
+                 * @description Gravar metadados/<processo>.json com o valor e a origem de cada campo e o SHA-256 de cada arquivo.
+                 * @default true
+                 */
+                document_file: boolean;
+            };
         };
         /**
          * ProfileRules

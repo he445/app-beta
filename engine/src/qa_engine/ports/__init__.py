@@ -72,11 +72,30 @@ class FileMetadata:
     modified_at: datetime | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class PreservedTags:
+    """Tags do arquivo original que vão para a página do lote corrigido.
+
+    ``main`` são as tags do diretório principal do TIFF (número → (tipo TIFF, valor)),
+    sem as estruturais (tamanho, compressão, faixas), que o gravador refaz. ``exif`` são
+    valores da sub-IFD EXIF (data original, número de série), levados no XMP.
+    """
+
+    main: Mapping[int, tuple[int, Any]] = field(default_factory=dict)
+    exif: Mapping[str, str] = field(default_factory=dict)
+    xmp: bytes | None = None
+    """XMP que o original já tinha: é mantido como veio."""
+
+
 class MetadataReader(Protocol):
     """Lê metadados técnicos de um arquivo."""
 
     def read(self, path: Path) -> FileMetadata:
         """Metadados do arquivo. Não levanta exceção por tag ausente."""
+        ...
+
+    def preserved(self, path: Path, page_in_file: int) -> PreservedTags:
+        """Tags a preservar de uma página (vazio para formatos sem tags ou ilegíveis)."""
         ...
 
 
@@ -195,12 +214,18 @@ class CorrectedBatchWriter(Protocol):
         dpi: float | None,
         bilevel: bool,
         tags: Mapping[str, str],
+        preserved: PreservedTags | None = None,
+        xmp: bytes | None = None,
     ) -> str:
-        """Grava uma página; devolve o SHA-256 do arquivo escrito."""
+        """Grava uma página; devolve o SHA-256 do arquivo escrito.
+
+        ``tags`` (software, data...) têm prioridade sobre as ``preserved`` do original;
+        ``xmp`` só é gravado quando o original não tinha XMP.
+        """
         ...
 
-    def add_text(self, path: str, text: str) -> None:
-        """Grava um arquivo de texto (manifesto)."""
+    def add_text(self, path: str, text: str) -> str:
+        """Grava um arquivo de texto (manifesto); devolve o SHA-256 do que foi escrito."""
         ...
 
     def close(self) -> tuple[Path, str, int]:

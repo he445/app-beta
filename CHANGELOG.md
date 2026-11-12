@@ -8,6 +8,14 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Metadados do Decreto no lote corrigido (ADR-0020): cada TIFF entregue preserva as tags
+  técnicas do original byte a byte (do JPEG e PNG, as de captura do EXIF), a tag
+  Software registra o que o programa fez com a página e DateTime passa a ser a da
+  correção só na página corrigida; os campos do Decreto vão num XMP (Dublin Core e o
+  espaço de nomes do programa) e em `metadados/<processo>.json` com valor e origem de
+  cada campo (`delivery-metadata.schema.json`); `hashes.sha256` lista o SHA-256 de cada
+  arquivo entregue. O perfil escolhe onde vão os campos (`delivery_metadata`, padrão nos
+  dois) até a coordenação confirmar o formato com o cliente.
 - Backup do banco: o programa desktop copia o banco local (decisões e auditoria) pela
   API de backup do SQLite uma vez por dia e ao fechar, para
   `backup_dir/<máquina>/<usuário>` (nova chave, `QA_BACKUP_DIR`), guardando as 14 mais

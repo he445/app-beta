@@ -26,6 +26,9 @@ feedback:                      # coleta do beta, só nesta máquina (aval de LGP
   enabled: true
   retention_days: 180
 identifier_pattern: "{batch}-{document}"
+delivery_metadata:             # campos do Decreto no lote corrigido (formato a confirmar com o cliente)
+  embed_xmp: true              # XMP dentro de cada TIFF
+  document_file: true          # metadados/<processo>.json com a origem de cada valor
 stations:
   - id: cg-e3
     make: Kodak

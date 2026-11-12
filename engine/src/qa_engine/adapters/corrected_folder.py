@@ -16,6 +16,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from qa_engine.adapters.corrected_zip import encode_tiff
+from qa_engine.ports import PreservedTags
 
 MANIFEST = "manifest.json"
 
@@ -56,18 +57,21 @@ class FolderTiffWriter:
         dpi: float | None,
         bilevel: bool,
         tags: Mapping[str, str],
+        preserved: PreservedTags | None = None,
+        xmp: bytes | None = None,
     ) -> str:
         """Grava a página em TIFF Deflate; devolve o SHA-256 do arquivo."""
-        data = encode_tiff(image, dpi, bilevel, tags)
+        data = encode_tiff(image, dpi, bilevel, tags, preserved, xmp)
         self._path(path).write_bytes(data)
         self._size += len(data)
         return hashlib.sha256(data).hexdigest()
 
-    def add_text(self, path: str, text: str) -> None:
-        """Grava um arquivo de texto UTF-8."""
+    def add_text(self, path: str, text: str) -> str:
+        """Grava um arquivo de texto UTF-8; devolve o SHA-256."""
         data = text.encode("utf-8")
         self._path(path).write_bytes(data)
         self._size += len(data)
+        return hashlib.sha256(data).hexdigest()
 
     def close(self) -> tuple[Path, str, int]:
         """Renomeia a pasta temporária para o nome final.

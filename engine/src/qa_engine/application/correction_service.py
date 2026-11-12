@@ -34,6 +34,16 @@ from qa_engine.application.corrections import (
     refresh_page,
     render_chain,
 )
+from qa_engine.application.delivery_metadata import (
+    HASHES_FILE,
+    document_metadata_file,
+    exif_datetime,
+    hashes_text,
+    metadata_file_name,
+    page_changes,
+    software_tag,
+    xmp_packet,
+)
 from qa_engine.application.exports import decisions_csv, findings_csv
 from qa_engine.application.profile import Profile
 from qa_engine.application.review import decide, finding_from_json, recompute_summary
@@ -47,6 +57,7 @@ from qa_engine.ports import (
     LoadError,
     MetadataReader,
     PageVersionStore,
+    PreservedTags,
     ReviewStore,
 )
 
@@ -598,6 +609,9 @@ class CorrectionService:
         pages = {p["id"]: p for p in report["pages"]}
         parsed = [finding_from_json(f) for f in report["findings"]]
         tags_cache: dict[str, dict[str, str]] = {}
+        profile = ctx.profile
+        metadata_by_doc: Mapping[str, Sequence[Mapping[str, Any]]] = report.get("metadata", {})
+        delivered: list[tuple[str, str]] = []
         writer = writer_factory(now)
         try:
             for doc in plan["documents"]:
@@ -605,18 +619,76 @@ class CorrectionService:
                     (p for p in doc["pages"] if p["status"] == "exported"),
                     key=lambda p: p["new_position"],
                 )
+                fields = metadata_by_doc.get(doc["document_id"], [])
+                files: list[dict[str, Any]] = []
                 for item in exported:
                     page = pages[item["page_id"]]
                     image = self._final_image(ctx, page, parsed)
                     if image is None:
                         image = self._loader(ctx, page)()
+                    original = self._tags(ctx, page["source_file"], tags_cache)
+                    preserved = self._preserved(ctx, page)
+                    changes = page_changes(item)
+                    tags = dict(original)
+                    tags["software"] = software_tag(
+                        original.get("software"), self.engine_version, changes
+                    )
+                    exif = dict(preserved.exif)
+                    if item["corrected"]:
+                        tags["datetime"] = exif_datetime(now)
+                        if original.get("datetime"):
+                            exif.setdefault("DateTimeOriginal", original["datetime"])
+                    xmp = (
+                        xmp_packet(
+                            fields,
+                            source_file=str(page["source_file"]),
+                            source_sha256=str(item["source_sha256"]),
+                            changes=changes,
+                            engine_version=self.engine_version,
+                            corrected_at=now if item["corrected"] else None,
+                            exif=exif,
+                        )
+                        if profile.delivery_xmp
+                        else None
+                    )
                     item["target_sha256"] = writer.add_page(
                         item["target_file"],
                         image,
                         item["dpi"],
                         page.get("color_mode") == "bilevel",
-                        self._tags(ctx, page["source_file"], tags_cache),
+                        tags,
+                        preserved,
+                        xmp,
                     )
+                    delivered.append((item["target_file"], item["target_sha256"]))
+                    files.append(
+                        {
+                            "target_file": item["target_file"],
+                            "sha256": item["target_sha256"],
+                            "source_file": page["source_file"],
+                            "source_page": page["page_in_file"],
+                            "source_sha256": item["source_sha256"],
+                            "corrected": item["corrected"],
+                            "changes": changes,
+                            "preserved_tags": sorted(preserved.main),
+                            "xmp": "original" if preserved.xmp else ("decree" if xmp else None),
+                        }
+                    )
+                if profile.delivery_document_file and files:
+                    meta = document_metadata_file(
+                        doc,
+                        fields,
+                        files,
+                        batch_id=ctx.batch_id,
+                        batch_name=ctx.name,
+                        generated_at=iso(now),
+                        engine_version=self.engine_version,
+                        embedded_xmp=profile.delivery_xmp,
+                    )
+                    validate(meta, "delivery-metadata.schema.json")
+                    name = metadata_file_name(doc)
+                    text = json.dumps(meta, ensure_ascii=False, indent=2) + "\n"
+                    delivered.append((name, writer.add_text(name, text)))
             manifest = {
                 "batch_id": ctx.batch_id,
                 "batch_name": ctx.name,
@@ -630,17 +702,20 @@ class CorrectionService:
                 "documents": plan["documents"],
             }
             validate(manifest, "corrected-manifest.schema.json")
-            writer.add_text(
-                "manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2) + "\n"
-            )
-            writer.add_text("manifest.csv", manifest_csv(manifest))
-            writer.add_text("report.json", json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+            texts = [
+                ("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2) + "\n"),
+                ("manifest.csv", manifest_csv(manifest)),
+                ("report.json", json.dumps(report, ensure_ascii=False, indent=2) + "\n"),
+            ]
             summary = ctx.work / "configuracao.json" if ctx.work is not None else None
             if summary is not None and summary.is_file():
-                writer.add_text("configuracao.json", summary.read_text("utf-8"))
+                texts.append(("configuracao.json", summary.read_text("utf-8")))
             page_index = {p["id"]: p for p in report["pages"]}
-            writer.add_text("findings.csv", findings_csv(report["findings"], page_index))
-            writer.add_text("decisions.csv", decisions_csv(self.store.decision_log(ctx.batch_id)))
+            texts.append(("findings.csv", findings_csv(report["findings"], page_index)))
+            texts.append(("decisions.csv", decisions_csv(self.store.decision_log(ctx.batch_id))))
+            for name, text in texts:
+                delivered.append((name, writer.add_text(name, text)))
+            writer.add_text(HASHES_FILE, hashes_text(delivered))
             path, sha, size = writer.close()
         except BaseException:
             writer.abort()
@@ -670,7 +745,15 @@ class CorrectionService:
                 tags = dict(self.metadata.read(page_path(ctx.root, ctx.work, source)).tags)
             except OSError:
                 tags = {}
-            kept = {k: str(tags[k]) for k in ("make", "model", "datetime", "artist") if tags.get(k)}
-            kept["software"] = f"qa-digitalizacao {self.engine_version} (lote corrigido)"
-            cache[source] = kept
+            keys = ("make", "model", "datetime", "artist", "software")
+            cache[source] = {k: str(tags[k]) for k in keys if tags.get(k)}
         return cache[source]
+
+    def _preserved(self, ctx: BatchContext, page: Mapping[str, Any]) -> PreservedTags:
+        """Tags do original a manter na página entregue (ilegível: nenhuma)."""
+        try:
+            return self.metadata.preserved(
+                page_path(ctx.root, ctx.work, page["source_file"]), int(page["page_in_file"])
+            )
+        except OSError:
+            return PreservedTags()

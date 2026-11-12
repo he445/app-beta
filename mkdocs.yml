@@ -80,6 +80,7 @@ nav:
           - "0017 Documentação numa pasta só": adr/0017-documentacao-em-uma-pasta.md
           - "0018 Liberação por processo": adr/0018-liberacao-por-processo.md
           - "0019 Trava por caixa": adr/0019-trava-por-caixa-na-pasta-compartilhada.md
+          - "0020 Metadados do Decreto no lote corrigido": adr/0020-metadados-do-decreto-no-lote-corrigido.md
           - Modelo: adr/0000-template.md
   - Especificações:
       - especificacoes/index.md

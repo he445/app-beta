@@ -91,8 +91,11 @@ um arquivo multipágina vira uma pasta com o nome do arquivo sem extensão.
 - TIFF com compressão **sem perda** (Deflate, tag 259 = 8), nunca JPEG (Decreto
   10.278/2020, Anexo I);
 - DPI do original (PDF: 300 dpi, a resolução de rasterização);
-- monocromático continua em 1 bit; tags de captura (fabricante, modelo, data, operador)
-  copiadas do original, `Software` = `qa-digitalizacao <versão> (lote corrigido)`;
+- monocromático continua em 1 bit; as tags técnicas do original são preservadas, a tag
+  `Software` registra o que o programa fez com a página e os campos do Decreto vão num
+  XMP e em `metadados/<processo>.json`
+  ([metadados no lote corrigido](metadata.md#no-lote-corrigido));
+- `hashes.sha256`: SHA-256 de cada arquivo entregue, no formato do `sha256sum`;
 - `manifest.json` (`contracts/schemas/corrected-manifest.schema.json`) e `manifest.csv`:
   arquivo e página de origem, arquivo de destino, posição antiga e nova, correções com
   quem decidiu e quando, SHA-256 de origem e destino, removidas e o motivo,

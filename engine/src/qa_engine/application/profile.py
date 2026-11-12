@@ -67,6 +67,10 @@ class Profile:
     feedback_enabled: bool = False
     """Coleta do beta: guardar as confirmações do garantidor como exemplos rotulados."""
     feedback_retention_days: int = 180
+    delivery_xmp: bool = True
+    """Campos do Decreto num XMP dentro de cada TIFF do lote corrigido."""
+    delivery_document_file: bool = True
+    """Arquivo ``metadados/<processo>.json`` no lote corrigido."""
     raw: Mapping[str, Any] = field(default_factory=dict)
 
     def station(self, station_id: str | None) -> Station | None:
@@ -193,6 +197,8 @@ def profile_from_dict(data: Mapping[str, Any]) -> Profile:
         identifier_pattern=str(data.get("identifier_pattern", "{batch}-{document}")),
         feedback_enabled=bool(data.get("feedback", {}).get("enabled", False)),
         feedback_retention_days=int(data.get("feedback", {}).get("retention_days", 180)),
+        delivery_xmp=bool(data.get("delivery_metadata", {}).get("embed_xmp", True)),
+        delivery_document_file=bool(data.get("delivery_metadata", {}).get("document_file", True)),
         numbering_reader=NumberingImageConfig(
             regions=tuple(
                 (float(r[0]), float(r[1]), float(r[2]), float(r[3]))
