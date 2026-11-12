@@ -58,6 +58,7 @@ nav:
       - Coleta e relatório do beta: operacao/beta.md
       - Gestão: operacao/gestao.md
       - Backup do banco: operacao/backup.md
+      - Atualizar e voltar versão: operacao/atualizar-e-voltar-versao.md
   - Arquitetura:
       - arquitetura/index.md
       - Diagramas C4: arquitetura/c4.md

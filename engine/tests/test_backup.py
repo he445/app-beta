@@ -93,3 +93,48 @@ def test_only_the_newest_copies_are_kept_and_bad_copies_are_refused(tmp_path: Pa
     assert check(bad) == "não é um banco do programa"
     assert cli(["backup", "restore", str(bad), "--data-dir", str(tmp_path / "dados")]) == 1
     assert not (tmp_path / "dados" / "qa.sqlite3").exists()
+
+
+def test_update_copies_the_database_first_and_going_back_restores_that_copy(tmp_path: Path) -> None:
+    from importlib import resources
+
+    import pytest
+
+    from qa_engine.adapters.sqlite import NewerDatabaseError
+
+    data_dir = tmp_path / "dados"
+    data_dir.mkdir()
+    database = data_dir / "qa.sqlite3"
+    # Banco da versão anterior: só a primeira migração aplicada.
+    first = (resources.files("qa_engine.adapters") / "migrations" / "0001_init.sql").read_text(
+        "utf-8"
+    )
+    conn = sqlite3.connect(database)
+    conn.executescript(
+        "CREATE TABLE schema_migrations (name TEXT PRIMARY KEY);"
+        + first
+        + "\nINSERT INTO schema_migrations VALUES ('0001_init.sql');"
+    )
+    conn.close()
+
+    before = data_dir / "backups" / "antes-de-atualizar"
+    SqliteRepository(database, before_update_dir=before).close()  # a versão nova abre
+    copies = list(before.iterdir())
+    assert len(copies) == 1 and copies[0].name.startswith("qa-antes-de-atualizar-0001_init-")
+    old = sqlite3.connect(copies[0])
+    assert [r[0] for r in old.execute("SELECT name FROM schema_migrations")] == ["0001_init.sql"]
+    old.close()
+
+    # A versão nova aplicou migrações que a anterior não conhece: ela recusa abrir.
+    conn = sqlite3.connect(database)
+    conn.execute("INSERT INTO schema_migrations VALUES ('9999_futuro.sql')")
+    conn.commit()
+    conn.close()
+    with pytest.raises(NewerDatabaseError) as refused:
+        SqliteRepository(database)
+    assert refused.value.migrations == ["9999_futuro.sql"]
+
+    # Voltar versão: restaurar a cópia de antes da atualização.
+    assert cli(["backup", "restore", "--before-update", "--data-dir", str(data_dir)]) == 0
+    SqliteRepository(database).close()  # abre de novo (e reaplica o que falta)
+    assert any(p.name.startswith("qa.sqlite3.antes-da-restauracao-") for p in data_dir.iterdir())

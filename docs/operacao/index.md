@@ -7,6 +7,7 @@ Para quem usa o programa no dia a dia.
 | [Interface de revisão](interface.md) | As telas, a fila de revisão, os atalhos de teclado, "Corrigir tudo" e o lote corrigido |
 | [Diagnóstico](diagnostico.md) | Erros de todas as máquinas, para o suporte (token de administrador) |
 | [Configurações](configuracoes.md) | Ajustes das digitalizadoras e deste computador, no programa desktop |
+| [Atualizar e voltar versão](atualizar-e-voltar-versao.md) | Trocar de versão sem perder dados e voltar à anterior em minutos |
 | [Backup do banco](backup.md) | Cópias automáticas das decisões e da auditoria, e como restaurar |
 | [Gestão](gestao.md) | Caixas concluídas por conferente, de todas as máquinas, e a versão de cada estação |
 | [Coleta e relatório do beta](beta.md) | O que o programa guarda das confirmações e as métricas do piloto (`beta report`) |

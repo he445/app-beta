@@ -174,7 +174,10 @@ class Engine:
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
-        self.repo = SqliteRepository(settings.data_dir / "qa.sqlite3")
+        self.repo = SqliteRepository(
+            settings.data_dir / "qa.sqlite3",
+            before_update_dir=settings.data_dir / "backups" / BEFORE_UPDATE_DIR,
+        )
         self.queue = ThreadPoolExecutor(max_workers=1, thread_name_prefix="analysis")
         self.corrections = ThreadPoolExecutor(max_workers=1, thread_name_prefix="corrections")
         self.images = FileImageSource()
@@ -848,6 +851,8 @@ class Engine:
             self.repo.fail(batch_id, f"{exc.__class__.__name__}: {exc}"[:500])
 
 
+BEFORE_UPDATE_DIR = "antes-de-atualizar"
+"""Cópias do banco feitas antes de uma versão nova mudar o esquema (para voltar versão)."""
 BACKUP_EVERY_SECONDS = 24 * 3600
 """Uma cópia do banco por dia (além da cópia ao fechar)."""
 BACKUP_CHECK_SECONDS = 3600

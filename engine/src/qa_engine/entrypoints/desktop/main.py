@@ -37,6 +37,7 @@ from qa_engine.adapters.instance import InstanceLock
 from qa_engine.adapters.logs import setup_file_logging, write_crash
 from qa_engine.adapters.paths import AppPaths
 from qa_engine.adapters.settings import LayeredSettings, parse_overrides
+from qa_engine.adapters.sqlite import NewerDatabaseError
 from qa_engine.application.settings import Settings, SettingsError
 from qa_engine.ports import SettingsSource
 
@@ -389,6 +390,21 @@ def main(argv: Sequence[str] | None = None) -> int:
             open_browser(server)
         server.stop()
         return 0
+    except NewerDatabaseError as exc:
+        # Voltou para uma versão anterior: o banco já está numa migração mais nova.
+        show_error(
+            [
+                f"Os dados deste computador foram atualizados por uma versão mais nova do "
+                f"programa (migração {exc.migrations[-1]}); esta é a {__version__}.",
+                "Para continuar nesta versão, restaure a cópia feita antes da atualização "
+                "(as decisões tomadas na versão nova depois dela não voltam):",
+                "QA-suporte.exe backup restore --before-update",
+                "Ou abra de novo a versão mais nova.",
+            ],
+            "Versão anterior do programa.",
+            args.headless,
+        )
+        return 3
     except Exception as exc:
         crash = write_crash(base.data_dir / "logs", exc, __version__)
         show_error([str(exc), f"Detalhes em {crash}"], "Erro ao abrir o programa.", args.headless)

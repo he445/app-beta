@@ -53,11 +53,30 @@ class BatchRow:
         return data
 
 
+class NewerDatabaseError(Exception):
+    """O banco tem migrações que este programa não conhece (versão mais nova o abriu)."""
+
+    def __init__(self, migrations: list[str]) -> None:
+        super().__init__(", ".join(migrations))
+        self.migrations = migrations
+
+
 class SqliteRepository:
     """Armazenamento de lotes, sinalizações e decisões num único arquivo."""
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, before_update_dir: Path | None = None) -> None:
+        """Abre (e atualiza) o banco.
+
+        Args:
+            path: arquivo do banco.
+            before_update_dir: onde guardar a cópia do banco antes de aplicar migrações
+                novas (atualização do programa); ``None`` = não copia.
+
+        Raises:
+            NewerDatabaseError: o banco foi atualizado por uma versão mais nova do programa.
+        """
         path.parent.mkdir(parents=True, exist_ok=True)
+        self._before_update_dir = before_update_dir
         self._conn = sqlite3.connect(path, check_same_thread=False, isolation_level=None)
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA foreign_keys = ON")
@@ -97,6 +116,22 @@ class SqliteRepository:
             )
             applied = {r[0] for r in self._conn.execute("SELECT name FROM schema_migrations")}
             folder = resources.files("qa_engine.adapters") / "migrations"
+            known = {item.name for item in folder.iterdir() if item.name.endswith(".sql")}
+            newer = sorted(applied - known)
+            if newer:
+                self._conn.close()
+                raise NewerDatabaseError(newer)
+            pending = sorted(known - applied)
+            if pending and applied and self._before_update_dir is not None:
+                # Atualização do programa: cópia do banco antes de mudar o esquema.
+                from datetime import datetime
+
+                from qa_engine.adapters.backup import copy_database
+
+                stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+                last = sorted(applied)[-1].removesuffix(".sql")
+                name = f"qa-antes-de-atualizar-{last}-{stamp}.sqlite3"
+                copy_database(self._conn, self._before_update_dir / name)
             for item in sorted(folder.iterdir(), key=lambda p: p.name):
                 if not item.name.endswith(".sql") or item.name in applied:
                     continue

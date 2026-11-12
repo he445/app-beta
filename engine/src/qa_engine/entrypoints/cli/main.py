@@ -251,9 +251,21 @@ def _backup_restore(args: argparse.Namespace) -> int:
     from qa_engine.adapters.backup import restore
     from qa_engine.adapters.instance import InstanceLock
 
-    source = Path(args.file)
-    if not source.is_absolute() and not source.exists():
-        source = _backup_folder(args) / source
+    if args.before_update:
+        from qa_engine.adapters.backup import list_backups
+
+        before = list_backups(_data_dir(args) / "backups" / "antes-de-atualizar")
+        if not before:
+            print("nenhuma cópia de antes de uma atualização", file=sys.stderr)
+            return 1
+        source = before[-1]
+    elif args.file:
+        source = Path(args.file)
+        if not source.is_absolute() and not source.exists():
+            source = _backup_folder(args) / source
+    else:
+        print("indique a cópia ou use --before-update", file=sys.stderr)
+        return 1
     if not source.is_file():
         print(f"cópia não encontrada: {source}", file=sys.stderr)
         return 1
@@ -361,7 +373,12 @@ def build_parser() -> argparse.ArgumentParser:
     ):
         cmd = backup_sub.add_parser(name, help=text)
         if name == "restore":
-            cmd.add_argument("file", help="arquivo da cópia (nome ou caminho)")
+            cmd.add_argument("file", nargs="?", help="arquivo da cópia (nome ou caminho)")
+            cmd.add_argument(
+                "--before-update",
+                action="store_true",
+                help="a cópia feita antes da última atualização do programa (voltar versão)",
+            )
         cmd.add_argument("--data-dir", type=Path, help="pasta de dados (padrão: a desta conta)")
         cmd.add_argument("--backup-dir", type=Path, help="pasta das cópias (padrão: a configurada)")
         cmd.set_defaults(func=func)

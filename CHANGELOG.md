@@ -8,6 +8,10 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Voltar versão: antes de aplicar migrações novas, o banco é copiado para
+  `backups/antes-de-atualizar`; uma versão anterior não abre banco de versão mais nova e
+  diz como restaurar (`qa backup restore --before-update`); guia de atualizar e voltar
+  versão. A versão de cada máquina aparece na Gestão.
 - Metadados do Decreto no lote corrigido: tags descritivas do original preservadas no
   TIFF, `Software` e `DateTime` registrando a correção e qual, XMP com os campos do
   Decreto e a origem de cada valor; `metadados.json` por processo com os campos e o

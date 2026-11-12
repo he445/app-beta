@@ -191,13 +191,15 @@ options:
 ## `qa backup restore`
 
 ```text
-usage: qa backup restore [-h] [--data-dir DATA_DIR] [--backup-dir BACKUP_DIR] file
+usage: qa backup restore [-h] [--before-update] [--data-dir DATA_DIR] [--backup-dir BACKUP_DIR]
+                         [file]
 
 positional arguments:
   file                  arquivo da cópia (nome ou caminho)
 
 options:
   -h, --help            show this help message and exit
+  --before-update       a cópia feita antes da última atualização do programa (voltar versão)
   --data-dir DATA_DIR   pasta de dados (padrão: a desta conta)
   --backup-dir BACKUP_DIR
                         pasta das cópias (padrão: a configurada)
