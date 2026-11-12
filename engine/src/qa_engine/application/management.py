@@ -8,6 +8,7 @@ instrumento de cobrança individual, e só entra por decisão registrada em ADR.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any
@@ -18,12 +19,19 @@ def _when(value: str) -> datetime:
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
 
+def version_key(version: str) -> tuple[int, ...] | None:
+    """``1.2.10`` → ``(1, 2, 10)``; versão fora do padrão SemVer não é comparada."""
+    match = re.match(r"^(\d+)\.(\d+)\.(\d+)", version.strip())
+    return tuple(int(part) for part in match.groups()) if match else None
+
+
 def management_view(
     reports: Sequence[tuple[str, Mapping[str, Any]]],
     since: str | None = None,
     until: str | None = None,
     skipped: int = 0,
     shared: bool = False,
+    seen: Sequence[Mapping[str, Any]] = (),
 ) -> dict[str, Any]:
     """Visão da Gestão (``management.schema.json``).
 
@@ -33,6 +41,8 @@ def management_view(
         until: fim do período (exclusive), ISO 8601.
         skipped: arquivos que não puderam ser lidos.
         shared: os relatórios vieram da pasta compartilhada.
+        seen: versão e última abertura de cada máquina (``maquinas/`` da pasta
+            compartilhada, ou só este computador).
 
     Uma caixa entra no período em que foi concluída (a primeira versão); o estado
     mostrado é o da versão mais nova até o fim do período.
@@ -50,6 +60,23 @@ def management_view(
         if report["concluded_at"] >= machine["last_report_at"]:
             machine["last_report_at"] = report["concluded_at"]
             machine["program_version"] = report["program_version"]
+
+    for item in seen:
+        machine = machines.setdefault(
+            item["machine"],
+            {"machine": item["machine"], "program_version": "", "last_report_at": ""},
+        )
+        machine["last_seen_at"] = item["last_seen_at"]
+        # A abertura mais recente diz a versão instalada hoje, mesmo sem relatório novo.
+        if item["last_seen_at"] >= machine["last_report_at"]:
+            machine["program_version"] = item["program_version"]
+    newest = max(
+        (k for k in (version_key(m["program_version"]) for m in machines.values()) if k),
+        default=None,
+    )
+    for machine in machines.values():
+        key = version_key(machine["program_version"])
+        machine["outdated"] = bool(newest and key and key < newest)
 
     by_reviewer: dict[str, list[dict[str, Any]]] = {}
     for items in versions.values():

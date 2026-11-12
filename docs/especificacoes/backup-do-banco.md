@@ -56,6 +56,23 @@ máquina antiga e restaure. Ao abrir, decisões e auditoria estão de volta; as 
 a máquina antiga tinha travado são retomadas pela renovação, desde que ninguém as tenha
 assumido ([trava por caixa](trava-por-caixa.md)).
 
+## Troca de versão
+
+- Ao abrir, antes de qualquer migração, o motor compara as migrações gravadas no banco
+  com as que conhece:
+  - **faltam migrações** (versão nova): copia o banco para
+    `data_dir/atualizacoes/qa-antes-da-<versão nova>-de-<versão anterior>-<data>.sqlite3`
+    pela API de backup e só então migra; ficam as cinco cópias mais recentes;
+  - **o banco tem migração que esta versão não conhece** (alguém voltou para a versão
+    anterior): não abre e não mexe em nada. O programa desktop mostra a tela de volta de
+    versão, que restaura a cópia de antes da atualização mais recente que esta versão
+    consegue abrir; o banco atual fica ao lado.
+- Cada versão que abre o banco fica registrada (`program_versions`, migração 0012), para
+  a cópia dizer de qual versão veio.
+- `qa backup restore --before-update` faz a mesma restauração pela linha de comando.
+
+Guia passo a passo: [Atualizar e voltar de versão](../guias/atualizar-e-voltar-versao.md).
+
 ## Privacidade
 
 As cópias têm o mesmo conteúdo do banco: decisões, nomes de conferentes e nomes de

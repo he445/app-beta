@@ -262,7 +262,15 @@ def _backup_restore(args: argparse.Namespace) -> int:
     from qa_engine.adapters.sqlite import SqliteRepository
 
     db, _, mine = _backup_places(args)
-    if args.file is not None:
+    if args.before_update:
+        from qa_engine.adapters.database_backup import update_copies
+
+        copies = update_copies(db)
+        if not copies:
+            print("nenhuma cópia de antes de atualização que esta versão abra", file=sys.stderr)
+            return 1
+        chosen = copies[0]
+    elif args.file is not None:
         chosen = args.file
     elif args.latest:
         newest = list_backups(mine)
@@ -271,7 +279,10 @@ def _backup_restore(args: argparse.Namespace) -> int:
             return 1
         chosen = newest[0].path
     else:
-        print("diga qual cópia: o arquivo ou --latest (veja qa backup list)", file=sys.stderr)
+        print(
+            "diga qual cópia: o arquivo, --latest ou --before-update (veja qa backup list)",
+            file=sys.stderr,
+        )
         return 2
     lock = InstanceLock(db.parent)
     if not lock.acquire():
@@ -385,6 +396,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     restore.add_argument("file", type=Path, nargs="?", help="arquivo da cópia")
     restore.add_argument("--latest", action="store_true", help="a cópia mais nova desta conta")
+    restore.add_argument(
+        "--before-update",
+        action="store_true",
+        help="a cópia feita antes da última atualização (voltar de versão)",
+    )
     restore.set_defaults(func=_backup_restore)
 
     vr = sub.add_parser("validate-report", help="validar um report.json contra o contrato")

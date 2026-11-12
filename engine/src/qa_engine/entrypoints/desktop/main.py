@@ -32,6 +32,7 @@ from typing import Any
 import uvicorn
 
 from qa_engine import __version__
+from qa_engine.adapters.database_backup import DatabaseNewerError
 from qa_engine.adapters.instance import InstanceLock
 from qa_engine.adapters.logs import setup_file_logging, write_crash
 from qa_engine.adapters.paths import AppPaths
@@ -163,6 +164,83 @@ def error_page(problems: Sequence[str], hint: str) -> str:
         f"<p>{html.escape(hint)}</p><ul>{items}</ul>"
         f"<p style='color:#555'>QA {__version__}</p></body>"
     )
+
+
+ROLLBACK_HINT = (
+    "Esta versão do programa é anterior à que atualizou o banco deste computador. Para "
+    "continuar nesta versão, restaure a cópia do banco feita antes da atualização: o banco "
+    "da versão nova não é apagado, fica guardado ao lado. Ou abra a versão nova."
+)
+
+
+class RollbackBridge:
+    """Botão da tela de volta de versão (``window.pywebview.api.restore``)."""
+
+    def __init__(self, db: Path) -> None:
+        self.db = db
+
+    def restore(self) -> dict[str, str]:
+        """Restaura a cópia de antes da atualização; diz o que fazer em seguida."""
+        from datetime import UTC, datetime
+
+        from qa_engine.adapters.database_backup import BackupError, restore_before_update
+
+        try:
+            copy, kept = restore_before_update(self.db, datetime.now(tz=UTC))
+        except (BackupError, OSError) as exc:
+            return {"ok": "", "message": str(exc)}
+        message = f"Banco restaurado de {copy.name}. Feche esta janela e abra o programa de novo."
+        if kept is not None:
+            message += f" O banco da versão nova ficou guardado em {kept.name}."
+        return {"ok": "1", "message": message}
+
+
+def rollback_page(problem: str, copies: Sequence[str]) -> str:
+    """Tela da volta de versão, com o botão de restaurar a cópia."""
+    if copies:
+        action = (
+            f"<p>Cópia mais recente: <code>{html.escape(copies[0])}</code></p>"
+            "<button id=go style='font-size:1rem;padding:.5rem 1rem'>"
+            "Restaurar a cópia de antes da atualização</button>"
+            "<p id=out></p><script>document.getElementById('go').onclick=async()=>{"
+            "const r=await window.pywebview.api.restore();"
+            "document.getElementById('out').textContent=r.message;"
+            "if(r.ok)document.getElementById('go').disabled=true;}</script>"
+        )
+    else:
+        action = "<p>Não há cópia de antes da atualização neste computador: abra a versão nova.</p>"
+    return (
+        "<!doctype html><meta charset=utf-8><title>QA de Digitalização</title>"
+        "<body style='font-family:Segoe UI,system-ui,sans-serif;margin:2rem;max-width:48rem'>"
+        "<h1>Versão anterior do programa</h1>"
+        f"<p>{html.escape(ROLLBACK_HINT)}</p><p><code>{html.escape(problem)}</code></p>"
+        f"{action}<p style='color:#555'>QA {__version__}</p></body>"
+    )
+
+
+def offer_rollback(db: Path, error: Exception, headless: bool) -> int:
+    """O banco é de uma versão mais nova: oferece restaurar a cópia de antes da atualização."""
+    from qa_engine.adapters.database_backup import update_copies
+
+    copies = [p.name for p in update_copies(db)]
+    if sys.stderr is not None:
+        print(ROLLBACK_HINT, str(error), sep="\n", file=sys.stderr)
+        print("QA-suporte.exe backup restore --before-update", file=sys.stderr)
+    if not headless:
+        try:
+            import webview
+
+            webview.create_window(
+                TITLE,
+                html=rollback_page(str(error), copies),
+                js_api=RollbackBridge(db),
+                width=760,
+                height=520,
+            )
+            webview.start()
+        except Exception:
+            log.exception("não foi possível mostrar a tela de volta de versão")
+    return 4
 
 
 def show_error(problems: Sequence[str], hint: str, headless: bool) -> None:
@@ -365,7 +443,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         port = args.port or free_port()
         token = secrets.token_urlsafe(32)
-        server = EngineServer(desktop_settings(base, port, token), port, source)
+        try:
+            server = EngineServer(desktop_settings(base, port, token), port, source)
+        except DatabaseNewerError as exc:
+            return offer_rollback(base.data_dir / "qa.sqlite3", exc, args.headless)
         server.app.state.focus_secret = secrets.token_urlsafe(16)
         server.start()
         lock.publish(port, server.app.state.focus_secret)

@@ -41,7 +41,12 @@ from qa_engine.adapters.corrected_folder import FolderTiffWriter
 from qa_engine.adapters.corrected_zip import ZipTiffWriter
 from qa_engine.adapters.database_backup import EVERY as BACKUP_EVERY
 from qa_engine.adapters.database_backup import RETRY as BACKUP_RETRY
-from qa_engine.adapters.database_backup import backup_folder, list_backups, take_backup
+from qa_engine.adapters.database_backup import (
+    backup_folder,
+    list_backups,
+    prepare_database,
+    take_backup,
+)
 from qa_engine.adapters.feedback import SqliteFeedbackStore
 from qa_engine.adapters.images import FileImageSource
 from qa_engine.adapters.local_folder import LocalFolderSource, is_within
@@ -182,7 +187,14 @@ class Engine:
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
-        self.repo = SqliteRepository(settings.data_dir / "qa.sqlite3")
+        db = settings.data_dir / "qa.sqlite3"
+        # Versão nova que vai migrar o banco: copia antes (para poder voltar de versão).
+        # Versão mais velha que o banco: DatabaseNewerError, sem mexer em nada.
+        self.update_copy = prepare_database(db, __version__, datetime.now(tz=UTC))
+        if self.update_copy is not None:
+            log.info("banco copiado antes da atualização: %s", self.update_copy.name)
+        self.repo = SqliteRepository(db)
+        self.repo.record_program_version(__version__, iso(datetime.now(tz=UTC)))
         self.queue = ThreadPoolExecutor(max_workers=1, thread_name_prefix="analysis")
         self.corrections = ThreadPoolExecutor(max_workers=1, thread_name_prefix="corrections")
         self.images = FileImageSource()
@@ -228,6 +240,7 @@ class Engine:
         self._last_backup: datetime | None = None
         self._next_backup_try: datetime | None = None
         self._backup_lock = threading.Lock()
+        self._last_heartbeat: datetime | None = None
 
     def start_maintenance(self) -> None:
         """A cada minuto: renova as travas das caixas e faz a cópia diária do banco.
@@ -242,6 +255,7 @@ class Engine:
             while True:
                 self.renew_box_locks()
                 self.backup_if_due()
+                self.announce_machine()
                 if self._stop.wait(RENEW_SECONDS):
                     return
 
@@ -259,6 +273,28 @@ class Engine:
             self._maintenance = None
         if self.backups:
             self.run_backup("ao fechar")
+
+    def machine_info(self) -> dict[str, Any]:
+        """Esta máquina para a Gestão: nome, versão do programa e última abertura."""
+        return {
+            "machine": platform.node() or "estação",
+            "program_version": __version__,
+            "last_seen_at": iso(self.now()),
+        }
+
+    def announce_machine(self) -> None:
+        """Grava a versão desta máquina na pasta compartilhada (ao abrir e a cada hora)."""
+        if self.settings.mode != "desktop" or self.settings.reports_dir is None:
+            return
+        now = self.now()
+        if self._last_heartbeat is not None and now - self._last_heartbeat < HEARTBEAT_EVERY:
+            return
+        try:
+            SharedReportsFolder(self.settings.reports_dir).write_machine(self.machine_info())
+        except OSError as exc:
+            log.warning("pasta compartilhada de relatórios indisponível: %s", exc)
+            return
+        self._last_heartbeat = now
 
     def backup_if_due(self) -> None:
         """Cópia diária: só se a última tiver mais de um dia (e sem repetir falha a cada minuto)."""
@@ -907,6 +943,8 @@ class Engine:
             self.release_box_locks(batch_id)
 
 
+HEARTBEAT_EVERY = timedelta(hours=1)
+"""A versão desta máquina é regravada na pasta compartilhada a cada hora."""
 CONFIG_SUMMARY = "configuracao.json"
 """Resumo de configuração gravado na pasta de trabalho de cada lote e no lote corrigido."""
 THUMB_WIDTH = 256
@@ -1526,7 +1564,16 @@ def create_app(
                 except ValueError as exc:
                     raise HTTPException(422, f"data inválida: {value}") from exc
         reports, skipped, shared = management_reports()
-        view = management_view(reports, since, until, skipped, shared)
+        seen = (
+            SharedReportsFolder(settings.reports_dir).machines()
+            if settings.reports_dir is not None
+            else []
+        )
+        if settings.mode == "desktop" and not any(
+            m["machine"] == engine.machine_info()["machine"] for m in seen
+        ):
+            seen = [*seen, engine.machine_info()]
+        view = management_view(reports, since, until, skipped, shared, seen)
         validate(view, "management.schema.json")
         return view
 

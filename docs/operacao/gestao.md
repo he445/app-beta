@@ -9,8 +9,10 @@ máquinas, com o estado das pendências.
    processos e páginas.
 4. Em **Por conferente**, abra o nome para ver as caixas; clique numa caixa para ver os
    processos e em **Abrir relatório** para o PDF.
-5. **Versão do programa em cada máquina** mostra a versão que cada estação usou no
-   último relatório.
+5. **Versão do programa em cada máquina** mostra a versão instalada em cada estação (a
+   da última abertura), quando ela abriu o programa pela última vez e o último relatório.
+   **desatualizada** marca a estação numa versão anterior à mais nova em uso
+   ([atualizar e voltar de versão](../guias/atualizar-e-voltar-versao.md)).
 
 Para ver todas as máquinas, a TI configura a pasta compartilhada de relatórios
 (`reports_dir`, em [configuração](../referencia/configuracao.md)) em todas as estações.

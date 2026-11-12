@@ -1951,10 +1951,20 @@ export interface components {
                     }[];
                 }[];
             }[];
+            /** @description Versão do programa em cada máquina, pelos relatórios e pelo registro de abertura em maquinas/ da pasta compartilhada. */
             machines: {
                 machine: string;
+                /** @description Versão instalada: a da abertura mais recente do programa, ou a do último relatório. */
                 program_version: string;
+                /** @description Último relatório por caixa da máquina (vazio = nenhum ainda). */
                 last_report_at: string;
+                /**
+                 * Format: date-time
+                 * @description Última vez que o programa foi aberto nessa máquina (renovado a cada hora enquanto aberto).
+                 */
+                last_seen_at?: string;
+                /** @description A versão é anterior à mais nova vista entre as máquinas. */
+                outdated: boolean;
             }[];
             source: {
                 /** @description Verdadeiro quando os relatórios vieram de reports_dir; falso = só deste computador. */

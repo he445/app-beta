@@ -11,8 +11,12 @@ as caixas deste computador e avisa.
   máquina, o estado (sem pendência, com pendência, pendência resolvida), os processos e,
   em cada processo, páginas, faltando e ilegíveis. O relatório abre em PDF.
 - **Totais do período:** caixas concluídas, caixas com pendência, processos e páginas.
-- **Versão do programa em cada máquina:** a do relatório mais recente de cada máquina,
-  para achar estação esquecida numa versão antiga.
+- **Versão do programa em cada máquina:** a da abertura mais recente do programa (cada
+  máquina grava `maquinas/<computador>.json` na pasta compartilhada ao abrir e a cada
+  hora, com versão e horário) ou, sem esse registro, a do último relatório. A máquina
+  numa versão anterior à mais nova em uso (comparação SemVer) aparece como
+  **desatualizada**, mesmo que ainda não tenha concluído caixa nenhuma. Sem
+  `reports_dir`, só este computador.
 
 Fora por decisão: tempo gasto por caixa e ranking entre conferentes. Mudariam a
 ferramenta de apoio para instrumento de cobrança individual; se a coordenação quiser,

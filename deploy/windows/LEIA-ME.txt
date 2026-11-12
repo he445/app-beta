@@ -23,7 +23,17 @@ Suporte
   QA-suporte.exe --headless      só o motor, com um link de acesso de uso único
   QA-suporte.exe --version
 
-Atualizar: extraia a versão nova em outra pasta e renomeie a antiga para
-"...-anterior". Os dados ficam em %LOCALAPPDATA% e continuam valendo.
+Suporte (programa fechado)
+  QA-suporte.exe backup list --all            cópias do banco de todas as máquinas
+  QA-suporte.exe backup restore --latest      volta a cópia mais nova
+  QA-suporte.exe backup restore --before-update   volta o banco de antes da atualização
+
+Atualizar: feche o programa, renomeie a pasta atual para "...-anterior" (não
+apague) e extraia a versão nova no lugar. Os dados ficam em %LOCALAPPDATA% e
+continuam valendo; ao abrir, a versão nova copia o banco antes de atualizá-lo.
+
+Voltar para a versão anterior (menos de 5 minutos): feche o programa, abra o
+QA.exe da pasta "...-anterior" e clique em "Restaurar a cópia de antes da
+atualização". Feche e abra de novo. O banco da versão nova fica guardado ao lado.
 
 Documentação completa: pasta docs\ deste pacote (abra docs\index.html).

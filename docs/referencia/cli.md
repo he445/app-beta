@@ -192,7 +192,9 @@ options:
 ## `qa backup restore`
 
 ```text
-usage: qa backup restore [-h] [--data-dir DATA_DIR] [--backup-dir BACKUP_DIR] [--latest] [file]
+usage: qa backup restore [-h] [--data-dir DATA_DIR] [--backup-dir BACKUP_DIR] [--latest]
+                         [--before-update]
+                         [file]
 
 positional arguments:
   file                  arquivo da cópia
@@ -203,6 +205,7 @@ options:
   --backup-dir BACKUP_DIR
                         pasta das cópias (padrão: backup_dir da configuração)
   --latest              a cópia mais nova desta conta
+  --before-update       a cópia feita antes da última atualização (voltar de versão)
 ```
 
 ## `qa validate-report`

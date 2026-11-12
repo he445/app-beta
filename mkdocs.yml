@@ -50,6 +50,7 @@ nav:
       - Configurar este computador: guias/configurar-computador.md
       - Configurar uma estação: guias/configurar-estacao.md
       - Gerar o build Windows: guias/build-windows.md
+      - Atualizar e voltar de versão: guias/atualizar-e-voltar-versao.md
   - Operação:
       - operacao/index.md
       - Interface de revisão: operacao/interface.md

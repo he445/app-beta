@@ -690,6 +690,15 @@ class SqliteRepository:
             for r in rows
         ]
 
+    def record_program_version(self, version: str, at: str) -> None:
+        """Registra que esta versão do programa abriu o banco."""
+        with self._tx() as c:
+            c.execute(
+                "INSERT INTO program_versions VALUES (?, ?, ?) ON CONFLICT(version) DO UPDATE"
+                " SET last_opened_at = excluded.last_opened_at",
+                (version, at, at),
+            )
+
     # Trava por caixa ------------------------------------------------------
 
     def hold_box(self, batch_id: str, box: str, scope: str, at: str) -> None:

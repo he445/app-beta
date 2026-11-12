@@ -94,17 +94,25 @@ function Body({ view, open, setOpen }: { view: View; open: string | null; setOpe
       </Card>
 
       <Card title="Versão do programa em cada máquina">
+        <p className="small muted">
+          A versão é a da última abertura do programa em cada máquina. Estação marcada como desatualizada está numa
+          versão anterior à mais nova em uso.
+        </p>
         <table className="table">
-          <thead><tr><th>Máquina</th><th>Versão</th><th>Último relatório</th></tr></thead>
+          <thead><tr><th>Máquina</th><th>Versão</th><th>Última abertura</th><th>Último relatório</th></tr></thead>
           <tbody>
             {view.machines.map((m) => (
               <tr key={m.machine}>
                 <td>{m.machine}</td>
-                <td><code>{m.program_version}</code></td>
-                <td>{new Date(m.last_report_at).toLocaleString("pt-BR")}</td>
+                <td>
+                  <code>{m.program_version || "—"}</code>
+                  {m.outdated && <> <span className="tag warn">desatualizada</span></>}
+                </td>
+                <td>{when(m.last_seen_at)}</td>
+                <td>{when(m.last_report_at)}</td>
               </tr>
             ))}
-            {view.machines.length === 0 && <tr><td colSpan={3} className="muted">Nenhum relatório ainda.</td></tr>}
+            {view.machines.length === 0 && <tr><td colSpan={4} className="muted">Nenhuma máquina ainda.</td></tr>}
           </tbody>
         </table>
       </Card>
@@ -158,4 +166,9 @@ function BoxRow({ box, expanded, toggle }: { box: Box; expanded: boolean; toggle
       )}
     </>
   );
+}
+
+/** Data e hora locais; vazio vira travessão. */
+function when(iso: string | undefined): string {
+  return iso ? new Date(iso).toLocaleString("pt-BR") : "—";
 }

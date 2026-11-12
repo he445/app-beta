@@ -8,6 +8,16 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Voltar versão: a versão nova copia o banco para `data_dir/atualizacoes` antes de
+  migrá-lo (as cinco mais recentes) e registra cada versão que abriu o banco (migração
+  0012); a versão anterior aberta com um banco mais novo não mexe em nada e mostra a
+  tela **Versão anterior do programa**, que restaura a cópia de antes da atualização
+  guardando o banco da versão nova ao lado (`qa backup restore --before-update` pela
+  linha de comando). Guia "Atualizar e voltar de versão" e LEIA-ME do pacote.
+- Versão por máquina: cada máquina grava versão e última abertura em
+  `reports_dir/maquinas/` ao abrir e a cada hora; a Gestão mostra a versão instalada, a
+  última abertura e marca a estação **desatualizada** (comparação SemVer), mesmo sem
+  relatório. A versão do programa aparece no topo da interface.
 - Metadados do Decreto no lote corrigido (ADR-0020): cada TIFF entregue preserva as tags
   técnicas do original byte a byte (do JPEG e PNG, as de captura do EXIF), a tag
   Software registra o que o programa fez com a página e DateTime passa a ser a da

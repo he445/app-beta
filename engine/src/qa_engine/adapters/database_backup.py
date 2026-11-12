@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 import sqlite3
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from importlib import resources
@@ -188,3 +188,111 @@ def restore_backup(backup: Path, db: Path, now: datetime) -> Path | None:
         source.close()
     partial.replace(db)
     return previous
+
+
+# Troca de versão ------------------------------------------------------------------------
+
+UPDATES_FOLDER = "atualizacoes"
+"""Dentro de ``data_dir``: cópias do banco feitas antes de cada atualização."""
+KEEP_UPDATES = 5
+
+
+class DatabaseNewerError(Exception):
+    """O banco foi atualizado por uma versão mais nova do programa que esta."""
+
+    def __init__(self, migrations: Sequence[str], version: str | None) -> None:
+        self.migrations = list(migrations)
+        self.version = version
+        label = f"pela versão {version}" if version else "por uma versão mais nova"
+        super().__init__(f"o banco deste computador foi atualizado {label} do programa")
+
+
+def _applied(db: Path) -> tuple[set[str], str | None]:
+    conn = sqlite3.connect(f"file:{db.as_posix()}?mode=ro", uri=True)
+    try:
+        applied = {r[0] for r in conn.execute("SELECT name FROM schema_migrations")}
+        try:
+            row = conn.execute(
+                "SELECT version FROM program_versions ORDER BY last_opened_at DESC LIMIT 1"
+            ).fetchone()
+        except sqlite3.Error:
+            row = None
+        return applied, (str(row[0]) if row else None)
+    finally:
+        conn.close()
+
+
+def prepare_database(db: Path, version: str, now: datetime) -> Path | None:
+    """Antes de abrir o banco: confere a versão e copia o banco se for haver atualização.
+
+    Returns:
+        A cópia feita antes da atualização, ou ``None`` se não havia o que atualizar.
+
+    Raises:
+        DatabaseNewerError: o banco tem migrações que esta versão não conhece (alguém
+            voltou para uma versão anterior). Nada é alterado.
+    """
+    if not db.is_file():
+        return None
+    try:
+        applied, last_version = _applied(db)
+    except sqlite3.Error:
+        return None  # banco sem tabela de migrações: o repositório cria do zero
+    known = known_migrations()
+    newer = sorted(applied - known)
+    if newer:
+        raise DatabaseNewerError(newer, last_version)
+    if not applied or known <= applied:
+        return None
+    folder = db.parent / UPDATES_FOLDER
+    folder.mkdir(parents=True, exist_ok=True)
+    origin = last_version or "anterior"
+    stamp = f"{now.astimezone(UTC):%Y%m%d-%H%M%S}"
+    stem = f"qa-antes-da-{safe_part(version)}-de-{safe_part(origin)}-{stamp}"
+    target = folder / f"{stem}.sqlite3"
+    partial = target.with_name(target.name + ".part")
+    source = sqlite3.connect(f"file:{db.as_posix()}?mode=ro", uri=True)
+    try:
+        dest = sqlite3.connect(partial)
+        try:
+            source.backup(dest)
+        finally:
+            dest.close()
+    finally:
+        source.close()
+    partial.replace(target)
+    copies = sorted(folder.glob("qa-antes-da-*.sqlite3"), key=lambda p: p.stat().st_mtime)
+    for old in copies[:-KEEP_UPDATES]:
+        old.unlink(missing_ok=True)
+    return target
+
+
+def update_copies(db: Path) -> list[Path]:
+    """Cópias de antes de atualizações que esta versão consegue abrir, mais nova primeiro."""
+    folder = db.parent / UPDATES_FOLDER
+    if not folder.is_dir():
+        return []
+    usable = [p for p in folder.glob("qa-antes-da-*.sqlite3") if not check_backup(p)]
+    return sorted(usable, key=lambda p: p.stat().st_mtime, reverse=True)
+
+
+def restore_before_update(db: Path, now: datetime) -> tuple[Path, Path | None]:
+    """Volta o banco para a cópia de antes da atualização mais recente que esta versão abre.
+
+    O banco atual (da versão mais nova) não é apagado: fica ao lado, para voltar a ele
+    quando a versão nova for reinstalada.
+
+    Returns:
+        ``(cópia restaurada, onde ficou o banco da versão mais nova)``.
+
+    Raises:
+        BackupError: não há cópia que esta versão consiga abrir.
+    """
+    copies = update_copies(db)
+    if not copies:
+        raise BackupError(
+            "não há cópia de antes da atualização que esta versão consiga abrir; "
+            "use qa backup list --all"
+        )
+    previous = restore_backup(copies[0], db, now)
+    return copies[0], previous

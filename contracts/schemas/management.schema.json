@@ -217,20 +217,33 @@
         "required": [
           "machine",
           "program_version",
-          "last_report_at"
+          "last_report_at",
+          "outdated"
         ],
         "properties": {
           "machine": {
             "type": "string"
           },
           "program_version": {
-            "type": "string"
+            "type": "string",
+            "description": "Versão instalada: a da abertura mais recente do programa, ou a do último relatório."
           },
           "last_report_at": {
-            "type": "string"
+            "type": "string",
+            "description": "Último relatório por caixa da máquina (vazio = nenhum ainda)."
+          },
+          "last_seen_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Última vez que o programa foi aberto nessa máquina (renovado a cada hora enquanto aberto)."
+          },
+          "outdated": {
+            "type": "boolean",
+            "description": "A versão é anterior à mais nova vista entre as máquinas."
           }
         }
-      }
+      },
+      "description": "Versão do programa em cada máquina, pelos relatórios e pelo registro de abertura em maquinas/ da pasta compartilhada."
     },
     "source": {
       "type": "object",

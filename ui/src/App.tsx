@@ -60,6 +60,7 @@ function Shell({ engine }: { engine: Health }) {
           {hasCapability(engine, "folder_export") && <a href={href({ name: "management" })}>Gestão</a>}
           {engine.admin && <a href={href({ name: "diagnostics" })}>Diagnóstico</a>}
           <span className="muted reviewer-name">{session.reviewer}</span>
+          <span className="muted small" title="Versão do programa">v{engine.version}</span>
           {!osSession && <button className="link" onClick={logout}>{session.token ? "Sair" : "Trocar"}</button>}
         </div>
       </header>
