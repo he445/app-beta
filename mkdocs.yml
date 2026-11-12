@@ -78,11 +78,13 @@ nav:
           - "0015 Numeração lida da imagem": adr/0015-numeracao-por-imagem.md
           - "0016 Diagnóstico com token de administrador": adr/0016-diagnostico-com-token-de-administrador.md
           - "0017 Documentação numa pasta só": adr/0017-documentacao-em-uma-pasta.md
+          - "0018 Liberação por processo": adr/0018-liberacao-por-processo.md
           - Modelo: adr/0000-template.md
   - Especificações:
       - especificacoes/index.md
       - Layout do lote: especificacoes/batch-layout.md
       - Lote local: especificacoes/lote-local.md
+      - Liberação por processo: especificacoes/liberacao-por-processo.md
       - Sequência e completude: especificacoes/sequencing.md
       - Numeração lida da imagem: especificacoes/numeracao-por-imagem.md
       - Coleta do beta e métricas: especificacoes/coleta-do-beta.md

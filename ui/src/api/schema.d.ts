@@ -323,6 +323,10 @@ export interface paths {
         /**
          * Progresso em tempo real (Server-Sent Events)
          * @description Cada evento `progress` traz um BatchStatus em JSON; o fluxo termina com `done`.
+         *     Liberação por processo: `document_ready` sai uma vez para cada processo que fica
+         *     pronto para conferir, com `id`, `name`, `ready` (quantos prontos) e `pending`
+         *     (quantos faltam).
+         *
          */
         get: operations["streamBatchEvents"];
         put?: never;
@@ -1196,6 +1200,17 @@ export interface components {
              * @enum {unknown}
              */
             stage?: "settling" | "snapshot" | "analyzing" | null;
+            /** @description Liberação por processo, durante a análise: processos prontos para conferir e os que faltam, na ordem do lote (o primeiro dos que faltam está em análise). */
+            documents?: {
+                ready: {
+                    id: string;
+                    name: string;
+                }[];
+                pending: {
+                    id: string;
+                    name: string;
+                }[];
+            };
         };
         /**
          * DemoBatch
@@ -1255,6 +1270,8 @@ export interface components {
                 /** Format: date-time */
                 decided_at: string;
             };
+            /** @description Achados novos da passada final num processo que já tinha decisões (ex.: duplicata de um processo que chegou depois). O processo volta para a fila marcado como "reavaliar" com só esses achados para decidir; as decisões já tomadas são mantidas. */
+            reevaluate?: string[];
         };
         /** PageNumbering */
         "numbering.schema": {

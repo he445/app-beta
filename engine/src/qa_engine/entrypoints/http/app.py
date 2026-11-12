@@ -46,6 +46,7 @@ from qa_engine.adapters.shared_reports import SharedReportsFolder
 from qa_engine.adapters.sqlite import SqliteRepository
 from qa_engine.adapters.system import SystemClock, total_memory_mb
 from qa_engine.application.admin import AttemptLimiter, verify_token
+from qa_engine.application.analyze import BatchAnalysis
 from qa_engine.application.beta import metrics_for
 from qa_engine.application.box_report import (
     boxes,
@@ -86,6 +87,7 @@ from qa_engine.application.local_batch import (
 from qa_engine.application.management import management_view
 from qa_engine.application.models import verify_models
 from qa_engine.application.profile import Profile, load_profile, profile_from_dict
+from qa_engine.application.release import merge_release, queue_of
 from qa_engine.application.review import (
     SEQUENCE_RULES,
     ManualOrder,
@@ -266,6 +268,34 @@ class Engine:
             return []
         return compare_snapshot(self.folder, root, json.loads(snapshot.read_text("utf-8")))
 
+    def release(self, batch_id: str, root: Path, profile: Profile, analysis: BatchAnalysis) -> None:
+        """Grava um relatório parcial (processo pronto) ou o final, mesclando com o gravado.
+
+        O conferente pode estar decidindo ou digitando numeração enquanto o resto da caixa
+        é analisado: ler, mesclar e gravar acontecem com o banco seguro.
+        """
+        if analysis.numbering_crops:
+            crops = self.batch_dir(batch_id) / NUMBERING_CROPS
+            crops.mkdir(parents=True, exist_ok=True)
+            for page_id, png in analysis.numbering_crops.items():
+                target = crops / f"{page_id}.png"
+                if not target.exists():
+                    target.write_bytes(png)
+        fresh = analysis_json(analysis)
+        with self.repo.locked():
+            report = merge_release(
+                self.repo.get_report(batch_id),
+                fresh,
+                profile,
+                root,
+                final=analysis.final,
+                overrides=self.repo.numbering_overrides(batch_id),
+                manual_orders=_orders(self.repo.manual_orders(batch_id)),
+            )
+            validate(report, "analysis.schema.json")
+            queue = None if analysis.final else queue_of(report, analysis.pending_documents)
+            self.repo.save_report(batch_id, report, final=analysis.final, queue=queue)
+
     def beta_metrics(self, batch_id: str) -> dict[str, Any] | None:
         """Contagens do lote para o relatório do beta, conferindo o original quando dá."""
         row = self.repo.get_batch(batch_id)
@@ -281,10 +311,14 @@ class Engine:
         return metrics_for(self.repo, batch_id, changes)
 
     def generate_box_reports(self, batch_id: str, reviewer: str) -> list[dict[str, Any]]:
-        """Relatório de cada caixa concluída; versão nova só quando as pendências mudaram."""
+        """Relatório de cada caixa concluída; versão nova só quando as pendências mudaram.
+
+        Só depois da passada final: antes dela um achado novo ainda pode aparecer.
+        """
+        row = self.repo.get_batch(batch_id)
         report = self.repo.get_report(batch_id)
-        if report is None:
-            raise HTTPException(409, "lote ainda não analisado")
+        if row is None or report is None or row.status != "analyzed":
+            raise HTTPException(409, "a caixa ainda está em análise")
         history: dict[str, list[dict[str, Any]]] = {}
         for item in self.repo.box_reports(batch_id):
             history.setdefault(item["report"]["box"], []).append(item)
@@ -490,18 +524,12 @@ class Engine:
                 progress=lambda done, total: self.repo.set_progress(batch_id, done, total),
                 fallback_station=station_id or self.settings.default_station,
                 models_dir=self.settings.models_dir if self.models.checked else None,
+                on_document=lambda partial, _doc: self.release(batch_id, root, profile, partial),
             )
-            report = analysis_json(analysis)
-            validate(report, "analysis.schema.json")
-            if analysis.numbering_crops:
-                crops = work / NUMBERING_CROPS
-                crops.mkdir(exist_ok=True)
-                for page_id, png in analysis.numbering_crops.items():
-                    (crops / f"{page_id}.png").write_bytes(png)
             (self.batch_dir(batch_id) / "baselines.json").write_text(
                 json.dumps(baselines_json(analysis.baselines)), encoding="utf-8"
             )
-            self.repo.save_report(batch_id, report)
+            self.release(batch_id, root, profile, analysis)
         except Exception as exc:
             log.exception("falha na análise do lote %s", batch_id)
             self.record_error(exc, "worker", "análise do lote", batch_id, "critical")
@@ -512,6 +540,13 @@ THUMB_WIDTH = 256
 """Largura da miniatura guardada nos exemplos de orientação da coleta do beta."""
 NUMBERING_CROPS = "numbering"
 """Pasta, dentro da pasta de trabalho do lote, com o recorte da numeração de cada página."""
+
+
+def _orders(rows: Mapping[str, Mapping[str, Any]]) -> dict[str, ManualOrder]:
+    return {
+        doc: ManualOrder(tuple(o["page_ids"]), o["reviewer"], o["decided_at"])
+        for doc, o in rows.items()
+    }
 
 
 def safe_name(text: str) -> str:
@@ -862,6 +897,11 @@ def create_app(
             raise HTTPException(404, "lote não encontrado")
         return row
 
+    def require_final(batch_id: str) -> None:
+        """Corrigir tudo e salvar esperam a passada final (liberação por processo)."""
+        if batch_or_404(batch_id).status != "analyzed":
+            raise HTTPException(409, "espere a análise da caixa terminar")
+
     def report_or_409(batch_id: str) -> dict[str, Any]:
         batch_or_404(batch_id)
         report = engine.repo.get_report(batch_id)
@@ -880,11 +920,26 @@ def create_app(
 
         async def stream() -> AsyncIterator[str]:
             last = None
+            announced: set[str] = set()
             while True:
                 row = engine.repo.get_batch(batch_id)
                 if row is None:
                     return
-                data = json.dumps(row.status_json(), ensure_ascii=False)
+                status = row.status_json()
+                data = json.dumps(status, ensure_ascii=False)
+                # Liberação por processo: um evento por processo que ficou pronto.
+                ready = status.get("documents", {}).get("ready", [])
+                for position, doc in enumerate(ready, start=1):
+                    if doc["id"] in announced:
+                        continue
+                    announced.add(doc["id"])
+                    event = {
+                        **doc,
+                        "ready": position,
+                        "pending": len(status["documents"]["pending"]),
+                    }
+                    payload = json.dumps(event, ensure_ascii=False)
+                    yield f"event: document_ready\ndata: {payload}\n\n"
                 if data != last:
                     yield f"event: progress\ndata: {data}\n\n"
                     last = data
@@ -950,6 +1005,7 @@ def create_app(
     @app.post("/batches/{batch_id}/bulk-corrections", status_code=202)
     def start_bulk(batch_id: str, body: Annotated[dict[str, Any], Body()]) -> dict[str, Any]:
         validate(body, "bulk-correction-request.schema.json")
+        require_final(batch_id)
         ctx = engine.context(batch_id)
         operation = engine.service.start_bulk(
             ctx, body["scope"], body.get("document_id"), body["reviewer"]
@@ -980,6 +1036,7 @@ def create_app(
     @app.post("/batches/{batch_id}/corrected-batch", status_code=201)
     def save_corrected(batch_id: str, body: Annotated[dict[str, Any], Body()]) -> dict[str, Any]:
         validate(body, "corrected-batch-request.schema.json")
+        require_final(batch_id)
         ctx = engine.context(batch_id)
         destination = body.get("destination", "zip")
         writer: Callable[[datetime], Any]
@@ -1105,6 +1162,16 @@ def create_app(
         order: list[str] | None = None,
     ) -> dict[str, Any]:
         """Valida, re-resolve e só então grava numeração digitada e ordem manual."""
+        with engine.repo.locked():
+            return _apply_numbering(batch_id, reviewer, values, document_id, order)
+
+    def _apply_numbering(
+        batch_id: str,
+        reviewer: str,
+        values: dict[str, str | None],
+        document_id: str | None = None,
+        order: list[str] | None = None,
+    ) -> dict[str, Any]:
         row = batch_or_404(batch_id)
         profile = engine.batch_profile(batch_id, row.profile_id)
         report = report_or_409(batch_id)
@@ -1115,10 +1182,7 @@ def create_app(
                 overrides.pop(page_id, None)
             else:
                 overrides[page_id] = value
-        orders = {
-            doc: ManualOrder(tuple(o["page_ids"]), o["reviewer"], o["decided_at"])
-            for doc, o in engine.repo.manual_orders(batch_id).items()
-        }
+        orders = _orders(engine.repo.manual_orders(batch_id))
         if document_id is not None:
             if order is None:
                 orders.pop(document_id, None)

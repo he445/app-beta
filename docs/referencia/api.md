@@ -2,7 +2,7 @@
 
 # Referência da API
 
-Contrato **0.14.0**. A fonte é `contracts/openapi.yaml`, com os
+Contrato **0.15.0**. A fonte é `contracts/openapi.yaml`, com os
 formatos em `contracts/schemas/` (JSON Schema 2020-12), validados pelo Spectral na CI.
 Com o motor no ar, a versão interativa fica em `/docs`.
 

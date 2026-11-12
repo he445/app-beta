@@ -349,3 +349,5 @@ button.full { width: 100%; justify-content: center; }
 .segmented button.active { background: var(--accent); color: #fff; }
 .reviewer-group { border-top: 1px solid var(--border); padding: 0.5rem 0; }
 .reviewer-group summary { cursor: pointer; padding: 0.25rem 0; }
+.release-queue li { padding: 0.25rem 0; border-bottom: 1px solid var(--border); }
+.queue-note { padding: 0.25rem 0.5rem; }

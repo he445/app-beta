@@ -71,6 +71,55 @@
         null
       ],
       "description": "Etapa enquanto o lote está na fila ou em análise: esperando a pasta parar de mudar, tirando o retrato dos arquivos ou analisando."
+    },
+    "documents": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ready",
+        "pending"
+      ],
+      "description": "Liberação por processo, durante a análise: processos prontos para conferir e os que faltam, na ordem do lote (o primeiro dos que faltam está em análise).",
+      "properties": {
+        "ready": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "name"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "pending": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "name"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

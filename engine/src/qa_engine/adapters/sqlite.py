@@ -29,6 +29,8 @@ class BatchRow:
     summary: Mapping[str, Any] | None
     source: str = "upload"
     stage: str | None = None
+    queue: Mapping[str, Any] | None = None
+    """Processos prontos e os que faltam (liberação por processo)."""
 
     def status_json(self) -> dict[str, Any]:
         """Formato de ``batch-status.schema.json``."""
@@ -46,6 +48,8 @@ class BatchRow:
             data["error"] = self.error
         if self.summary is not None:
             data["summary"] = dict(self.summary)
+        if self.queue is not None and self.status in {"queued", "processing"}:
+            data["documents"] = dict(self.queue)
         return data
 
 
@@ -141,18 +145,57 @@ class SqliteRepository:
                 "UPDATE batches SET status = 'failed', error = ? WHERE id = ?", (error, batch_id)
             )
 
-    def save_report(self, batch_id: str, report: Mapping[str, Any]) -> None:
-        """Grava o resultado da análise: relatório, páginas e sinalizações."""
+    @contextmanager
+    def locked(self) -> Iterator[None]:
+        """Segura o banco para ler, mesclar e gravar sem outra thread no meio."""
+        with self._lock:
+            yield
+
+    def save_report(
+        self,
+        batch_id: str,
+        report: Mapping[str, Any],
+        *,
+        final: bool = True,
+        queue: Mapping[str, Any] | None = None,
+    ) -> None:
+        """Grava o resultado da análise: relatório, páginas e sinalizações.
+
+        Args:
+            batch_id: lote.
+            report: relatório no formato de ``analysis.schema.json``.
+            final: passada final (o lote fica ``analyzed``); falso no relatório parcial
+                da liberação por processo, que mantém o lote em análise.
+            queue: processos prontos e os que faltam.
+        """
         body = {k: v for k, v in report.items() if k != "findings"}
         summary = report["batch"]["summary"]
+        queue_json = json.dumps(queue, ensure_ascii=False) if queue is not None else None
         with self._tx() as c:
-            c.execute(
-                "UPDATE batches SET status = 'analyzed', done = total, report_json = ?, "
-                "summary_json = ? WHERE id = ?",
-                (json.dumps(body, ensure_ascii=False), json.dumps(summary), batch_id),
-            )
+            if final:
+                c.execute(
+                    "UPDATE batches SET status = 'analyzed', done = total, report_json = ?, "
+                    "summary_json = ?, stage = NULL, queue_json = ? WHERE id = ?",
+                    (
+                        json.dumps(body, ensure_ascii=False),
+                        json.dumps(summary),
+                        queue_json,
+                        batch_id,
+                    ),
+                )
+            else:
+                c.execute(
+                    "UPDATE batches SET report_json = ?, summary_json = ?, queue_json = ? "
+                    "WHERE id = ?",
+                    (
+                        json.dumps(body, ensure_ascii=False),
+                        json.dumps(summary),
+                        queue_json,
+                        batch_id,
+                    ),
+                )
             c.executemany(
-                "INSERT INTO pages VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT OR IGNORE INTO pages VALUES (?, ?, ?, ?, ?, ?)",
                 [
                     (
                         p["id"],
@@ -716,6 +759,7 @@ def _batch(row: sqlite3.Row) -> BatchRow:
         summary=json.loads(row["summary_json"]) if row["summary_json"] else None,
         source=row["source"],
         stage=row["stage"],
+        queue=json.loads(row["queue_json"]) if row["queue_json"] else None,
     )
 
 

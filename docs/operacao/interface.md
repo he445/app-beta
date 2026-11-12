@@ -14,6 +14,13 @@ Guia para garantidores e conferentes. Para instalar e publicar, veja
    os arquivos não disserem de qual digitalizadora vieram, a estação. A pasta é lida no
    lugar e nunca alterada. Enquanto a digitalizadora ainda grava, o lote aparece como
    "Esperando a pasta parar de mudar".
+   **Não espere a caixa inteira:** durante a análise, o cartão **Processos** mostra cada
+   processo como *pronto*, *analisando* ou *na fila*; clique em **Conferir** no primeiro
+   pronto. "Corrigir tudo", salvar o lote corrigido e o relatório da caixa esperam a
+   análise terminar. Se a análise final achar algo novo num processo que você já
+   conferiu (uma página duplicada de um processo que chegou depois, por exemplo), ele
+   aparece na Sequência com a marca **reavaliar**, só com o achado novo; o que você já
+   decidiu continua decidido.
    **Lote de demonstração:** "Analisar lote-demonstracao" abre um lote sintético já no
    servidor, com página faltando, em branco, torta e sem nitidez, sem enviar nada do
    aparelho. **Enviar lote:** no computador, arraste a pasta ou um `.zip`; no celular,

@@ -275,6 +275,14 @@ class BatchAnalysis:
     """Recorte da região da numeração por página (PNG)."""
     station_ids: Mapping[str, str | None] = field(default_factory=dict)
     """Identificador da estação por página: define os ajustes de regra aplicados a ela."""
+    final: bool = True
+    """Passada final (lote inteiro); falso no relatório parcial de processos prontos."""
+    pending_documents: tuple[tuple[str, str], ...] = ()
+    """Processos ainda não prontos (identificador, nome), na ordem do lote."""
+
+
+DocumentCallback = Callable[[BatchAnalysis, str], None]
+"""Liberação por processo: relatório parcial e o documento que acabou de ficar pronto."""
 
 
 def _content_key(files: Mapping[str, FileMetadata]) -> str:
@@ -367,6 +375,7 @@ def analyze_batch(
     engine_version: str = "0.1.0",
     fallback_station: str | None = None,
     models_dir: Path | None = None,
+    on_document: DocumentCallback | None = None,
 ) -> BatchAnalysis:
     """Analisa um lote local: página, documento e lote, nessa ordem.
 
@@ -387,6 +396,9 @@ def analyze_batch(
             abrir o lote). Ignorado se o perfil não tiver essa estação.
         models_dir: modelos embarcados (orientação). Sem eles, a regra ``orientation`` não
             classifica nenhuma página.
+        on_document: chamado a cada processo pronto (menos o último) com o relatório
+            parcial dos processos prontos e o identificador do que acabou de ficar pronto
+            (liberação por processo, ADR-0018). O retorno é a passada final.
     """
     name = name or root.name
     candidates = sorted(p for p in root.rglob("*") if p.is_file())
@@ -466,24 +478,203 @@ def analyze_batch(
         if ok is not None
     ]
     results_iter = executor.map(analyze_page, tasks)
-    factory = _FindingFactory(batch, profile)
     pages: list[Page] = []
-    documents: list[Document] = []
     observations: dict[str, dict[str, Observation]] = {}
     scales: dict[str, float] = {}
     prints: list[duplicate_page.Fingerprint] = []
+    load_errors: dict[str, str] = {}
     doc_ids = {layout.name: ids.document_id(batch, layout.name) for layout in layouts}
     doc_pages: dict[str, list[str]] = {layout.name: [] for layout in layouts}
-    page_keys: dict[str, str] = {}
+    page_keys: dict[str, str] = {
+        f"{rel}#{page_in_file}": ids.page_id(batch, rel, page_in_file)
+        for _, rel, page_in_file, _ in plan
+    }
+    by_page_key = {pid: key for key, pid in page_keys.items()}
     stations: dict[str, str] = {}
     station_ids: dict[str, str | None] = {}
     image_marks: dict[str, tuple[Mark, ...]] = {}
     crops: dict[str, bytes] = {}
     written: dict[str, bool] = {}
-    done = 0
-    for doc_name, rel, page_in_file, ok in plan:
+
+    # Numeração do numbering.json: lida antes, para liberar cada processo já com ela.
+    if not profile.numbering_enabled:
+        source = "none"
+        sidecar_marks: Mapping[str, Sequence[Mark]] = {}
+    elif image_numbering is not None:
+        source = "image"
+        sidecar_marks = {}
+    else:
+        source = "sidecar" if has_sidecar else "none"
+        sidecar_marks = numbering_reader.read(root, list(page_keys))
+
+    def marks_of(pid: str) -> tuple[Mark, ...]:
+        key = by_page_key[pid]
+        found = image_marks.get(key) if image_numbering is not None else sidecar_marks.get(key)
+        return tuple(found or ())
+
+    def assemble(ready: Sequence[str], final: bool) -> BatchAnalysis:
+        """Relatório dos processos prontos (parcial) ou do lote inteiro (passada final).
+
+        Na parcial, as regras que comparam com o lote usam a mediana do que já foi
+        analisado (com os limites absolutos enquanto houver poucas páginas) e a
+        duplicata entre páginas fica para a passada final.
+        """
+        ready_set = set(ready)
+        layouts_ready = [layout for layout in layouts if layout.name in ready_set]
+        included = {pid for layout in layouts_ready for pid in doc_pages[layout.name]}
+        factory = _FindingFactory(batch, profile)
+        for pid, error in load_errors.items():
+            if pid in included and profile.enabled(corrupted_file.ID):
+                factory.add(
+                    corrupted_file.ID,
+                    Target(TargetKind.PAGE, pid),
+                    corrupted_file.flag_load_error(error),
+                )
+        current = {pid: obs for pid, obs in observations.items() if pid in included}
+        # Folha com numeração (ou qualquer escrito na região) nunca é branca.
+        for pid, page_obs in current.items():
+            blank_obs = page_obs.get(blank_page.ID)
+            if blank_obs is not None:
+                has_numbering = written.get(pid, False) or bool(marks_of(pid))
+                current[pid] = {
+                    **page_obs,
+                    blank_page.ID: replace(
+                        blank_obs, extra={**blank_obs.extra, "numbering_written": has_numbering}
+                    ),
+                }
+
+        # Linha de base e avaliação de cada página, com os parâmetros da estação dela;
+        # a linha de base de uma regra usa todas as páginas em que a regra está ligada.
+        baselines: dict[str, dict[str, Stats]] = {}
+        for detector in PAGE_DETECTORS:
+            measured = {pid: obs[detector.id] for pid, obs in current.items() if detector.id in obs}
+            if not measured:
+                continue
+            baseline = baseline_of(measured.values())
+            baselines[detector.id] = baseline
+            for pid, obs in measured.items():
+                params = dict(rules_for(station_ids[pid]))[detector.id]
+                flag = detector.evaluate(obs, baseline, params)
+                if flag is not None:
+                    factory.add(detector.id, Target(TargetKind.PAGE, pid), flag, scales[pid])
+
+        duplicate_copies: dict[str, str] = {}
+        chosen = [p for p in prints if p.page_id in included]
+        if final and chosen:
+
+            def dup_params_of(page_id: str) -> Mapping[str, Any]:
+                return profile.params(duplicate_page.ID, station_ids[page_id])
+
+            pairs = duplicate_page.find_duplicates(
+                chosen, profile.params(duplicate_page.ID), dup_params_of
+            )
+            for pair in pairs:
+                duplicate_copies[pair.copy] = pair.original
+                factory.add(
+                    duplicate_page.ID,
+                    Target(TargetKind.PAGE, pair.copy),
+                    _duplicate_flag(pair, dup_params_of(pair.copy)),
+                )
+
+        # Sequência e completude por documento.
+        documents: list[Document] = []
+        numbering: dict[str, PageNumbering] = {}
+        proposed: dict[str, tuple[str, ...]] = {}
+        for layout in layouts_ready:
+            doc_id = doc_ids[layout.name]
+            pids = doc_pages[layout.name]
+            documents.append(Document(doc_id, batch, layout.name, tuple(pids)))
+            if not profile.numbering_enabled:
+                continue
+            cands = [PageCandidates(pid, marks_of(pid)) for pid in pids]
+            seq, flags = sequence.analyze_document(
+                doc_id,
+                cands,
+                profile.sequence,
+                declared.get(layout.name),
+                duplicate_copies,
+            )
+            numbering.update({p.page_id: p for p in seq.pages})
+            if seq.reordered:
+                proposed[doc_id] = seq.order
+            for item in flags:
+                if profile.enabled(item.rule):
+                    factory.add(item.rule, item.target, item.flag)
+
+        metadata: dict[str, tuple[MetadataField, ...]] = {}
+        for ordinal, layout in enumerate(layouts, start=1):
+            if layout.name not in ready_set:
+                continue
+            doc_id = doc_ids[layout.name]
+            files = [(ref.rel, file_meta[ref.rel]) for ref in layout.files]
+            metadata[doc_id] = tuple(
+                document_metadata(
+                    profile=profile,
+                    batch_id=batch,
+                    batch_name=name,
+                    document_name=layout.name,
+                    document_ordinal=ordinal,
+                    files=files,
+                    page_count=len(doc_pages[layout.name]),
+                )
+            )
+
+        findings = tuple(
+            sorted(
+                factory.findings,
+                key=lambda f: (-f.severity.rank, f.rule, f.target.kind.value, f.target.id),
+            )
+        )
+        ready_files = {ref.rel for layout in layouts_ready for ref in layout.files}
+        lossy = sorted(
+            rel
+            for rel, m in file_meta.items()
+            if rel in ready_files and m.tags.get("compression") in LOSSY_COMPRESSIONS
+        )
+        ready_pages = [p for p in pages if p.id in included]
+        ready_stations = {pid: st for pid, st in stations.items() if pid in included}
+        summary = summarize(
+            batch_id=batch,
+            profile=profile,
+            documents=documents,
+            pages=ready_pages,
+            findings=findings,
+            stations=ready_stations,
+            lossy_files=lossy,
+        )
+        return BatchAnalysis(
+            batch_id=batch,
+            name=name,
+            profile_id=profile.id,
+            analyzed_at=clock.now(),
+            root=root,
+            documents=tuple(documents),
+            pages=tuple(ready_pages),
+            findings=findings,
+            numbering=numbering,
+            proposed_order=proposed,
+            metadata=metadata,
+            files={rel: m for rel, m in file_meta.items() if rel in ready_files},
+            stations=ready_stations,
+            summary=summary,
+            engine_version=engine_version,
+            baselines=baselines,
+            marks={pid: marks_of(pid) for pid in included},
+            numbering_source=source,
+            numbering_crops={pid: png for pid, png in crops.items() if pid in included},
+            station_ids={pid: st for pid, st in station_ids.items() if pid in included},
+            final=final,
+            pending_documents=tuple(
+                (doc_ids[layout.name], layout.name)
+                for layout in layouts
+                if layout.name not in ready_set
+            ),
+        )
+
+    ready: list[str] = []
+    for position, (doc_name, rel, page_in_file, ok) in enumerate(plan):
         meta = file_meta[rel]
-        pid = ids.page_id(batch, rel, page_in_file)
+        pid = page_keys[f"{rel}#{page_in_file}"]
         doc_id = doc_ids[doc_name]
         station = file_station.get(rel)
         stations[pid] = station.location if station else "não identificada"
@@ -493,10 +684,8 @@ def analyze_batch(
             result = PageResult(error=str(reason))
         else:
             result = next(results_iter)
-        done += 1
         if progress:
-            progress(done, len(plan))
-        page_keys[f"{rel}#{page_in_file}"] = pid
+            progress(position + 1, len(plan))
         doc_pages[doc_name].append(pid)
         pages.append(
             Page(
@@ -514,159 +703,31 @@ def analyze_batch(
             )
         )
         if result.error is not None:
-            if profile.enabled(corrupted_file.ID):
-                factory.add(
-                    corrupted_file.ID,
-                    Target(TargetKind.PAGE, pid),
-                    corrupted_file.flag_load_error(result.error),
-                )
-            continue
-        observations[pid] = dict(result.observations)
-        written[pid] = result.written
-        if image_numbering is not None:
-            image_marks[f"{rel}#{page_in_file}"] = result.marks
-            if result.numbering_crop:
-                crops[pid] = result.numbering_crop
-        scales[pid] = result.scale
-        if result.fingerprint is not None and profile.enabled(duplicate_page.ID, station_ids[pid]):
-            dh, thumb, sharp, eligible = result.fingerprint
-            prints.append(duplicate_page.Fingerprint(pid, dh, thumb, sharp, eligible))
+            load_errors[pid] = result.error
+        else:
+            observations[pid] = dict(result.observations)
+            written[pid] = result.written
+            if image_numbering is not None:
+                image_marks[f"{rel}#{page_in_file}"] = result.marks
+                if result.numbering_crop:
+                    crops[pid] = result.numbering_crop
+            scales[pid] = result.scale
+            if result.fingerprint is not None and profile.enabled(
+                duplicate_page.ID, station_ids[pid]
+            ):
+                dh, thumb, sharp, eligible = result.fingerprint
+                prints.append(duplicate_page.Fingerprint(pid, dh, thumb, sharp, eligible))
+        last_of_doc = position + 1 == len(plan) or plan[position + 1][0] != doc_name
+        if last_of_doc:
+            ready.append(doc_name)
+            # Processo pronto: o conferente já pode abrir (o último sai na passada final).
+            if on_document is not None and position + 1 < len(plan):
+                on_document(assemble(ready, final=False), doc_ids[doc_name])
 
-    # Numeração das páginas: do numbering.json do lote ou lida da imagem.
-    if not profile.numbering_enabled:
-        marks: Mapping[str, Sequence[Mark]] = {}
-        source = "none"
-    elif image_numbering is not None:
-        marks, source = image_marks, "image"
-    else:
-        marks = numbering_reader.read(root, list(page_keys))
-        source = "sidecar" if has_sidecar else "none"
-    by_page_key = {pid: key for key, pid in page_keys.items()}
-
-    # Folha com numeração (ou qualquer escrito na região) nunca é branca.
-    for pid, page_obs in observations.items():
-        blank_obs = page_obs.get(blank_page.ID)
-        if blank_obs is not None:
-            has_numbering = written.get(pid, False) or bool(marks.get(by_page_key.get(pid, "")))
-            page_obs[blank_page.ID] = replace(
-                blank_obs, extra={**blank_obs.extra, "numbering_written": has_numbering}
-            )
-
-    # Linha de base do lote e avaliação de cada página.
-    # Cada página é julgada com os parâmetros da estação dela; a linha de base de uma
-    # regra usa todas as páginas em que a regra está ligada.
-    baselines: dict[str, dict[str, Stats]] = {}
-    for detector in PAGE_DETECTORS:
-        measured = {
-            pid: obs[detector.id] for pid, obs in observations.items() if detector.id in obs
-        }
-        if not measured:
-            continue
-        baseline = baseline_of(measured.values())
-        baselines[detector.id] = baseline
-        for pid, obs in measured.items():
-            params = dict(rules_for(station_ids[pid]))[detector.id]
-            flag = detector.evaluate(obs, baseline, params)
-            if flag is not None:
-                factory.add(detector.id, Target(TargetKind.PAGE, pid), flag, scales[pid])
-
-    duplicate_copies: dict[str, str] = {}
-    if prints:
-
-        def dup_params_of(page_id: str) -> Mapping[str, Any]:
-            return profile.params(duplicate_page.ID, station_ids[page_id])
-
-        pairs = duplicate_page.find_duplicates(
-            prints, profile.params(duplicate_page.ID), dup_params_of
-        )
-        for pair in pairs:
-            duplicate_copies[pair.copy] = pair.original
-            factory.add(
-                duplicate_page.ID,
-                Target(TargetKind.PAGE, pair.copy),
-                _duplicate_flag(pair, dup_params_of(pair.copy)),
-            )
-
-    # Sequência e completude por documento.
-    numbering: dict[str, PageNumbering] = {}
-    proposed: dict[str, tuple[str, ...]] = {}
-    for layout in layouts:
-        doc_id = doc_ids[layout.name]
-        pids = doc_pages[layout.name]
-        documents.append(Document(doc_id, batch, layout.name, tuple(pids)))
-        if not profile.numbering_enabled:
-            continue
-        cands = [PageCandidates(pid, tuple(marks.get(by_page_key[pid], ()))) for pid in pids]
-        seq, flags = sequence.analyze_document(
-            doc_id,
-            cands,
-            profile.sequence,
-            declared.get(layout.name),
-            duplicate_copies,
-        )
-        numbering.update({p.page_id: p for p in seq.pages})
-        if seq.reordered:
-            proposed[doc_id] = seq.order
-        for item in flags:
-            if profile.enabled(item.rule):
-                factory.add(item.rule, item.target, item.flag)
-
-    metadata: dict[str, tuple[MetadataField, ...]] = {}
-    for ordinal, layout in enumerate(layouts, start=1):
-        doc_id = doc_ids[layout.name]
-        files = [(ref.rel, file_meta[ref.rel]) for ref in layout.files]
-        metadata[doc_id] = tuple(
-            document_metadata(
-                profile=profile,
-                batch_id=batch,
-                batch_name=name,
-                document_name=layout.name,
-                document_ordinal=ordinal,
-                files=files,
-                page_count=len(doc_pages[layout.name]),
-            )
-        )
-
-    findings = tuple(
-        sorted(
-            factory.findings,
-            key=lambda f: (-f.severity.rank, f.rule, f.target.kind.value, f.target.id),
-        )
-    )
-    lossy = sorted(
-        rel for rel, m in file_meta.items() if m.tags.get("compression") in LOSSY_COMPRESSIONS
-    )
-    summary = summarize(
-        batch_id=batch,
-        profile=profile,
-        documents=documents,
-        pages=pages,
-        findings=findings,
-        stations=stations,
-        lossy_files=lossy,
-    )
-    return BatchAnalysis(
-        batch_id=batch,
-        name=name,
-        profile_id=profile.id,
-        analyzed_at=clock.now(),
-        root=root,
-        documents=tuple(documents),
-        pages=tuple(pages),
-        findings=findings,
-        numbering=numbering,
-        proposed_order=proposed,
-        metadata=metadata,
-        files=file_meta,
-        stations=stations,
-        summary=summary,
-        engine_version=engine_version,
-        baselines=baselines,
-        marks={pid: tuple(marks.get(key, ())) for key, pid in page_keys.items()},
-        numbering_source=source,
-        numbering_crops=crops,
-        station_ids=station_ids,
-    )
+    for layout in layouts:  # documento sem nenhuma página no plano
+        if layout.name not in ready:
+            ready.append(layout.name)
+    return assemble(ready, final=True)
 
 
 def _duplicate_flag(pair: duplicate_page.DuplicatePair, params: Mapping[str, Any]) -> Flag:

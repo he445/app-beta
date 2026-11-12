@@ -8,6 +8,12 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Liberação por processo (ADR-0018): cada processo fica pronto para conferir assim que é
+  analisado (relatório parcial com a mediana do que já foi analisado, sem duplicata);
+  fila no painel (pronto, analisando, na fila) e evento `document_ready`; passada final
+  com a duplicata, mesclada sem perder decisões, numeração digitada nem ordem manual, e
+  "reavaliar" no processo já conferido que ganhou achado novo. Corrigir tudo, salvar e
+  relatório por caixa esperam a passada final (contrato 0.15.0, migração 0008).
 - Leitor de numeração: alternativa com 1 e 7 trocados (metade da confiança) para o
   resolvedor decidir pela sequência; corrige o cenário de intercalação no Windows.
 - Tela de Gestão: lê os relatórios por caixa de `reports_dir` (todas as máquinas) ou, sem

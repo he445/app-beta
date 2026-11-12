@@ -72,6 +72,13 @@
           "format": "date-time"
         }
       }
+    },
+    "reevaluate": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Achados novos da passada final num processo que já tinha decisões (ex.: duplicata de um processo que chegou depois). O processo volta para a fila marcado como \"reavaliar\" com só esses achados para decidir; as decisões já tomadas são mantidas."
     }
   }
 }

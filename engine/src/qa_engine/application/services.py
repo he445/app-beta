@@ -9,7 +9,12 @@ from qa_engine.adapters.images import FileImageSource
 from qa_engine.adapters.metadata import PillowMetadataReader
 from qa_engine.adapters.numbering import SidecarNumberingReader
 from qa_engine.adapters.system import ProcessPoolExecutor, SerialExecutor, SystemClock
-from qa_engine.application.analyze import BatchAnalysis, ProgressCallback, analyze_batch
+from qa_engine.application.analyze import (
+    BatchAnalysis,
+    DocumentCallback,
+    ProgressCallback,
+    analyze_batch,
+)
 from qa_engine.application.profile import Profile
 from qa_engine.ports import Clock
 
@@ -25,6 +30,7 @@ def run_analysis(
     progress: ProgressCallback | None = None,
     fallback_station: str | None = None,
     models_dir: Path | None = None,
+    on_document: DocumentCallback | None = None,
 ) -> BatchAnalysis:
     """Analisa um lote com os adaptadores de referência.
 
@@ -38,6 +44,7 @@ def run_analysis(
         progress: callback de progresso.
         fallback_station: estação das páginas cujo arquivo não identifica a digitalizadora.
         models_dir: modelos embarcados (orientação); sem eles, a orientação não é classificada.
+        on_document: liberação por processo (relatório parcial a cada processo pronto).
     """
     executor = SerialExecutor() if workers == 1 else ProcessPoolExecutor(workers)
     return analyze_batch(
@@ -54,4 +61,5 @@ def run_analysis(
         engine_version=__version__,
         fallback_station=fallback_station,
         models_dir=models_dir,
+        on_document=on_document,
     )

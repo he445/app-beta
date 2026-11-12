@@ -22,7 +22,10 @@ export function Batch({ id }: { id: string }) {
     const ctrl = new AbortController();
     streamEvents(
       `/batches/${id}/events`,
-      (e) => qc.setQueryData<BatchStatus>(keys.batch(id), JSON.parse(e.data) as BatchStatus),
+      (e) => {
+        if (e.event === "document_ready") void qc.invalidateQueries({ queryKey: keys.report(id) });
+        else qc.setQueryData<BatchStatus>(keys.batch(id), JSON.parse(e.data) as BatchStatus);
+      },
       ctrl.signal,
     ).catch(() => undefined); // o polling de useBatch continua como reserva
     return () => ctrl.abort();
@@ -64,7 +67,33 @@ function Processing({ status }: { status: BatchStatus }) {
         </div>
         <p className="muted">{rate ? `${rate.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} páginas por segundo` : " "}</p>
       </Card>
+      {status.documents && <ReleaseQueue batchId={status.id} queue={status.documents} />}
     </div>
+  );
+}
+
+/** Fila de processos: o conferente abre o primeiro pronto enquanto o resto é analisado. */
+function ReleaseQueue({ batchId, queue }: { batchId: string; queue: NonNullable<BatchStatus["documents"]> }) {
+  return (
+    <Card title="Processos">
+      <p className="small muted">
+        Cada processo fica pronto para conferir assim que é analisado. Juntar o lote corrigido, “Corrigir tudo” e o
+        relatório da caixa esperam a caixa inteira.
+      </p>
+      <ul className="plain release-queue">
+        {queue.ready.map((d) => (
+          <li key={d.id} className="row tight">
+            <span className="tag ok">pronto</span> <span className="ellipsis">{d.name}</span>
+            <a className="button small-btn" href={href({ name: "sequence", id: batchId, doc: d.id })}>Conferir</a>
+          </li>
+        ))}
+        {queue.pending.map((d, i) => (
+          <li key={d.id} className="row tight muted">
+            <span className="tag">{i === 0 ? "analisando" : "na fila"}</span> <span className="ellipsis">{d.name}</span>
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }
 

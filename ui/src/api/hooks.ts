@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import type { SequenceStep } from "../lib/sequence";
-import { api, blobUrl, download, getSession, json } from "./client";
+import { ApiError, api, blobUrl, download, getSession, json } from "./client";
 import type { components } from "./schema";
 import type {
   Analysis,
@@ -43,11 +43,23 @@ export function isRunning(b: BatchStatus): boolean {
 }
 
 export function useReport(id: string, enabled = true) {
+  const qc = useQueryClient();
+  const batch = useBatch(id);
+  // Liberação por processo: enquanto a caixa é analisada, o relatório cresce a cada
+  // processo pronto; na passada final, recarrega uma vez.
+  const running = batch.data ? isRunning(batch.data) : false;
+  const wasRunning = useRef(running);
+  useEffect(() => {
+    if (wasRunning.current && !running) void qc.invalidateQueries({ queryKey: keys.report(id) });
+    wasRunning.current = running;
+  }, [running, id, qc]);
   return useQuery({
     queryKey: keys.report(id),
     queryFn: () => api<Analysis>(`/batches/${id}/report`),
     enabled,
-    staleTime: 60_000,
+    staleTime: running ? 0 : 60_000,
+    refetchInterval: running ? 3000 : false,
+    retry: (count, error) => !(error instanceof ApiError && error.status === 409) && count < 2,
   });
 }
 

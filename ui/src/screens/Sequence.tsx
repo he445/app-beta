@@ -2,6 +2,7 @@
 // "Corrigir tudo", como fica o lote corrigido ("Depois"), com página faltando decidida à mão.
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  useBatch,
   useBulkOperations,
   useDecide,
   usePlan,
@@ -59,11 +60,13 @@ import { NumberingDialog } from "./Review";
 
 export function Sequence({ id, doc }: { id: string; doc?: string }) {
   const report = useReport(id);
+  const batch = useBatch(id);
   const plan = usePlan(id, Boolean(report.data));
   const ops = useBulkOperations(id);
   const active = activeOperation(ops.data);
   const finishing = useFinishingOperation(ops.data, active);
   const r = report.data;
+  const queue = batch.data?.documents;
   const selected = r?.documents.find((d) => d.id === doc) ?? r?.documents[0];
   const docPlans = useMemo(
     () => new Map((plan.data?.documents ?? []).map((d) => [d.document_id, d])),
@@ -88,11 +91,19 @@ export function Sequence({ id, doc }: { id: string; doc?: string }) {
   return (
     <div className="split">
       <aside className="doc-list">
+        {queue && queue.pending.length > 0 && (
+          <p className="small muted queue-note">Caixa em análise: {queue.pending.length} processo(s) ainda na fila.</p>
+        )}
         {r.documents.map((d) => {
           const marks = docPlans.get(d.id) ? documentMarks(docPlans.get(d.id)!) : null;
+          const decided = new Set(r.findings.filter((f) => f.decision).map((f) => f.id));
+          const reevaluate = (d.reevaluate ?? []).filter((fid) => !decided.has(fid)).length;
           return (
             <a key={d.id} href={href({ name: "sequence", id, doc: d.id })} className={d.id === selected?.id ? "active" : ""}>
               <StateDot state={d.state} /> <span className="ellipsis">{d.name}</span>
+              {reevaluate > 0 && (
+                <span className="mark mark-missing" title="Achado novo da passada final: decida só ele">reavaliar ({reevaluate})</span>
+              )}
               {marks && marks.missingPending > 0 && <span className="mark mark-missing" title="Página faltando sem decisão">falta folha</span>}
               {marks && marks.rescan > 0 && <span className="mark mark-rescan" title="Páginas a redigitalizar">{marks.rescan} redigitalizar</span>}
               {marks && marks.changes > 0 && <span className="mark mark-ok" title="Páginas que mudam no lote corrigido">✓ {marks.changes}</span>}
