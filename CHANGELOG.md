@@ -8,6 +8,11 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Backup do banco local: cópia consistente (API de backup do SQLite) ao abrir, uma vez
+  por dia e ao fechar, para `backup_dir/<máquina>` (nova chave) ou `backups` na pasta de
+  dados, guardando as 14 mais novas; `qa backup list|now|restore` (também pelo
+  `QA-suporte.exe`), com conferência da cópia, programa fechado e o banco anterior
+  guardado.
 - Trava por caixa: abrir o lote trava as caixas em `reports_dir/travas` (ou só nesta
   máquina, com aviso); outra máquina vê quem está com a caixa, em qual máquina e desde
   quando; renovação a cada minuto pela tela; trava abandonada (10 minutos) pode ser

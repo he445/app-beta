@@ -145,6 +145,13 @@ class SqliteRepository:
                 "UPDATE batches SET status = 'failed', error = ? WHERE id = ?", (error, batch_id)
             )
 
+    def backup_to(self, target: Path) -> Path:
+        """Cópia consistente do banco para ``target`` (API de backup do SQLite)."""
+        from qa_engine.adapters.backup import copy_database
+
+        with self._lock:
+            return copy_database(self._conn, target)
+
     @contextmanager
     def locked(self) -> Iterator[None]:
         """Segura o banco para ler, mesclar e gravar sem outra thread no meio."""

@@ -9,6 +9,8 @@ Exemplos::
     qa admin token                         # gera o token de administrador desta máquina
     qa feedback export --out coleta.zip    # exemplos do beta para o ajuste fino (só local)
     qa beta report --since 2026-12-01      # métricas do piloto a partir do banco local
+    qa backup list                         # cópias do banco desta máquina
+    qa backup restore qa-20261201-180000.sqlite3   # com o programa fechado
 """
 
 from __future__ import annotations
@@ -190,6 +192,89 @@ def _beta_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def _backup_folder(args: argparse.Namespace) -> Path:
+    """Pasta das cópias desta máquina: ``backup_dir/<máquina>`` ou ``data_dir/backups``."""
+    import platform
+
+    from qa_engine.adapters.paths import AppPaths
+    from qa_engine.adapters.settings import LayeredSettings
+
+    if args.backup_dir:
+        return Path(args.backup_dir)
+    settings = LayeredSettings.for_desktop(AppPaths.detect()).load().settings
+    if settings.backup_dir is not None:
+        from qa_engine.entrypoints.http.app import safe_name
+
+        return settings.backup_dir / safe_name(platform.node() or "estacao")
+    return settings.data_dir / "backups"
+
+
+def _backup_list(args: argparse.Namespace) -> int:
+    from qa_engine.adapters.backup import list_backups
+
+    folder = _backup_folder(args)
+    found = list_backups(folder)
+    if not found:
+        print(f"nenhuma cópia em {folder}")
+        return 0
+    for path in found:
+        print(f"{path.name}  {path.stat().st_size / 1e6:.1f} MB")
+    print(f"{len(found)} cópia(s) em {folder}")
+    return 0
+
+
+def _backup_now(args: argparse.Namespace) -> int:
+    from datetime import datetime
+
+    from qa_engine.adapters.backup import backup_name, prune
+    from qa_engine.adapters.sqlite import SqliteRepository
+
+    database = _data_dir(args) / "qa.sqlite3"
+    if not database.is_file():
+        print(f"banco não encontrado em {database}", file=sys.stderr)
+        return 1
+    repo = SqliteRepository(database)
+    try:
+        folder = _backup_folder(args)
+        target = repo.backup_to(folder / backup_name(datetime.now()))
+        prune(folder)
+    finally:
+        repo.close()
+    print(f"cópia gravada em {target}")
+    return 0
+
+
+def _backup_restore(args: argparse.Namespace) -> int:
+    """Põe uma cópia no lugar do banco; o programa precisa estar fechado."""
+    from datetime import datetime
+
+    from qa_engine.adapters.backup import restore
+    from qa_engine.adapters.instance import InstanceLock
+
+    source = Path(args.file)
+    if not source.is_absolute() and not source.exists():
+        source = _backup_folder(args) / source
+    if not source.is_file():
+        print(f"cópia não encontrada: {source}", file=sys.stderr)
+        return 1
+    data_dir = _data_dir(args)
+    lock = InstanceLock(data_dir)
+    if not lock.acquire():
+        print("feche o programa antes de restaurar (ele está aberto nesta conta)", file=sys.stderr)
+        return 1
+    try:
+        kept = restore(source, data_dir / "qa.sqlite3", datetime.now())
+    except ValueError as exc:
+        print(f"cópia recusada: {exc}", file=sys.stderr)
+        return 1
+    finally:
+        lock.release()
+    print(f"banco restaurado de {source.name}.")
+    if kept is not None:
+        print(f"O banco anterior ficou em {kept}.")
+    return 0
+
+
 def _rules(_: argparse.Namespace) -> int:
     for rule in RULES:
         m = manifest(rule)
@@ -266,6 +351,20 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument("--out", type=Path, help="gravar num arquivo em vez de mostrar")
     report.add_argument("--data-dir", type=Path, help="pasta de dados (padrão: a desta conta)")
     report.set_defaults(func=_beta_report)
+
+    backup = sub.add_parser("backup", help="cópias do banco local (decisões e auditoria)")
+    backup_sub = backup.add_subparsers(dest="backup_command", required=True)
+    for name, func, text in (
+        ("list", _backup_list, "listar as cópias desta máquina"),
+        ("now", _backup_now, "fazer uma cópia agora"),
+        ("restore", _backup_restore, "restaurar uma cópia (com o programa fechado)"),
+    ):
+        cmd = backup_sub.add_parser(name, help=text)
+        if name == "restore":
+            cmd.add_argument("file", help="arquivo da cópia (nome ou caminho)")
+        cmd.add_argument("--data-dir", type=Path, help="pasta de dados (padrão: a desta conta)")
+        cmd.add_argument("--backup-dir", type=Path, help="pasta das cópias (padrão: a configurada)")
+        cmd.set_defaults(func=func)
 
     vr = sub.add_parser("validate-report", help="validar um report.json contra o contrato")
     vr.add_argument("report", type=Path)

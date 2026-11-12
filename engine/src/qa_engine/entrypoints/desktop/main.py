@@ -320,7 +320,7 @@ def open_browser(server: EngineServer) -> None:
 
 
 CLI_COMMANDS = frozenset(
-    {"admin", "beta", "feedback", "rules", "validate-profile", "validate-report"}
+    {"admin", "backup", "beta", "feedback", "rules", "validate-profile", "validate-report"}
 )
 """Subcomandos da linha de comando ``qa`` que o executável de suporte também atende."""
 

@@ -15,6 +15,7 @@ import logging
 import platform
 import secrets
 import shutil
+import sqlite3
 import threading
 import time
 import uuid
@@ -34,6 +35,7 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
 from qa_engine import __version__
+from qa_engine.adapters.backup import backup_name, list_backups, prune
 from qa_engine.adapters.box_locks import BoxLockedError, BoxLocks
 from qa_engine.adapters.box_report_pdf import render_box_report_pdf
 from qa_engine.adapters.corrected_folder import FolderTiffWriter
@@ -183,6 +185,12 @@ class Engine:
             (settings.reports_dir or settings.data_dir) / "travas", shared=shared_locks
         )
         self.instance_id = str(uuid.uuid4())
+        machine = safe_name(platform.node() or "estacao")
+        self.backup_folder = (
+            settings.backup_dir / machine
+            if settings.backup_dir is not None
+            else settings.data_dir / "backups"
+        )
         self.held: dict[str, list[str]] = {}
         """Caixas travadas por esta abertura do programa, por lote."""
         self.shared = (
@@ -292,6 +300,25 @@ class Engine:
         if not snapshot.is_file():
             return []
         return compare_snapshot(self.folder, root, json.loads(snapshot.read_text("utf-8")))
+
+    def backup(self, force: bool = False) -> Path | None:
+        """Cópia do banco uma vez por dia (ou já, com ``force``); guarda as 14 mais novas."""
+        if self.settings.mode == "cloud":
+            return None
+        try:
+            existing = list_backups(self.backup_folder)
+            if existing and not force:
+                age = time.time() - existing[-1].stat().st_mtime
+                if age < BACKUP_EVERY_SECONDS:
+                    return None
+            target = self.repo.backup_to(self.backup_folder / backup_name(self.now()))
+            prune(self.backup_folder)
+            log.info("cópia do banco gravada (%s)", target.name)
+            return target
+        except (OSError, sqlite3.Error) as exc:
+            log.warning("não foi possível copiar o banco para a pasta de backups")
+            self.record_error(exc, "engine", "backup do banco", None, "warning")
+            return None
 
     def lock_holder(self, batch_name: str) -> dict[str, Any]:
         """Quem trava: esta abertura do programa, o usuário do Windows e a máquina."""
@@ -821,6 +848,9 @@ class Engine:
             self.repo.fail(batch_id, f"{exc.__class__.__name__}: {exc}"[:500])
 
 
+BACKUP_EVERY_SECONDS = 24 * 3600
+"""Uma cópia do banco por dia (além da cópia ao fechar)."""
+BACKUP_CHECK_SECONDS = 3600
 CONFIG_SUMMARY = "configuracao.json"
 """Resumo de configuração gravado na pasta de trabalho de cada lote e no lote corrigido."""
 THUMB_WIDTH = 256
@@ -919,7 +949,17 @@ def create_app(
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         engine.purge()
         engine.ingest_crashes()
+        stop_backups = threading.Event()
+
+        def daily_backups() -> None:
+            while not stop_backups.wait(BACKUP_CHECK_SECONDS):
+                engine.backup()
+
+        engine.backup()
+        threading.Thread(target=daily_backups, name="backup", daemon=True).start()
         yield
+        stop_backups.set()
+        engine.backup(force=True)  # ao fechar
         try:
             engine.release_all_boxes()
         except OSError:
