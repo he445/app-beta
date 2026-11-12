@@ -18,7 +18,7 @@ from qa_engine.application.layout import DocumentLayout, discover, read_manifest
 from qa_engine.application.metadata import MetadataField, document_metadata, match_station
 from qa_engine.application.numbering_image import ImageNumberingReader
 from qa_engine.application.profile import NumberingImageConfig, Profile
-from qa_engine.detectors import corrupted_file, duplicate_page, orientation, sequence
+from qa_engine.detectors import blank_page, corrupted_file, duplicate_page, orientation, sequence
 from qa_engine.detectors.base import (
     ANALYSIS_DPI,
     Flag,
@@ -74,6 +74,8 @@ class PageTask:
     """Modelos embarcados; sem eles, a orientação não é classificada."""
     numbering: NumberingImageConfig | None = None
     """Ler a numeração da imagem (sem ``numbering.json`` no lote e com modelos)."""
+    blank_corners: NumberingImageConfig | None = None
+    """Em página quase vazia, procurar escrito nos quatro cantos (com modelos)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,6 +188,19 @@ def analyze_page(
         numbering_read = _reader(task.models_dir, task.numbering).read(
             upright_raster.gray, ANALYSIS_DPI, task.numbering.regions
         )
+    written = numbering_read.written if numbering_read else False
+    blank_params = rules.get(blank_page.ID)
+    if (
+        not written
+        and blank_params is not None
+        and task.blank_corners is not None
+        and task.models_dir is not None
+        and features.ink_coverage < float(blank_params["near_blank_threshold"])
+    ):
+        # Página quase vazia: a orientação não é confiável, então procura nos quatro cantos.
+        written = _reader(task.models_dir, task.blank_corners).has_writing(
+            raster.gray, ANALYSIS_DPI
+        )
     blur_obs = observations.get("blur")
     sharpness = blur_obs.values["energy"] if blur_obs is not None else 0.0
     fingerprint = (
@@ -204,7 +219,7 @@ def analyze_page(
         fingerprint,
         marks=numbering_read.marks if numbering_read else (),
         numbering_crop=numbering_read.crop_png if numbering_read else None,
-        written=numbering_read.written if numbering_read else False,
+        written=written,
     )
 
 
@@ -445,6 +460,7 @@ def analyze_batch(
             float(profile.params(duplicate_page.ID, station_id_of(rel))["min_ink_coverage"]),
             models_dir,
             image_numbering,
+            profile.numbering_reader if profile.numbering_enabled and models_dir else None,
         )
         for _, rel, page_in_file, ok in plan
         if ok is not None
@@ -463,6 +479,7 @@ def analyze_batch(
     station_ids: dict[str, str | None] = {}
     image_marks: dict[str, tuple[Mark, ...]] = {}
     crops: dict[str, bytes] = {}
+    written: dict[str, bool] = {}
     done = 0
     for doc_name, rel, page_in_file, ok in plan:
         meta = file_meta[rel]
@@ -505,6 +522,7 @@ def analyze_batch(
                 )
             continue
         observations[pid] = dict(result.observations)
+        written[pid] = result.written
         if image_numbering is not None:
             image_marks[f"{rel}#{page_in_file}"] = result.marks
             if result.numbering_crop:
@@ -513,6 +531,26 @@ def analyze_batch(
         if result.fingerprint is not None and profile.enabled(duplicate_page.ID, station_ids[pid]):
             dh, thumb, sharp, eligible = result.fingerprint
             prints.append(duplicate_page.Fingerprint(pid, dh, thumb, sharp, eligible))
+
+    # Numeração das páginas: do numbering.json do lote ou lida da imagem.
+    if not profile.numbering_enabled:
+        marks: Mapping[str, Sequence[Mark]] = {}
+        source = "none"
+    elif image_numbering is not None:
+        marks, source = image_marks, "image"
+    else:
+        marks = numbering_reader.read(root, list(page_keys))
+        source = "sidecar" if has_sidecar else "none"
+    by_page_key = {pid: key for key, pid in page_keys.items()}
+
+    # Folha com numeração (ou qualquer escrito na região) nunca é branca.
+    for pid, page_obs in observations.items():
+        blank_obs = page_obs.get(blank_page.ID)
+        if blank_obs is not None:
+            has_numbering = written.get(pid, False) or bool(marks.get(by_page_key.get(pid, "")))
+            page_obs[blank_page.ID] = replace(
+                blank_obs, extra={**blank_obs.extra, "numbering_written": has_numbering}
+            )
 
     # Linha de base do lote e avaliação de cada página.
     # Cada página é julgada com os parâmetros da estação dela; a linha de base de uma
@@ -550,15 +588,6 @@ def analyze_batch(
             )
 
     # Sequência e completude por documento.
-    if not profile.numbering_enabled:
-        marks: Mapping[str, Sequence[Mark]] = {}
-        source = "none"
-    elif image_numbering is not None:
-        marks, source = image_marks, "image"
-    else:
-        marks = numbering_reader.read(root, list(page_keys))
-        source = "sidecar" if has_sidecar else "none"
-    by_page_key = {pid: key for key, pid in page_keys.items()}
     numbering: dict[str, PageNumbering] = {}
     proposed: dict[str, tuple[str, ...]] = {}
     for layout in layouts:

@@ -8,6 +8,10 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Folha em branco depende da numeração (`blank_page` 1.1.0): folha com numeração (do
+  `numbering.json` ou qualquer escrito na região, inclusive riscado) nunca é branca; em
+  página quase vazia, com os modelos, o leitor procura escrito nos quatro cantos. Os
+  cinco casos sintéticos em `tools/synth/numbering.py brancas`.
 - Coleta do beta (porta `FeedbackStore`, adaptador `SqliteFeedbackStore`): numeração
   digitada e decisão de orientação do garantidor viram exemplo rotulado só nesta máquina
   (recorte ou miniatura, rótulo e o que o modelo disse), com retenção por perfil

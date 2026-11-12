@@ -16,11 +16,13 @@ from qa_engine.detectors.base import (
 )
 from qa_engine.domain.model import Correction, CorrectionAction, CorrectionClass, Severity
 
+ID = "blank_page"
+
 
 class BlankPage:
     """Detector de página em branco."""
 
-    id = "blank_page"
+    id = ID
 
     def measure(self, page: PageRaster, features: PageFeatures, params: Params) -> Observation:
         """Cobertura de tinta na área útil e área da maior marca (carimbo, rubrica)."""
@@ -33,7 +35,13 @@ class BlankPage:
         return Observation({"coverage": features.ink_coverage}, extra={"largest_mark": largest})
 
     def evaluate(self, obs: Observation, baseline: Baseline, params: Params) -> Flag | None:
-        """Branca abaixo de ``blank_threshold``; quase branca até ``near_blank_threshold``."""
+        """Branca abaixo de ``blank_threshold``; quase branca até ``near_blank_threshold``.
+
+        Folha com numeração (ou qualquer escrito na região da numeração, mesmo riscado)
+        nunca é branca nem quase branca: ela fica no lote e conta na sequência.
+        """
+        if obs.extra.get("numbering_written"):
+            return None
         coverage = obs.values["coverage"]
         blank_at = float(params["blank_threshold"])
         near_at = float(params["near_blank_threshold"])

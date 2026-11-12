@@ -280,3 +280,39 @@ def test_sidecar_has_priority_over_the_image(small_batch: Path, test_profile: Pr
     (small_batch / "numbering.json").write_text(json.dumps({}), encoding="utf-8")
     analysis = run_analysis(small_batch, test_profile, workers=1, models_dir=MODELS)
     assert analysis.numbering_source == "sidecar" and not analysis.numbering_crops
+
+
+# Folha em branco depende da numeração (T21) ----------------------------------------
+
+
+@needs_models
+def test_blank_page_considers_the_numbering(tmp_path: Path, test_profile: Profile) -> None:
+    root = tmp_path / "brancas"
+    handwriting.build_blank_cases(root)
+    analysis = run_analysis(root, test_profile, workers=1, models_dir=MODELS)
+    report = analysis_json(analysis)
+    folder = {p["id"]: p["source_file"].split("/")[0] for p in report["pages"]}
+    flags = {
+        folder[f["target"]["id"]]: f["correction"]["action"]
+        for f in report["findings"]
+        if f["rule"] == "blank_page"
+    }
+    # Só a vazia é branca (removida da cópia). O carimbo continua "quase branca", para o
+    # revisor olhar, e nunca é removido; as folhas com número não são sinalizadas.
+    assert flags == {"vazia": "remove_page", "so-carimbo": "human_review"}, flags
+
+
+def test_numbering_from_the_sidecar_also_keeps_the_page(
+    tmp_path: Path, test_profile: Profile
+) -> None:
+    from conftest import blank_150, save
+
+    root = tmp_path / "lote"
+    save(root / "DOC/0001.tif", blank_150(1))
+    save(root / "DOC/0002.tif", blank_150(2))
+    marks = {"DOC/0001.tif#0": [{"readings": [{"text": "7", "confidence": 0.9}]}]}
+    (root / "numbering.json").write_text(json.dumps({"pages": marks}), encoding="utf-8")
+    report = analysis_json(run_analysis(root, test_profile, workers=1))
+    by_file = {p["id"]: p["source_file"] for p in report["pages"]}
+    blank = {by_file[f["target"]["id"]] for f in report["findings"] if f["rule"] == "blank_page"}
+    assert blank == {"DOC/0002.tif"}

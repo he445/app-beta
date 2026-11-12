@@ -65,7 +65,7 @@ Especificação: [low_resolution.md](../especificacoes/detectors/low_resolution.
 
 ### `blank_page`
 
-Página em branco. Versão 1.0.0, severidade `low`.
+Página em branco. Versão 1.1.0, severidade `low`.
 Especificação: [blank_page.md](../especificacoes/detectors/blank_page.md).
 
 | Parâmetro | Tipo | Padrão | Faixa | Descrição |

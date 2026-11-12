@@ -37,6 +37,8 @@ MIN_READING = 0.3
 """Confiança mínima de uma leitura com formato de folha para virar marca."""
 LONE_STRUCK = 0.99
 """Nota de riscado exigida quando a página tem um número só."""
+EDGE_MARGIN = 0.01
+"""Faixa junto à borda da página (fração do lado menor) ignorada na busca nos cantos."""
 MAX_ASPECT = 5.0
 """Caixa mais larga que isso (em alturas) é linha de texto impresso, não número de folha."""
 
@@ -168,10 +170,20 @@ class ImageNumberingReader:
         return sorted(boxes, key=lambda b: (b.y, b.x))
 
     def has_writing(self, gray: NDArray[np.uint8], dpi: float) -> bool:
-        """Algum escrito em qualquer um dos quatro cantos (página quase vazia)."""
+        """Algum escrito em qualquer um dos quatro cantos (página quase vazia).
+
+        Caixa encostada na borda da página é sombra ou borda do digitalizador, não escrito.
+        """
+        h, w = gray.shape[:2]
+        edge = max(2, round(EDGE_MARGIN * min(h, w)))
         for region in CORNERS:
-            crop, _, _ = crop_fraction(gray, region)
-            if any(b.h >= self._min_height(dpi) for b in self._detect(crop)):
+            crop, x0, y0 = crop_fraction(gray, region)
+            for b in self._detect(crop):
+                if b.h < self._min_height(dpi) or b.w > MAX_ASPECT * b.h:
+                    continue
+                x, y = x0 + b.x, y0 + b.y
+                if x <= edge or y <= edge or x + b.w >= w - edge or y + b.h >= h - edge:
+                    continue
                 return True
         return False
 

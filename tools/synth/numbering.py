@@ -9,6 +9,7 @@ Uso::
     uv run --project engine python tools/synth/numbering.py lote --out lote-numeracao
     uv run --project engine python tools/synth/numbering.py recortes --out recortes --n 300
     uv run --project engine python tools/synth/numbering.py sequencia --out lote-sequencia
+    uv run --project engine python tools/synth/numbering.py brancas --out lote-brancas
 """
 
 from __future__ import annotations
@@ -204,6 +205,34 @@ def build_sequence_batch(out: Path, seed: int = 20261114) -> None:
         synth.save_tiff(out / f"SEM-NUMERO/{i:04d}.tif", synth.Page(gray), synth.STATIONS[0], 1)
 
 
+BLANK_CASES = ("so-numero", "so-riscado", "so-numero-de-cabeca-para-baixo", "so-carimbo", "vazia")
+"""Os cinco casos da folha em branco: só a última é branca."""
+
+
+def build_blank_cases(out: Path, seed: int = 20261115) -> None:
+    """Lote com os cinco casos da folha em branco, um documento cada, sem numbering.json."""
+    rng = random.Random(seed)
+    if out.exists():
+        shutil.rmtree(out)
+    available = fonts()
+    for i, name in enumerate(BLANK_CASES):
+        if name == "so-carimbo":
+            gray = synth.stamp_page(rng, PAGE)
+        else:
+            page = Image.fromarray(synth.blank_page(rng, PAGE))
+            if name != "vazia":
+                at = (int(PAGE[0] * 0.74), int(PAGE[1] * 0.04))
+                box = draw_number(
+                    page, str(rng.randint(2, 99)), at, rng, available[i % len(available)]
+                )
+                if name == "so-riscado":
+                    strike(page, box, rng)
+            if name == "so-numero-de-cabeca-para-baixo":
+                page = page.rotate(180)
+            gray = np.asarray(page)
+        synth.save_tiff(out / f"{name}/0001.tif", synth.Page(gray), synth.STATIONS[0], 1)
+
+
 # Recortes para o bench ---------------------------------------------------------------
 
 
@@ -253,7 +282,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("mode", choices=["lote", "recortes", "sequencia"])
+    parser.add_argument("mode", choices=["lote", "recortes", "sequencia", "brancas"])
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--n", type=int, default=300, help="quantos recortes")
     parser.add_argument("--seed", type=int, default=None)
@@ -262,6 +291,8 @@ def main() -> None:
         build_batch(args.out, args.seed or 20261112)
     elif args.mode == "sequencia":
         build_sequence_batch(args.out, args.seed or 20261114)
+    elif args.mode == "brancas":
+        build_blank_cases(args.out, args.seed or 20261115)
     else:
         build_crops(args.out, args.n, args.seed or 20261113)
     print(f"gerado em {args.out}")

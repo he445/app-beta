@@ -1,5 +1,5 @@
 id: blank_page
-version: 1.0.0
+version: 1.1.0
 title: Página em branco
 spec: docs/especificacoes/detectors/blank_page.md
 input: page_gray_150dpi
