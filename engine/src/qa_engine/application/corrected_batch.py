@@ -13,6 +13,7 @@ from pathlib import PurePosixPath
 from typing import Any
 
 from qa_engine.application.bulk import RESCAN_RULES
+from qa_engine.application.complements import is_complement
 from qa_engine.application.corrections import CANONICAL_ORDER, describe_correction
 from qa_engine.application.review import finding_from_json
 from qa_engine.domain.model import CorrectionAction, CorrectionClass, DecisionAction
@@ -39,12 +40,15 @@ def document_folder(document: Mapping[str, Any], pages: Mapping[str, Mapping[str
     Documento que veio de um arquivo multipágina (PDF, TIFF) → pasta com o nome
     do arquivo, sem extensão.
     """
-    first = pages[document["page_ids"][0]] if document["page_ids"] else None
+    originals = [
+        pid for pid in document["page_ids"] if not is_complement(pages[pid]["source_file"])
+    ]
+    first = pages[originals[0]] if originals else None
     if first is None:
         return str(document["name"])
     source = str(first["source_file"])
     multipage = source.lower().endswith(".pdf") or any(
-        pages[pid]["page_in_file"] > 0 for pid in document["page_ids"]
+        pages[pid]["page_in_file"] > 0 for pid in originals
     )
     if multipage:
         return source.rsplit(".", 1)[0]

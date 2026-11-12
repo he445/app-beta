@@ -13,6 +13,7 @@ com a suíte de `conformance/`.
 | [`detectors/`](detectors/blank_page.md) | Um documento por regra de página, no modelo obrigatório |
 | [`sequencing.md`](sequencing.md) | Numeração, sequência e completude (regras de documento) |
 | [`numeracao-por-imagem.md`](numeracao-por-imagem.md) | Leitura da numeração manuscrita no canto da página |
+| [`folha-inserida.md`](folha-inserida.md) | Folha que apareceu depois: área de complementos, posição pelo número, desfazer |
 | [`coleta-do-beta.md`](coleta-do-beta.md) | Exemplos rotulados do beta e definição das métricas do piloto |
 | [`relatorio-por-caixa.md`](relatorio-por-caixa.md) | Pendências de cada processo da caixa, versões e onde são gravadas |
 | [`gestao.md`](gestao.md) | Relatórios de todas as máquinas por conferente, período e versão do programa |

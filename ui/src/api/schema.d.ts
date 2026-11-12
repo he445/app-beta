@@ -734,6 +734,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/batches/{batch_id}/documents/{document_id}/pages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: components["parameters"]["BatchId"];
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Inserir uma folha que apareceu depois (arrastar para a Sequência)
+         * @description Guarda a folha na área de complementos do lote (nunca na pasta original), analisa
+         *     com as regras do lote (linha de base gravada) e lê o número. Entra na posição
+         *     enviada ou, sem ela, na sugerida pelo número lido. A sequência é resolvida de novo
+         *     (a lacuna fecha) e o relatório da caixa sai em versão nova se a caixa estava
+         *     concluída. Uma folha por arquivo. Só depois da análise da caixa.
+         *
+         */
+        post: operations["insertDocumentPage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/batches/{batch_id}/documents/{document_id}/pages/{page_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: components["parameters"]["BatchId"];
+                document_id: string;
+                page_id: components["parameters"]["PageId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Desfazer a inserção de uma folha
+         * @description Só folhas inseridas depois. A auditoria (quem inseriu e quem removeu) fica.
+         */
+        delete: operations["removeDocumentPage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/documents/{document_id}/metadata": {
         parameters: {
             query?: never;
@@ -1305,6 +1357,7 @@ export interface components {
             /** Format: uuid */
             document_id: string;
             index: number;
+            /** @description Arquivo da página, relativo à pasta do lote. Folha inserida depois (área de complementos do lote, nunca a pasta original) começa com ":complemento:/". */
             source_file: string;
             page_in_file: number;
             width_px: number;
@@ -1782,6 +1835,27 @@ export interface components {
             /** @description Sinalizações de sequência do documento (lacunas, fora de ordem, numeração para revisar). */
             findings: components["schemas"]["finding.schema"][];
             summary: components["schemas"]["batch-summary.schema"];
+        };
+        /**
+         * PageInsertResult
+         * @description Processo depois de inserir uma folha que apareceu depois: a folha nova, onde entrou, onde o número lido sugeria e a sequência resolvida de novo.
+         */
+        "page-insert-result.schema": {
+            document: components["schemas"]["document.schema"];
+            /** @description Numeração resolvida de cada página do documento. */
+            pages: {
+                [key: string]: components["schemas"]["numbering.schema"];
+            };
+            /** @description Sinalizações de sequência do documento (lacunas, fora de ordem, numeração para revisar). */
+            findings: components["schemas"]["finding.schema"][];
+            summary: components["schemas"]["batch-summary.schema"];
+            page_id: string;
+            /** @description Posição em que a folha entrou no processo. */
+            position: number;
+            /** @description Posição sugerida pelo número lido (depois da maior folha menor que ele; sem número, o fim). */
+            suggested_position: number;
+            /** @description Número lido na folha, se houver. */
+            folio_read: string | null;
         };
         /** MetadataUpdate */
         "metadata-update.schema": {
@@ -2961,6 +3035,73 @@ export interface operations {
             404: components["responses"]["Problem"];
             409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
+        };
+    };
+    insertDocumentPage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: components["parameters"]["BatchId"];
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    reviewer: string;
+                    /** @description Posição no processo (1 = antes da primeira); sem ela, a sugerida pelo número */
+                    position?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Processo com a folha nova */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["page-insert-result.schema"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
+            413: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    removeDocumentPage: {
+        parameters: {
+            query?: {
+                reviewer?: string;
+            };
+            header?: never;
+            path: {
+                batch_id: components["parameters"]["BatchId"];
+                document_id: string;
+                page_id: components["parameters"]["PageId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Processo sem a folha */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["document-numbering.schema"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
         };
     };
     getDocumentMetadata: {

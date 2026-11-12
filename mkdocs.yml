@@ -87,6 +87,7 @@ nav:
       - Liberação por processo: especificacoes/liberacao-por-processo.md
       - Sequência e completude: especificacoes/sequencing.md
       - Numeração lida da imagem: especificacoes/numeracao-por-imagem.md
+      - Folha inserida depois: especificacoes/folha-inserida.md
       - Coleta do beta e métricas: especificacoes/coleta-do-beta.md
       - Relatório por caixa: especificacoes/relatorio-por-caixa.md
       - Gestão: especificacoes/gestao.md

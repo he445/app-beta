@@ -8,6 +8,11 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Folha inserida depois: arrastar o arquivo para a Sequência (no ponto certo ou em
+  "Adicionar folha") guarda a folha na área de complementos do lote (nunca na pasta
+  original), analisa com a linha de base do lote, lê o número, sugere a posição por ele,
+  resolve a sequência de novo (a lacuna fecha) e gera versão nova do relatório da caixa;
+  remover desfaz, com auditoria (contrato 0.16.0, migração 0009).
 - Liberação por processo (ADR-0018): cada processo fica pronto para conferir assim que é
   analisado (relatório parcial com a mediana do que já foi analisado, sem duplicata);
   fila no painel (pronto, analisando, na fila) e evento `document_ready`; passada final

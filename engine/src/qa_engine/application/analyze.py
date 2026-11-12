@@ -730,6 +730,47 @@ def analyze_batch(
     return assemble(ready, final=True)
 
 
+def evaluate_page(
+    batch_id: str,
+    page_id: str,
+    result: PageResult,
+    profile: Profile,
+    baselines: Mapping[str, Mapping[str, Stats]],
+    station_id: str | None = None,
+    has_numbering: bool = False,
+) -> list[Finding]:
+    """Sinalizações de uma página avulsa (folha inserida depois), com a linha de base do lote.
+
+    Args:
+        batch_id: lote.
+        page_id: identificador da página nova.
+        result: medidas da página (:func:`analyze_page`).
+        profile: perfil do lote.
+        baselines: linha de base de cada regra, gravada na análise do lote.
+        station_id: estação da página (ajustes de regra).
+        has_numbering: a página tem numeração (folha com número nunca é branca).
+    """
+    factory = _FindingFactory(batch_id, profile)
+    target = Target(TargetKind.PAGE, page_id)
+    if result.error is not None:
+        if profile.enabled(corrupted_file.ID):
+            factory.add(corrupted_file.ID, target, corrupted_file.flag_load_error(result.error))
+        return factory.findings
+    detectors = {d.id: d for d in PAGE_DETECTORS}
+    for rule, obs in result.observations.items():
+        if not profile.enabled(rule, station_id):
+            continue
+        if rule == blank_page.ID:
+            numbered = has_numbering or result.written
+            obs = replace(obs, extra={**obs.extra, "numbering_written": numbered})
+        flag = detectors[rule].evaluate(
+            obs, baselines.get(rule, {}), profile.params(rule, station_id)
+        )
+        if flag is not None:
+            factory.add(rule, target, flag, result.scale)
+    return factory.findings
+
+
 def _duplicate_flag(pair: duplicate_page.DuplicatePair, params: Mapping[str, Any]) -> Flag:
     from qa_engine.domain.model import Correction, CorrectionAction, CorrectionClass
 

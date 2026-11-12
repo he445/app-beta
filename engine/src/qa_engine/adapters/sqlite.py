@@ -599,6 +599,52 @@ class SqliteRepository:
         rows = self._all("SELECT batch_id, created_at, metrics_json FROM beta_metrics")
         return {r[0]: {"created_at": r[1], **json.loads(r[2])} for r in rows}
 
+    def add_complement(self, row: Mapping[str, Any], page: Mapping[str, Any]) -> None:
+        """Registra uma folha inserida e a página dela."""
+        with self._tx() as c:
+            c.execute(
+                "INSERT INTO pages VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    page["id"],
+                    row["batch_id"],
+                    page["document_id"],
+                    page["source_file"],
+                    page["page_in_file"],
+                    page["dpi"],
+                ),
+            )
+            c.execute(
+                "INSERT INTO complements (page_id, batch_id, document_id, file, sha256, position,"
+                " inserted_by, inserted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    page["id"],
+                    row["batch_id"],
+                    page["document_id"],
+                    row["file"],
+                    page["sha256"],
+                    row["position"],
+                    row["reviewer"],
+                    row["at"],
+                ),
+            )
+
+    def remove_complement(self, page_id: str, reviewer: str, at: str) -> None:
+        """Marca a folha inserida como removida (a auditoria fica)."""
+        with self._tx() as c:
+            c.execute(
+                "UPDATE complements SET removed_by = ?, removed_at = ? WHERE page_id = ?",
+                (reviewer, at, page_id),
+            )
+            c.execute("DELETE FROM numbering_overrides WHERE page_id = ?", (page_id,))
+            c.execute("DELETE FROM pages WHERE id = ?", (page_id,))
+
+    def complements(self, batch_id: str) -> list[dict[str, Any]]:
+        """Folhas inseridas no lote (inclusive as removidas, para auditoria)."""
+        rows = self._all(
+            "SELECT * FROM complements WHERE batch_id = ? ORDER BY inserted_at", (batch_id,)
+        )
+        return [dict(r) for r in rows]
+
     def clear_numbering(self, page_id: str) -> None:
         """Desfaz a numeração digitada de uma página."""
         with self._tx() as c:

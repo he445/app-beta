@@ -162,4 +162,15 @@ async function sequence(page, folder, shots) {
   const moved = doc.pages.filter((p) => p.moved).map((p) => `${p.old_position}->${p.new_position}`).sort();
   if (!doc.reordered || moved.join() !== "2->3,3->2") throw new Error(`lote corrigido sem a ordem manual: ${moved}`);
   console.log("sequência ok:", moved.join(", "));
+
+  // Folha que apareceu depois: escolher o arquivo, conferir onde entrou e desfazer.
+  // Como buffer: o Chromium do Playwright não abre caminho com acento ("Sequência").
+  const sheet = require("node:fs").readFileSync(`${folder}/SEM-NUMERO/0001.tif`);
+  await page.locator(".add-sheet input[type=file]").setInputFiles({ name: "folha.tif", mimeType: "image/tiff", buffer: sheet });
+  await page.getByText(/Folha inserida na posição 4/).waitFor({ timeout: 60_000 });
+  await page.getByText("folha inserida").first().waitFor({ timeout: 30_000 });
+  if (shots) await page.screenshot({ path: `${shots}/desktop-folha-inserida.png`, fullPage: true });
+  await page.getByRole("button", { name: "Remover" }).click();
+  await page.waitForFunction(() => !document.querySelector(".inserted"), null, { timeout: 30_000 });
+  console.log("folha inserida e removida ok");
 }

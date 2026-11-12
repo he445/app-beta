@@ -32,7 +32,8 @@
       "minimum": 0
     },
     "source_file": {
-      "type": "string"
+      "type": "string",
+      "description": "Arquivo da página, relativo à pasta do lote. Folha inserida depois (área de complementos do lote, nunca a pasta original) começa com \":complemento:/\"."
     },
     "page_in_file": {
       "type": "integer",

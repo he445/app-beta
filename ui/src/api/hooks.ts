@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import type { SequenceStep } from "../lib/sequence";
-import { ApiError, api, blobUrl, download, getSession, json } from "./client";
+import { ApiError, api, blobUrl, download, getSession, json, raw } from "./client";
 import type { components } from "./schema";
 import type {
   Analysis,
@@ -285,6 +285,42 @@ export function useSetDocumentNumbering(batchId: string, documentId: string) {
 }
 
 const SEQUENCE_RULES = new Set(["missing_page", "out_of_order", "numbering_review", "completeness_unverifiable"]);
+
+/** Folha que apareceu depois: envia o arquivo (posição 1 = antes da primeira; sem ela, pelo número). */
+export function useInsertPage(batchId: string, documentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ file, position }: { file: File; position?: number }) => {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("reviewer", reviewer());
+      if (position) form.append("position", String(position));
+      const res = await raw(`/batches/${batchId}/documents/${documentId}/pages`, { method: "POST", body: form });
+      return (await res.json()) as components["schemas"]["page-insert-result.schema"];
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.report(batchId) });
+      void qc.invalidateQueries({ queryKey: keys.plan(batchId) });
+      void qc.invalidateQueries({ queryKey: ["box-reports", batchId] });
+    },
+  });
+}
+
+/** Desfaz a inserção de uma folha. */
+export function useRemoveInsertedPage(batchId: string, documentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (pageId: string) =>
+      api<DocumentNumbering>(
+        `/batches/${batchId}/documents/${documentId}/pages/${pageId}?reviewer=${encodeURIComponent(reviewer())}`,
+        { method: "DELETE" },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.report(batchId) });
+      void qc.invalidateQueries({ queryKey: keys.plan(batchId) });
+    },
+  });
+}
 
 /** Recorte da região onde a numeração foi lida (só quando veio da imagem). */
 export function useNumberingCrop(pageId: string, enabled: boolean) {

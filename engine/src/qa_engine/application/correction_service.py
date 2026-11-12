@@ -22,6 +22,7 @@ from numpy.typing import NDArray
 
 from qa_engine.adapters.local_folder import display_path
 from qa_engine.application.bulk import SkipCategory, plan_bulk, skip_entry
+from qa_engine.application.complements import page_path
 from qa_engine.application.contracts import validate
 from qa_engine.application.corrected_batch import build_plan, manifest_csv, plan_totals, raster_dpi
 from qa_engine.application.corrections import (
@@ -95,6 +96,8 @@ class BatchContext:
     profile: Profile
     baselines: Mapping[str, Mapping[str, Stats]]
     versions: PageVersionStore
+    work: Path | None = None
+    """Pasta de trabalho do lote (folhas inseridas depois ficam nela)."""
 
 
 class CorrectionService:
@@ -126,7 +129,8 @@ class CorrectionService:
         self, ctx: BatchContext, page: Mapping[str, Any]
     ) -> Callable[[], NDArray[np.uint8]]:
         def load() -> NDArray[np.uint8]:
-            return self.images.load_original(ctx.root / page["source_file"], page["page_in_file"])
+            path = page_path(ctx.root, ctx.work, page["source_file"])
+            return self.images.load_original(path, page["page_in_file"])
 
         return load
 
@@ -660,7 +664,7 @@ class CorrectionService:
         """Tags de captura do original (equipamento, data, operador) para o TIFF corrigido."""
         if source not in cache:
             try:
-                tags = dict(self.metadata.read(ctx.root / source).tags)
+                tags = dict(self.metadata.read(page_path(ctx.root, ctx.work, source)).tags)
             except OSError:
                 tags = {}
             kept = {k: str(tags[k]) for k in ("make", "model", "datetime", "artist") if tags.get(k)}

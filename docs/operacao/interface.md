@@ -66,6 +66,12 @@ lote corrigido; voltar à orientação original registra "não girar".
      arquivo** desfaz.
    - **Desfazer** (ou Ctrl+Z fora do campo) desfaz a última numeração ou mudança de
      ordem, uma de cada vez.
+   - **Folha que apareceu depois:** escaneie só ela e arraste o arquivo do Windows para
+     a faixa, no ponto onde deve entrar (a borda azul mostra o lado), ou solte em
+     **Adicionar folha** (ou **Escolher arquivo…**) para ela entrar pelo número lido. A
+     tela diz em que posição ela entrou; se não for aí, arraste para o lugar certo. A
+     folha aparece como "folha inserida", com **Remover** para desfazer. A pasta
+     original não é tocada: a folha fica na área de complementos do lote.
    - **Corrigir tudo** aplica as correções automáticas do documento (no painel e na
      revisão, **Corrigir o lote inteiro**). A tela de carregamento mostra quantas páginas
      já foram corrigidas. Depois aparecem as faixas **Antes** (como está no arquivo) e

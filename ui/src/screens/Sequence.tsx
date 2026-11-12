@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useBatch,
   useBulkOperations,
+  useInsertPage,
+  useRemoveInsertedPage,
   useDecide,
   usePlan,
   useReport,
@@ -47,6 +49,7 @@ import {
   dropAt,
   firstToType,
   inverse,
+  isInserted,
   moveItem,
   needsTyping,
   nextToType,
@@ -188,6 +191,12 @@ function DocumentSequence({
   const decide = useDecide(batchId);
   const [editing, setEditing] = useState<Page | null>(null);
   const setDoc = useSetDocumentNumbering(batchId, document.id);
+  const insertPage = useInsertPage(batchId, document.id);
+  const removePage = useRemoveInsertedPage(batchId, document.id);
+  const [dropping, setDropping] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const batchStatus = useBatch(batchId);
+  const finished = batchStatus.data?.status === "analyzed";
   const [history, setHistory] = useState<SequenceStep[]>([]);
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
   const [focusAt, setFocusAt] = useState<number | null>(() =>
@@ -324,7 +333,17 @@ function DocumentSequence({
           <a className="button" href={href({ name: "metadata", id: batchId, doc: document.id })}>Metadados</a>
         </div>
       </div>
-      <ErrorBox error={start.error ?? setDoc.error} />
+      <ErrorBox error={start.error ?? setDoc.error ?? insertPage.error ?? removePage.error} />
+      {insertPage.data && (
+        <div className="ok-banner small" role="status">
+          Folha inserida na posição {insertPage.data.position}
+          {insertPage.data.folio_read ? ` (número lido: ${insertPage.data.folio_read}` : " (sem número lido"}
+          {insertPage.data.position !== insertPage.data.suggested_position
+            ? `; o número sugeria a posição ${insertPage.data.suggested_position})`
+            : ")"}
+          . Se não for aí, arraste a folha para o lugar certo.
+        </div>
+      )}
 
       {unsaved && (
         <div className="unsaved" role="alert">
@@ -410,10 +429,45 @@ function DocumentSequence({
               const next = dropAt(order, id, after ? i + 1 : i);
               if (next.join() !== order.join()) apply({ values: {}, order: next });
             }}
+            onDropFile={(file, after) => insertPage.mutate({ file, position: (after ? i + 1 : i) + 1 })}
+            onRemove={isInserted(s.page.source_file) ? () => removePage.mutate(s.page.id) : undefined}
             after={gapsAfter(s.page.id).map((g) => <MissingCard key={g.finding_id} gap={g} batchId={batchId} />)}
           />
         ))}
         {trailingGaps.map((g) => <MissingCard key={g.finding_id} gap={g} batchId={batchId} />)}
+        <div
+          className={`add-sheet ${dropping ? "over" : ""}`}
+          onDragOver={(e) => {
+            if (!e.dataTransfer.types.includes("Files")) return;
+            e.preventDefault();
+            setDropping(true);
+          }}
+          onDragLeave={() => setDropping(false)}
+          onDrop={(e) => {
+            setDropping(false);
+            const file = e.dataTransfer.files[0];
+            if (!file) return;
+            e.preventDefault();
+            insertPage.mutate({ file });
+          }}
+        >
+          <strong>Adicionar folha</strong>
+          <span className="small muted">Solte aqui a folha escaneada depois: ela entra pelo número lido.</span>
+          <button className="small-btn" disabled={!finished || insertPage.isPending} onClick={() => fileInput.current?.click()}>
+            {insertPage.isPending ? "Analisando a folha…" : "Escolher arquivo…"}
+          </button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept=".tif,.tiff,.png,.jpg,.jpeg,.pdf"
+            hidden
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) insertPage.mutate({ file });
+              e.target.value = "";
+            }}
+          />
+        </div>
       </div>
 
       {changed && docPlan && (
@@ -494,6 +548,8 @@ function StripItem({
   onMove,
   onUndo,
   onDropPage,
+  onDropFile,
+  onRemove,
 }: {
   s: StripPage;
   findings: Finding[];
@@ -508,6 +564,8 @@ function StripItem({
   onMove?: (delta: 1 | -1) => void;
   onUndo?: () => void;
   onDropPage?: (id: string, after: boolean) => void;
+  onDropFile?: (file: File, after: boolean) => void;
+  onRemove?: () => void;
 }) {
   const [dropSide, setDropSide] = useState<"before" | "after" | null>(null);
   const field = useRef<HTMLInputElement | null>(null);
@@ -551,16 +609,25 @@ function StripItem({
           e.dataTransfer.effectAllowed = "move";
         }}
         onDragOver={(e) => {
-          if (!onDropPage || !e.dataTransfer.types.includes("text/x-qa-page")) return;
+          const types = e.dataTransfer.types;
+          const page = onDropPage && types.includes("text/x-qa-page");
+          const file = onDropFile && types.includes("Files");
+          if (!page && !file) return;
           e.preventDefault();
           const box = e.currentTarget.getBoundingClientRect();
           setDropSide(e.clientX > box.left + box.width / 2 ? "after" : "before");
         }}
         onDragLeave={() => setDropSide(null)}
         onDrop={(e) => {
-          const id = e.dataTransfer.getData("text/x-qa-page");
           const side = dropSide;
           setDropSide(null);
+          const file = e.dataTransfer.files[0];
+          if (file && onDropFile) {
+            e.preventDefault();
+            onDropFile(file, side === "after");
+            return;
+          }
+          const id = e.dataTransfer.getData("text/x-qa-page");
           if (!id || !onDropPage) return;
           e.preventDefault();
           onDropPage(id, side === "after");
@@ -633,6 +700,12 @@ function StripItem({
               }
             }}
           />
+        )}
+        {onRemove && (
+          <div className="inserted">
+            <span className="tag">folha inserida</span>
+            <button className="small-btn" onClick={onRemove}>Remover</button>
+          </div>
         )}
         <button className="zoom-btn" onClick={() => onKey("zoom")} aria-label={`Ampliar a página ${page.index + 1}`}>
           Ampliar

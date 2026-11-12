@@ -74,6 +74,13 @@ export function typedChange(draft: string, n: Numbering | undefined): string | n
   return value;
 }
 
+/** Prefixo do arquivo de uma folha inserida depois (área de complementos do lote). */
+export const COMPLEMENT_PREFIX = ":complemento:/";
+
+export function isInserted(sourceFile: string): boolean {
+  return sourceFile.startsWith(COMPLEMENT_PREFIX);
+}
+
 export type SequenceKey = { type: "move"; delta: 1 | -1 } | { type: "undo" };
 
 /** Atalhos da tela: Alt + setas move a página; Ctrl+Z desfaz. */

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QA Automático de Digitalização — API do motor
-  version: 0.15.0
+  version: 0.16.0
   summary: Contrato entre a interface web, a linha de comando e o motor de análise.
   description: |
     Fonte da verdade do sistema (ADR-0002). Modelos de cada linguagem são gerados a partir
@@ -882,6 +882,71 @@ paths:
         "404": { $ref: "#/components/responses/Problem" }
         "409": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
+  /batches/{batch_id}/documents/{document_id}/pages:
+    parameters:
+      - $ref: "#/components/parameters/BatchId"
+      - name: document_id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [review]
+      operationId: insertDocumentPage
+      summary: Inserir uma folha que apareceu depois (arrastar para a Sequência)
+      description: |
+        Guarda a folha na área de complementos do lote (nunca na pasta original), analisa
+        com as regras do lote (linha de base gravada) e lê o número. Entra na posição
+        enviada ou, sem ela, na sugerida pelo número lido. A sequência é resolvida de novo
+        (a lacuna fecha) e o relatório da caixa sai em versão nova se a caixa estava
+        concluída. Uma folha por arquivo. Só depois da análise da caixa.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, reviewer]
+              properties:
+                file: { type: string, format: binary }
+                reviewer: { type: string, minLength: 1 }
+                position: { type: integer, minimum: 1, description: "Posição no processo (1 = antes da primeira); sem ela, a sugerida pelo número" }
+      responses:
+        "201":
+          description: Processo com a folha nova
+          content:
+            application/json:
+              schema: { $ref: "schemas/page-insert-result.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "413": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /batches/{batch_id}/documents/{document_id}/pages/{page_id}:
+    parameters:
+      - $ref: "#/components/parameters/BatchId"
+      - name: document_id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+      - $ref: "#/components/parameters/PageId"
+    delete:
+      tags: [review]
+      operationId: removeDocumentPage
+      summary: Desfazer a inserção de uma folha
+      description: Só folhas inseridas depois. A auditoria (quem inseriu e quem removeu) fica.
+      parameters:
+        - name: reviewer
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Processo sem a folha
+          content:
+            application/json:
+              schema: { $ref: "schemas/document-numbering.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
   /documents/{document_id}/metadata:
     parameters:
       - name: document_id

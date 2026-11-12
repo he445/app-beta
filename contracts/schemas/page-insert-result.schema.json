@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "page-insert-result.schema.json",
+  "title": "PageInsertResult",
+  "description": "Processo depois de inserir uma folha que apareceu depois: a folha nova, onde entrou, onde o número lido sugeria e a sequência resolvida de novo.",
+  "type": "object",
+  "required": [
+    "document",
+    "pages",
+    "findings",
+    "summary",
+    "page_id",
+    "position",
+    "suggested_position",
+    "folio_read"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "document": {
+      "$ref": "document.schema.json"
+    },
+    "pages": {
+      "type": "object",
+      "description": "Numeração resolvida de cada página do documento.",
+      "additionalProperties": {
+        "$ref": "numbering.schema.json"
+      }
+    },
+    "findings": {
+      "type": "array",
+      "description": "Sinalizações de sequência do documento (lacunas, fora de ordem, numeração para revisar).",
+      "items": {
+        "$ref": "finding.schema.json"
+      }
+    },
+    "summary": {
+      "$ref": "batch-summary.schema.json"
+    },
+    "page_id": {
+      "type": "string"
+    },
+    "position": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Posição em que a folha entrou no processo."
+    },
+    "suggested_position": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Posição sugerida pelo número lido (depois da maior folha menor que ele; sem número, o fim)."
+    },
+    "folio_read": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Número lido na folha, se houver."
+    }
+  }
+}

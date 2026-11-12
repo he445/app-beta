@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import getpass
+import hashlib
 import io
 import json
 import logging
@@ -46,13 +47,23 @@ from qa_engine.adapters.shared_reports import SharedReportsFolder
 from qa_engine.adapters.sqlite import SqliteRepository
 from qa_engine.adapters.system import SystemClock, total_memory_mb
 from qa_engine.application.admin import AttemptLimiter, verify_token
-from qa_engine.application.analyze import BatchAnalysis
+from qa_engine.application.analyze import BatchAnalysis, PageTask, analyze_page, evaluate_page
 from qa_engine.application.beta import metrics_for
 from qa_engine.application.box_report import (
     boxes,
     build_box_report,
     is_complete,
     pendencies_key,
+)
+from qa_engine.application.complements import (
+    COMPLEMENTS_DIR,
+    complement_source,
+    insert_page,
+    is_complement,
+    marks_for_report,
+    page_path,
+    remove_page,
+    suggest_position,
 )
 from qa_engine.application.contracts import ContractError, validate
 from qa_engine.application.correction_service import (
@@ -96,10 +107,14 @@ from qa_engine.application.review import (
     finding_from_json,
     set_manual_numbering,
 )
-from qa_engine.application.serialize import analysis_json, iso
+from qa_engine.application.serialize import analysis_json, finding_json, iso
 from qa_engine.application.services import run_analysis
 from qa_engine.application.settings import ResolvedSettings, SettingsError, SettingsProblem
+from qa_engine.detectors import duplicate_page
+from qa_engine.detectors.registry import PAGE_DETECTORS
+from qa_engine.domain import ids
 from qa_engine.domain.model import DecisionAction
+from qa_engine.domain.sequencing import parse_folio
 from qa_engine.entrypoints.http.settings import Settings, normalize_origin, server_settings
 from qa_engine.entrypoints.http.uploads import (
     UploadError,
@@ -373,6 +388,185 @@ class Engine:
                 log.warning("não foi possível gravar o relatório da caixa em %s", folder)
                 self.record_error(exc, "engine", "relatório por caixa", None, "warning")
 
+    def insert_complement(
+        self,
+        batch_id: str,
+        document_id: str,
+        filename: str,
+        data: bytes,
+        position: int | None,
+        reviewer: str,
+    ) -> dict[str, Any]:
+        """Folha que apareceu depois: guarda, analisa, encaixa e resolve a sequência de novo.
+
+        A folha fica na área de complementos da pasta de trabalho, nunca na pasta original.
+        """
+        row = self.repo.get_batch(batch_id)
+        if row is None:
+            raise HTTPException(404, "lote não encontrado")
+        if row.status != "analyzed":
+            raise HTTPException(409, "espere a análise da caixa terminar")
+        suffix = Path(filename).suffix.lower()
+        if suffix not in {".tif", ".tiff", ".png", ".jpg", ".jpeg", ".pdf"}:
+            raise HTTPException(422, "a folha precisa ser TIFF, PNG, JPEG ou PDF")
+        ctx = self.context(batch_id)
+        profile = ctx.profile
+        folder = self.batch_dir(batch_id) / COMPLEMENTS_DIR
+        folder.mkdir(parents=True, exist_ok=True)
+        name = f"{uuid.uuid4().hex}{suffix}"
+        path = folder / name
+        path.write_bytes(data)
+        try:
+            count = self.images.page_count(path)
+        except LoadError as exc:
+            path.unlink(missing_ok=True)
+            raise HTTPException(422, f"não foi possível ler a folha: {exc}") from exc
+        if count != 1:
+            path.unlink(missing_ok=True)
+            raise HTTPException(422, "solte uma folha por vez (o arquivo tem mais de uma página)")
+        station = profile.station(self.settings.default_station)
+        station_id = station.id if station is not None else None
+        rules = tuple(
+            (d.id, profile.params(d.id, station_id))
+            for d in PAGE_DETECTORS
+            if profile.enabled(d.id, station_id)
+        )
+        models = self.settings.models_dir if self.models.checked else None
+        reader = profile.numbering_reader if profile.numbering_enabled and models else None
+        task = PageTask(
+            path,
+            0,
+            rules,
+            float(profile.params(duplicate_page.ID, station_id)["min_ink_coverage"]),
+            models,
+            reader,
+            reader,
+        )
+        result = analyze_page(task, self.images)
+        source_file = complement_source(name)
+        page_id = ids.page_id(batch_id, source_file, 0)
+        sha = hashlib.sha256(data).hexdigest()
+        page = {
+            "id": page_id,
+            "document_id": document_id,
+            "index": 0,
+            "source_file": source_file,
+            "page_in_file": 0,
+            "width_px": result.width_px,
+            "height_px": result.height_px,
+            "dpi": result.dpi,
+            "color_mode": result.color_mode.value if result.color_mode else None,
+            "sha256": sha,
+            "loaded": result.error is None,
+            "station": station.location if station is not None else "não identificada",
+            "station_id": station_id,
+        }
+        found = [
+            finding_json(f)
+            for f in evaluate_page(
+                batch_id,
+                page_id,
+                result,
+                profile,
+                ctx.baselines,
+                station_id,
+                has_numbering=bool(result.marks),
+            )
+        ]
+        live = [m for m in result.marks if not m.struck]
+        folio = parse_folio(live[0].readings[0].text) if live and live[0].readings else None
+        if result.numbering_crop:
+            crops = self.batch_dir(batch_id) / NUMBERING_CROPS
+            crops.mkdir(parents=True, exist_ok=True)
+            (crops / f"{page_id}.png").write_bytes(result.numbering_crop)
+        now = iso(self.now())
+        with self.repo.locked():
+            report = self.repo.get_report(batch_id)
+            if report is None or not any(d["id"] == document_id for d in report["documents"]):
+                path.unlink(missing_ok=True)
+                raise HTTPException(404, "processo não encontrado neste lote")
+            suggested = suggest_position(report, document_id, folio)
+            chosen = suggested if position is None else max(0, position - 1)
+            new = insert_page(
+                report,
+                profile,
+                row.root,
+                document_id,
+                page,
+                found,
+                marks_for_report(result.marks),
+                chosen,
+                self.repo.numbering_overrides(batch_id),
+                _orders(self.repo.manual_orders(batch_id)),
+            )
+            validate(new, "analysis.schema.json")
+            self.repo.add_complement(
+                {
+                    "batch_id": batch_id,
+                    "file": name,
+                    "position": chosen + 1,
+                    "reviewer": reviewer,
+                    "at": now,
+                },
+                page,
+            )
+            self.repo.replace_report(batch_id, new)
+        self.generate_box_reports(batch_id, reviewer)
+        return self.document_view(new, document_id) | {
+            "page_id": page_id,
+            "position": chosen + 1,
+            "suggested_position": suggested + 1,
+            "folio_read": str(folio) if folio is not None else None,
+        }
+
+    def remove_complement(self, batch_id: str, page_id: str, reviewer: str) -> dict[str, Any]:
+        """Desfaz a inserção de uma folha (a auditoria fica)."""
+        row = self.repo.get_batch(batch_id)
+        if row is None:
+            raise HTTPException(404, "lote não encontrado")
+        profile = self.batch_profile(batch_id, row.profile_id)
+        with self.repo.locked():
+            report = self.repo.get_report(batch_id)
+            page = next((p for p in (report or {}).get("pages", []) if p["id"] == page_id), None)
+            if report is None or page is None:
+                raise HTTPException(404, "página não encontrada")
+            if not is_complement(page["source_file"]):
+                raise HTTPException(409, "só uma folha inserida depois pode ser removida")
+            document_id = page["document_id"]
+            new = remove_page(
+                report,
+                profile,
+                row.root,
+                page_id,
+                self.repo.numbering_overrides(batch_id),
+                _orders(self.repo.manual_orders(batch_id)),
+            )
+            orders = self.repo.manual_orders(batch_id)
+            if document_id in orders:
+                kept = [p for p in orders[document_id]["page_ids"] if p != page_id]
+                self.repo.set_manual_order(document_id, batch_id, kept, reviewer, iso(self.now()))
+            self.repo.remove_complement(page_id, reviewer, iso(self.now()))
+            self.repo.replace_report(batch_id, new)
+        page_path(row.root, self.batch_dir(batch_id), page["source_file"]).unlink(missing_ok=True)
+        self.generate_box_reports(batch_id, reviewer)
+        return self.document_view(new, document_id)
+
+    @staticmethod
+    def document_view(report: Mapping[str, Any], document_id: str) -> dict[str, Any]:
+        """Documento depois de uma mudança (``document-numbering.schema.json``)."""
+        doc = next(d for d in report["documents"] if d["id"] == document_id)
+        ids_ = set(doc["page_ids"]) | {document_id}
+        return {
+            "document": doc,
+            "pages": {
+                p["id"]: p["numbering"]
+                for p in report["pages"]
+                if p["id"] in ids_ and "numbering" in p
+            },
+            "findings": [f for f in report["findings"] if f["target"]["id"] in ids_],
+            "summary": report["batch"]["summary"],
+        }
+
     def collect_numbering(
         self,
         batch_id: str,
@@ -422,7 +616,8 @@ class Engine:
         if page is not None and row is not None:
             try:
                 img = self.images.load_original(
-                    row.root / page["source_file"], page["page_in_file"]
+                    page_path(row.root, self.batch_dir(batch_id), page["source_file"]),
+                    page["page_in_file"],
                 )
                 h = max(1, round(img.shape[0] * THUMB_WIDTH / img.shape[1]))
                 buf = io.BytesIO()
@@ -461,6 +656,7 @@ class Engine:
             profile=self.batch_profile(batch_id, row.profile_id),
             baselines=baselines,
             versions=FilePageVersionStore(work / "corrected"),
+            work=work,
         )
 
     def run_bulk(self, batch_id: str, operation_id: str) -> None:
@@ -1143,6 +1339,41 @@ def create_app(
             headers={"Content-Disposition": f'attachment; filename="{name}"'},
         )
 
+    @app.post("/batches/{batch_id}/documents/{document_id}/pages", status_code=201)
+    async def insert_document_page(
+        batch_id: str,
+        document_id: str,
+        file: Annotated[UploadFile, File()],
+        reviewer: Annotated[str, Form()],
+        position: Annotated[int | None, Form()] = None,
+    ) -> dict[str, Any]:
+        if not reviewer.strip():
+            raise HTTPException(422, "reviewer é obrigatório")
+        data = await file.read()
+        if len(data) > settings.max_upload_mb * 1024 * 1024:
+            raise HTTPException(413, "arquivo maior que o limite de envio")
+        result = await asyncio.to_thread(
+            engine.insert_complement,
+            batch_id,
+            document_id,
+            file.filename or "folha.tif",
+            data,
+            position,
+            reviewer.strip(),
+        )
+        validate(result, "page-insert-result.schema.json")
+        return result
+
+    @app.delete("/batches/{batch_id}/documents/{document_id}/pages/{page_id}")
+    def delete_document_page(
+        batch_id: str, document_id: str, page_id: str, reviewer: str = "revisor"
+    ) -> dict[str, Any]:
+        result = engine.remove_complement(batch_id, page_id, reviewer)
+        if result["document"]["id"] != document_id:
+            raise HTTPException(404, "a página não é deste processo")
+        validate(result, "document-numbering.schema.json")
+        return result
+
     @app.put("/pages/{page_id}/rotation")
     def put_rotation(page_id: str, body: Annotated[dict[str, Any], Body()]) -> dict[str, Any]:
         validate(body, "rotation-request.schema.json")
@@ -1279,7 +1510,8 @@ def create_app(
                 raise HTTPException(404, "página sem cópia corrigida")
             img = corrected
         elif variant == "original":
-            img = engine.images.load_original(row.root / page["source_file"], page["page_in_file"])
+            source = page_path(row.root, engine.batch_dir(row.id), page["source_file"])
+            img = engine.images.load_original(source, page["page_in_file"])
         else:
             raise HTTPException(422, "variant deve ser original ou corrected")
         if max_width and img.shape[1] > max_width:
