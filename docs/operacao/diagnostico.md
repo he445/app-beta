@@ -9,11 +9,11 @@ de documento, e caminhos absolutos aparecem como `<caminho>`.
 Na máquina, com permissão para gravar a configuração da máquina:
 
 ```text
-qa admin token
+QA-suporte.exe admin token
 ```
 
-(`qa` é a linha de comando do motor; no pacote Windows, rode a partir do código ou peça
-ao desenvolvimento o token já gerado.)
+(`QA-suporte.exe`, na pasta do programa, atende os mesmos comandos da linha de comando
+`qa` do motor.)
 
 O token aparece **uma única vez**; guarde-o num lugar seguro. Só o hash fica gravado em
 `%PROGRAMDATA%\SOSDocs\QA\config.toml`. Reabra o programa: o link **Diagnóstico**

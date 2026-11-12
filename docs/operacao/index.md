@@ -7,6 +7,7 @@ Para quem usa o programa no dia a dia.
 | [Interface de revisão](interface.md) | As telas, a fila de revisão, os atalhos de teclado, "Corrigir tudo" e o lote corrigido |
 | [Diagnóstico](diagnostico.md) | Erros de todas as máquinas, para o suporte (token de administrador) |
 | [Configurações](configuracoes.md) | Ajustes das digitalizadoras e deste computador, no programa desktop |
+| [Coleta e relatório do beta](beta.md) | O que o programa guarda das confirmações e as métricas do piloto (`beta report`) |
 
 Se algo aparecer na tela e você não souber o que significa, o
 [glossário](../glossario.md) explica os termos e os

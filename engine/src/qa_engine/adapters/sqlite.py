@@ -400,16 +400,125 @@ class SqliteRepository:
         return str(row[0]) if row else None
 
     def set_numbering(
-        self, page_id: str, batch_id: str, value: str, reviewer: str, at: str
+        self,
+        page_id: str,
+        batch_id: str,
+        value: str,
+        reviewer: str,
+        at: str,
+        model_value: str | None = None,
+        model_state: str | None = None,
     ) -> None:
-        """Grava a numeração digitada pelo revisor."""
+        """Grava a numeração digitada pelo revisor e o que o modelo tinha resolvido.
+
+        O que o modelo tinha resolvido fica da primeira digitação: corrigir de novo a
+        mesma página não apaga a comparação com o modelo.
+        """
         with self._tx() as c:
             c.execute(
-                "INSERT INTO numbering_overrides VALUES (?, ?, ?, ?, ?) ON CONFLICT(page_id) "
+                "INSERT INTO numbering_overrides (page_id, batch_id, value, reviewer, decided_at,"
+                " model_value, model_state) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(page_id) "
                 "DO UPDATE SET value = excluded.value, reviewer = excluded.reviewer, "
                 "decided_at = excluded.decided_at",
-                (page_id, batch_id, value, reviewer, at),
+                (page_id, batch_id, value, reviewer, at, model_value, model_state),
             )
+
+    def numbering_override_rows(self, batch_id: str) -> list[dict[str, Any]]:
+        """Numerações digitadas com o que o modelo tinha resolvido (coleta do beta)."""
+        rows = self._all(
+            "SELECT page_id, value, reviewer, decided_at, model_value, model_state "
+            "FROM numbering_overrides WHERE batch_id = ?",
+            (batch_id,),
+        )
+        return [dict(r) for r in rows]
+
+    # Coleta do beta --------------------------------------------------------------
+
+    def put_feedback(self, row: Mapping[str, Any]) -> str | None:
+        """Grava um exemplo (um por tipo e página); devolve o arquivo de imagem substituído."""
+        with self._tx() as c:
+            old = c.execute(
+                "SELECT image_file FROM feedback WHERE kind = ? AND page_id = ?",
+                (row["kind"], row["page_id"]),
+            ).fetchone()
+            c.execute(
+                "INSERT INTO feedback (id, kind, batch_id, page_id, reviewer, created_at,"
+                " expires_at, label_json, model_json, image_file)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(kind, page_id) DO UPDATE SET"
+                " id = excluded.id, reviewer = excluded.reviewer,"
+                " created_at = excluded.created_at, expires_at = excluded.expires_at,"
+                " label_json = excluded.label_json, model_json = excluded.model_json,"
+                " image_file = excluded.image_file",
+                (
+                    row["id"],
+                    row["kind"],
+                    row["batch_id"],
+                    row["page_id"],
+                    row["reviewer"],
+                    row["created_at"],
+                    row["expires_at"],
+                    json.dumps(row["label"], ensure_ascii=False),
+                    json.dumps(row["model"], ensure_ascii=False),
+                    row.get("image_file"),
+                ),
+            )
+        replaced = old[0] if old else None
+        return replaced if replaced and replaced != row.get("image_file") else None
+
+    def remove_feedback(self, kind: str, page_id: str) -> str | None:
+        """Apaga o exemplo de uma página; devolve o arquivo de imagem dele."""
+        with self._tx() as c:
+            old = c.execute(
+                "SELECT image_file FROM feedback WHERE kind = ? AND page_id = ?", (kind, page_id)
+            ).fetchone()
+            c.execute("DELETE FROM feedback WHERE kind = ? AND page_id = ?", (kind, page_id))
+        return old[0] if old else None
+
+    def feedback_rows(
+        self, kind: str | None = None, since: str | None = None, until: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Exemplos da coleta, do mais antigo ao mais novo."""
+        sql = "SELECT * FROM feedback WHERE 1 = 1"
+        params: list[Any] = []
+        for clause, value in (
+            ("kind = ?", kind),
+            ("created_at >= ?", since),
+            ("created_at < ?", until),
+        ):
+            if value is not None:
+                sql += f" AND {clause}"
+                params.append(value)
+        rows = self._all(sql + " ORDER BY created_at, id", tuple(params))
+        out = []
+        for r in rows:
+            item = dict(r)
+            item["label"] = json.loads(item.pop("label_json"))
+            item["model"] = json.loads(item.pop("model_json"))
+            out.append(item)
+        return out
+
+    def purge_feedback(self, now_iso: str) -> list[str | None]:
+        """Apaga os exemplos vencidos; devolve o arquivo de imagem de cada um (ou ``None``)."""
+        with self._tx() as c:
+            rows = c.execute(
+                "SELECT image_file FROM feedback WHERE expires_at <= ?", (now_iso,)
+            ).fetchall()
+            c.execute("DELETE FROM feedback WHERE expires_at <= ?", (now_iso,))
+        return [r[0] for r in rows]
+
+    def save_beta_metrics(self, batch_id: str, created_at: str, metrics: Mapping[str, Any]) -> None:
+        """Guarda as contagens do lote para o relatório do beta (sobrevivem à retenção)."""
+        with self._tx() as c:
+            c.execute(
+                "INSERT INTO beta_metrics VALUES (?, ?, ?) ON CONFLICT(batch_id) DO UPDATE SET"
+                " metrics_json = excluded.metrics_json",
+                (batch_id, created_at, json.dumps(metrics, ensure_ascii=False)),
+            )
+
+    def beta_metrics(self) -> dict[str, dict[str, Any]]:
+        """Contagens guardadas de lotes que já saíram pela retenção."""
+        rows = self._all("SELECT batch_id, created_at, metrics_json FROM beta_metrics")
+        return {r[0]: {"created_at": r[1], **json.loads(r[2])} for r in rows}
 
     def clear_numbering(self, page_id: str) -> None:
         """Desfaz a numeração digitada de uma página."""
@@ -456,6 +565,11 @@ class SqliteRepository:
         return {r[0]: r[1] for r in rows}
 
     # Retenção ---------------------------------------------------------------
+
+    def batches_before(self, cutoff_iso: str) -> list[str]:
+        """Lotes criados antes de ``cutoff_iso`` (os que a retenção vai apagar)."""
+        rows = self._all("SELECT id FROM batches WHERE created_at < ?", (cutoff_iso,))
+        return [str(r[0]) for r in rows]
 
     def purge_before(self, cutoff_iso: str) -> list[str]:
         """Apaga do banco os lotes criados antes de ``cutoff_iso``.

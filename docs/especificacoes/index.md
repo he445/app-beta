@@ -12,6 +12,7 @@ com a suíte de `conformance/`.
 | [`detectors/`](detectors/blank_page.md) | Um documento por regra de página, no modelo obrigatório |
 | [`sequencing.md`](sequencing.md) | Numeração, sequência e completude (regras de documento) |
 | [`numeracao-por-imagem.md`](numeracao-por-imagem.md) | Leitura da numeração manuscrita no canto da página |
+| [`coleta-do-beta.md`](coleta-do-beta.md) | Exemplos rotulados do beta e definição das métricas do piloto |
 | [`scoring.md`](scoring.md) | Severidade, estado do documento, veredito e amostragem |
 | [`metadata.md`](metadata.md) | Metadados do Decreto 10.278/2020 e técnicos |
 | [`corrections.md`](corrections.md) | Versão corrigida, "Corrigir tudo", desfazer em lote e lote corrigido |

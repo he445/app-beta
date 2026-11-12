@@ -17,7 +17,7 @@ import shutil
 import threading
 import time
 import uuid
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
@@ -35,6 +35,7 @@ from PIL import Image
 from qa_engine import __version__
 from qa_engine.adapters.corrected_folder import FolderTiffWriter
 from qa_engine.adapters.corrected_zip import ZipTiffWriter
+from qa_engine.adapters.feedback import SqliteFeedbackStore
 from qa_engine.adapters.images import FileImageSource
 from qa_engine.adapters.local_folder import LocalFolderSource, is_within
 from qa_engine.adapters.metadata import PillowMetadataReader
@@ -43,6 +44,7 @@ from qa_engine.adapters.shared_diagnostics import SharedDiagnosticsFolder
 from qa_engine.adapters.sqlite import SqliteRepository
 from qa_engine.adapters.system import SystemClock, total_memory_mb
 from qa_engine.application.admin import AttemptLimiter, verify_token
+from qa_engine.application.beta import metrics_for
 from qa_engine.application.contracts import ContractError, validate
 from qa_engine.application.correction_service import (
     CORRECTED_ZIP,
@@ -64,6 +66,7 @@ from qa_engine.application.diagnostics import (
 )
 from qa_engine.application.diagnostics import summary as diagnostics_summary
 from qa_engine.application.exports import findings_csv, metadata_csv, rework_csv
+from qa_engine.application.feedback import numbering_example, orientation_example
 from qa_engine.application.local_batch import (
     SNAPSHOT_FILE,
     LocalBatchError,
@@ -93,7 +96,7 @@ from qa_engine.entrypoints.http.uploads import (
     safe_relative,
     strip_common_root,
 )
-from qa_engine.ports import SettingsSource
+from qa_engine.ports import LoadError, SettingsSource
 
 log = logging.getLogger("qa_engine.http")
 API_PREFIXES = (
@@ -145,6 +148,7 @@ class Engine:
         self.corrections = ThreadPoolExecutor(max_workers=1, thread_name_prefix="corrections")
         self.images = FileImageSource()
         self.folder = LocalFolderSource()
+        self.feedback = SqliteFeedbackStore(self.repo, settings.data_dir)
         self.shared = (
             SharedDiagnosticsFolder(settings.diagnostics_dir) if settings.diagnostics_dir else None
         )
@@ -253,6 +257,89 @@ class Engine:
             return []
         return compare_snapshot(self.folder, root, json.loads(snapshot.read_text("utf-8")))
 
+    def beta_metrics(self, batch_id: str) -> dict[str, Any] | None:
+        """Contagens do lote para o relatório do beta, conferindo o original quando dá."""
+        row = self.repo.get_batch(batch_id)
+
+        def changes() -> list[str] | None:
+            if row is None or row.source != "local" or not row.root.is_dir():
+                return None
+            try:
+                return self.source_changes(batch_id, row.root)
+            except OSError:
+                return None
+
+        return metrics_for(self.repo, batch_id, changes)
+
+    def collect_numbering(
+        self,
+        batch_id: str,
+        profile: Profile,
+        before: Mapping[str, Any],
+        values: Mapping[str, str | None],
+        reviewer: str,
+        at: str,
+    ) -> None:
+        """Coleta do beta: numeração digitada vira exemplo (desfazer apaga o exemplo)."""
+        if not profile.feedback_enabled:
+            return
+        pages = {p["id"]: p for p in before["pages"]}
+        for page_id, value in values.items():
+            if value is None:
+                self.feedback.remove("numbering", page_id)
+                continue
+            crop = self.batch_dir(batch_id) / NUMBERING_CROPS / f"{page_id}.png"
+            self.feedback.add(
+                numbering_example(
+                    batch_id,
+                    pages[page_id],
+                    value,
+                    reviewer,
+                    at,
+                    profile.feedback_retention_days,
+                    crop.read_bytes() if crop.is_file() else None,
+                )
+            )
+
+    def collect_orientation(self, batch_id: str, profile: Profile, finding_id: str) -> None:
+        """Coleta do beta: decisão de orientação do revisor vira exemplo."""
+        if not profile.feedback_enabled:
+            return
+        found = self.repo.get_finding(finding_id)
+        if found is None or found[1]["rule"] != "orientation":
+            return
+        finding = found[1]
+        page_id = finding["target"]["id"]
+        decision = finding.get("decision")
+        if not decision:
+            self.feedback.remove("orientation", page_id)
+            return
+        thumb = None
+        page = self.repo.get_page(page_id)
+        row = self.repo.get_batch(batch_id)
+        if page is not None and row is not None:
+            try:
+                img = self.images.load_original(
+                    row.root / page["source_file"], page["page_in_file"]
+                )
+                h = max(1, round(img.shape[0] * THUMB_WIDTH / img.shape[1]))
+                buf = io.BytesIO()
+                small = cv2.resize(img, (THUMB_WIDTH, h), interpolation=cv2.INTER_AREA)
+                Image.fromarray(small).save(buf, format="PNG")
+                thumb = buf.getvalue()
+            except (OSError, ValueError, LoadError):
+                thumb = None
+        example = orientation_example(
+            batch_id,
+            finding,
+            decision.get("reviewer", "revisor"),
+            decision.get("decided_at") or iso(self.now()),
+            profile.feedback_retention_days,
+            thumb,
+        )
+        if example is not None:
+            self.feedback.add(example)
+
     def context(self, batch_id: str) -> BatchContext:
         """Contexto dos casos de uso de correção para um lote."""
         row = self.repo.get_batch(batch_id)
@@ -289,6 +376,12 @@ class Engine:
         lote local é o original e nunca é tocada.
         """
         cutoff = iso(self.now() - timedelta(hours=self.settings.retention_hours))
+        # As contagens do beta ficam: só números, nada de conteúdo de documento.
+        for batch_id in self.repo.batches_before(cutoff):
+            metrics = self.beta_metrics(batch_id)
+            if metrics is not None:
+                self.repo.save_beta_metrics(batch_id, metrics["created_at"], metrics)
+        self.feedback.purge(iso(self.now()))
         for batch_id in self.repo.purge_before(cutoff):
             shutil.rmtree(self.batch_dir(batch_id), ignore_errors=True)
 
@@ -347,6 +440,8 @@ class Engine:
             self.repo.fail(batch_id, f"{exc.__class__.__name__}: {exc}"[:500])
 
 
+THUMB_WIDTH = 256
+"""Largura da miniatura guardada nos exemplos de orientação da coleta do beta."""
 NUMBERING_CROPS = "numbering"
 """Pasta, dentro da pasta de trabalho do lote, com o recorte da numeração de cada página."""
 
@@ -760,15 +855,21 @@ def create_app(
     @app.post("/findings/{finding_id}/decision")
     def decide_finding(finding_id: str, body: Annotated[dict[str, Any], Body()]) -> dict[str, Any]:
         validate(body, "decision-request.schema.json")
-        ctx = engine.context(finding_batch(finding_id))
-        return engine.service.decide(
+        batch_id = finding_batch(finding_id)
+        ctx = engine.context(batch_id)
+        result = engine.service.decide(
             ctx, finding_id, DecisionAction(body["action"]), body["reviewer"], body.get("note")
         )
+        engine.collect_orientation(batch_id, ctx.profile, finding_id)
+        return result
 
     @app.delete("/findings/{finding_id}/decision")
     def undo_decision(finding_id: str, reviewer: str = "revisor") -> dict[str, Any]:
-        ctx = engine.context(finding_batch(finding_id))
-        return engine.service.undo(ctx, finding_id, reviewer)
+        batch_id = finding_batch(finding_id)
+        ctx = engine.context(batch_id)
+        result = engine.service.undo(ctx, finding_id, reviewer)
+        engine.collect_orientation(batch_id, ctx.profile, finding_id)
+        return result
 
     # Correção em lote e lote corrigido -----------------------------------------------
 
@@ -835,7 +936,9 @@ def create_app(
         if page is None:
             raise HTTPException(404, "página não encontrada")
         ctx = engine.context(page["batch_id"])
-        return engine.service.set_rotation(ctx, page_id, int(body["angle_deg"]), body["reviewer"])
+        result = engine.service.set_rotation(ctx, page_id, int(body["angle_deg"]), body["reviewer"])
+        engine.collect_orientation(page["batch_id"], ctx.profile, result["finding"]["id"])
+        return result
 
     def apply_numbering(
         batch_id: str,
@@ -868,11 +971,22 @@ def create_app(
             new = set_manual_numbering(report, profile, row.root, overrides, orders)
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
+        before = {p["id"]: p.get("numbering") or {} for p in report["pages"]}
         for page_id, value in values.items():
             if value is None:
                 engine.repo.clear_numbering(page_id)
             else:
-                engine.repo.set_numbering(page_id, batch_id, value, reviewer, now)
+                model = before.get(page_id, {})
+                engine.repo.set_numbering(
+                    page_id,
+                    batch_id,
+                    value,
+                    reviewer,
+                    now,
+                    model.get("value") if "typed" not in model else None,
+                    model.get("state") if "typed" not in model else None,
+                )
+        engine.collect_numbering(batch_id, profile, report, values, reviewer, now)
         if document_id is not None:
             engine.repo.set_manual_order(document_id, batch_id, order, reviewer, now)
         engine.repo.replace_report(batch_id, new)

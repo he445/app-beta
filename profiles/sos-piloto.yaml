@@ -22,6 +22,9 @@ numbering:
     - [0.60, 0.00, 1.00, 0.18] # canto superior direito
   struck_threshold: 0.6
   recognizer: ppocrv5-mobile-rec
+feedback:                      # coleta do beta, só nesta máquina (aval de LGPD antes do piloto)
+  enabled: true
+  retention_days: 180
 identifier_pattern: "{batch}-{document}"
 stations:
   - id: cg-e3

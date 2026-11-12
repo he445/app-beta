@@ -8,6 +8,14 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Coleta do beta (porta `FeedbackStore`, adaptador `SqliteFeedbackStore`): numeração
+  digitada e decisão de orientação do garantidor viram exemplo rotulado só nesta máquina
+  (recorte ou miniatura, rótulo e o que o modelo disse), com retenção por perfil
+  (`feedback.enabled`, `feedback.retention_days`; ligada no perfil do piloto).
+  `qa feedback export` gera o pacote para o ajuste fino; `qa beta report` calcula as
+  métricas do piloto do banco local (`beta-report.schema.json`), com as contagens de cada
+  lote guardadas antes da retenção (migração 0006). `QA-suporte.exe` atende os comandos
+  `admin`, `beta`, `feedback`, `rules` e `validate-*`.
 - Tela de Sequência: digitação rápida embaixo de cada página (Enter grava e vai para a
   próxima com dúvida, Tab passa, Esc volta; gravações em fila), recorte da região onde a
   numeração foi lida, arrastar e Alt + setas para reordenar (ordem do revisor no lote

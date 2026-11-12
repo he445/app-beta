@@ -50,6 +50,7 @@ O resultado fica em `build\dist\QA-SOS-Docs-<versão>.zip`.
 ```powershell
 QA-suporte.exe --self-test            # lote de exemplo do pacote
 QA-suporte.exe --self-test D:\Lote    # outra pasta com gabarito.json
+QA-suporte.exe beta report            # comandos da linha de comando qa (admin, beta, feedback...)
 ```
 
 Analisa o lote com processos de análise de verdade (é onde um executável mal empacotado

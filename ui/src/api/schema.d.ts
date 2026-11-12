@@ -1672,6 +1672,19 @@ export interface components {
                     };
                 };
             };
+            /** @description Coleta do beta (docs/especificacoes/coleta-do-beta.md). Depende do aval de quem cuida de LGPD. */
+            feedback?: {
+                /**
+                 * @description Guardar as confirmações do garantidor como exemplos rotulados (só nesta máquina).
+                 * @default false
+                 */
+                enabled: boolean;
+                /**
+                 * @description Dias até um exemplo ser apagado.
+                 * @default 180
+                 */
+                retention_days: number;
+            };
         };
         /**
          * ProfileRules

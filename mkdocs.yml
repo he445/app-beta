@@ -55,6 +55,7 @@ nav:
       - Interface de revisão: operacao/interface.md
       - Configurações: operacao/configuracoes.md
       - Diagnóstico: operacao/diagnostico.md
+      - Coleta e relatório do beta: operacao/beta.md
   - Arquitetura:
       - arquitetura/index.md
       - Diagramas C4: arquitetura/c4.md
@@ -83,6 +84,7 @@ nav:
       - Lote local: especificacoes/lote-local.md
       - Sequência e completude: especificacoes/sequencing.md
       - Numeração lida da imagem: especificacoes/numeracao-por-imagem.md
+      - Coleta do beta e métricas: especificacoes/coleta-do-beta.md
       - Correções e lote corrigido: especificacoes/corrections.md
       - Pontuação e veredito: especificacoes/scoring.md
       - Metadados: especificacoes/metadata.md

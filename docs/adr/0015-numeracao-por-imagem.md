@@ -40,4 +40,7 @@ limpos (nota 0,6). Nas 36 páginas dos oito cenários, 34 com as marcas certas, 
 - Número sozinho riscado com traço fraco passa como não riscado (exigência de 0,99): a
   sequência do documento acusa a divergência e manda para o revisor.
 - Os recortes confirmados pelos garantidores no beta viram a base para medir de novo e,
-  se for o caso, trocar o padrão.
+  se for o caso, trocar o padrão: a coleta guarda cada confirmação só nesta máquina
+  (porta `FeedbackStore`), `qa feedback export` gera o pacote para o ajuste fino dentro
+  da empresa e `qa beta report` calcula as métricas do piloto do banco local
+  ([coleta do beta](../especificacoes/coleta-do-beta.md)).

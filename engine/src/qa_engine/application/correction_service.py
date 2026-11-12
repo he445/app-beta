@@ -305,6 +305,10 @@ class CorrectionService:
         if mine:
             finding = json.loads(json.dumps(mine[-1]))
             params = dict(finding["correction"].get("params", {}))
+            if not params.get("manual"):
+                # Guarda o que o modelo propôs: a coleta do beta compara com o escolhido.
+                params.setdefault("model_angle_deg", params.get("angle_deg"))
+                params.setdefault("model_review", bool(params.get("review")))
             params.pop("review", None)
             params.update({"angle_deg": angle, "manual": True})
             finding["correction"] = {**finding["correction"], "params": params, "description": text}

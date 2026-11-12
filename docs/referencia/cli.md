@@ -8,16 +8,19 @@ O comando `qa` usa os mesmos casos de uso da API, sem interface. Rode com
 ## `qa`
 
 ```text
-usage: qa [-h] [--version] {analyze,rules,validate-profile,admin,validate-report} ...
+usage: qa [-h] [--version]
+          {analyze,rules,validate-profile,admin,feedback,beta,validate-report} ...
 
 QA automático de digitalização
 
 positional arguments:
-  {analyze,rules,validate-profile,admin,validate-report}
+  {analyze,rules,validate-profile,admin,feedback,beta,validate-report}
     analyze             analisar um lote local
     rules               listar as regras registradas
     validate-profile    validar um perfil contra o contrato
     admin               administração desta máquina
+    feedback            coleta do beta (exemplos confirmados)
+    beta                acompanhamento do piloto
     validate-report     validar um report.json contra o contrato
 
 options:
@@ -86,6 +89,63 @@ usage: qa admin token [-h] [--config CONFIG]
 options:
   -h, --help       show this help message and exit
   --config CONFIG  arquivo da máquina (padrão: o do sistema)
+```
+
+## `qa feedback`
+
+```text
+usage: qa feedback [-h] {export} ...
+
+positional arguments:
+  {export}
+    export    gerar o pacote para o ajuste fino
+
+options:
+  -h, --help  show this help message and exit
+```
+
+## `qa feedback export`
+
+```text
+usage: qa feedback export [-h] --out OUT [--kind {numbering,orientation}] [--since SINCE]
+                          [--until UNTIL] [--data-dir DATA_DIR]
+
+options:
+  -h, --help            show this help message and exit
+  --out OUT             arquivo .zip de saída
+  --kind {numbering,orientation}
+                        só um tipo
+  --since SINCE         a partir de (ISO 8601, ex.: 2026-12-01)
+  --until UNTIL         antes de (ISO 8601)
+  --data-dir DATA_DIR   pasta de dados (padrão: a desta conta)
+```
+
+## `qa beta`
+
+```text
+usage: qa beta [-h] {report} ...
+
+positional arguments:
+  {report}
+    report    métricas do piloto a partir do banco local
+
+options:
+  -h, --help  show this help message and exit
+```
+
+## `qa beta report`
+
+```text
+usage: qa beta report [-h] [--since SINCE] [--until UNTIL] [--json] [--out OUT]
+                      [--data-dir DATA_DIR]
+
+options:
+  -h, --help           show this help message and exit
+  --since SINCE        lotes criados a partir de (ISO 8601)
+  --until UNTIL        lotes criados antes de (ISO 8601)
+  --json               saída em JSON (beta-report.schema.json)
+  --out OUT            gravar num arquivo em vez de mostrar
+  --data-dir DATA_DIR  pasta de dados (padrão: a desta conta)
 ```
 
 ## `qa validate-report`

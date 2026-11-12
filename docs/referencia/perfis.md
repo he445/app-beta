@@ -38,6 +38,9 @@ limiares, e como a numeração e as estações são tratadas.
 | `stations[].folder` | texto |  |  | Pasta do lote que pertence a esta estação. |
 | `stations[].overrides` | objeto |  |  | Ajustes desta estação por regra. Ordem de aplicação: padrão do manifesto, depois `detectors` do perfil, depois isto. |
 | `detectors` | objeto |  |  | Configuração por regra. Regra ausente fica ligada com os padrões do manifesto. |
+| `feedback` | objeto |  |  | Coleta do beta (docs/especificacoes/coleta-do-beta.md). Depende do aval de quem cuida de LGPD. |
+| `feedback.enabled` | sim/não |  | `false` | Guardar as confirmações do garantidor como exemplos rotulados (só nesta máquina). |
+| `feedback.retention_days` | inteiro |  | `180` | Dias até um exemplo ser apagado. mín. 1, máx. 3650 |
 
 ## Regras e parâmetros
 

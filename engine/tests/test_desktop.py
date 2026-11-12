@@ -315,3 +315,10 @@ def test_self_test_finds_the_known_defects(tmp_path: Path, repo: Path) -> None:
         extra_checks={"interface": False},
     )
     assert not failing.ok and "conferência falhou: interface" in failing.errors
+
+
+def test_support_executable_answers_cli_commands(capsys: pytest.CaptureFixture[str]) -> None:
+    from qa_engine.entrypoints.desktop.main import main
+
+    assert main(["rules"]) == 0
+    assert "orientation" in capsys.readouterr().out

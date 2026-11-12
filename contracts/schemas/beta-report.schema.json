@@ -1,0 +1,365 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "beta-report.schema.json",
+  "title": "BetaReport",
+  "description": "Métricas do piloto calculadas do banco desta máquina (qa beta report). Só contagens: nenhum conteúdo de documento.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "generated_at",
+    "period",
+    "batches",
+    "pages",
+    "defects",
+    "orientation",
+    "numbering",
+    "time",
+    "originals",
+    "feedback"
+  ],
+  "properties": {
+    "generated_at": {
+      "type": "string"
+    },
+    "period": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "since",
+        "until"
+      ],
+      "properties": {
+        "since": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "until": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "batches": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "pages": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total",
+        "without_review",
+        "without_review_ratio"
+      ],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "without_review": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "without_review_ratio": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "defects": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "program_alerts",
+        "real",
+        "false_positive",
+        "precision",
+        "found_only_by_reviewer",
+        "recall_estimate",
+        "by_rule"
+      ],
+      "properties": {
+        "program_alerts": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Alertas do programa já decididos pelo garantidor."
+        },
+        "real": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Decididos como corrigir, retrabalho ou defeito de origem."
+        },
+        "false_positive": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Aprovados (falso positivo)."
+        },
+        "precision": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "found_only_by_reviewer": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Páginas giradas que o garantidor achou sozinho e numerações lidas com segurança que ele corrigiu."
+        },
+        "recall_estimate": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "by_rule": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "alerts",
+              "real",
+              "false_positive",
+              "pending"
+            ],
+            "properties": {
+              "alerts": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "real": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "false_positive": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "pending": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "orientation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model_decided",
+        "kept",
+        "changed_angle",
+        "reverted",
+        "auto_reverted",
+        "found_by_reviewer",
+        "kept_ratio"
+      ],
+      "properties": {
+        "model_decided": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kept": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "changed_angle": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reverted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "auto_reverted": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Rotação automática que o garantidor desfez ou trocou (meta: zero)."
+        },
+        "found_by_reviewer": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kept_ratio": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "numbering": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pages",
+        "typed",
+        "typed_agreed",
+        "missed",
+        "matched",
+        "matched_ratio",
+        "typed_ratio"
+      ],
+      "properties": {
+        "pages": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "typed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "typed_agreed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "matched": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "matched_ratio": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "typed_ratio": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "time": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "analysis_seconds_mean",
+        "review_minutes_mean",
+        "per_batch"
+      ],
+      "properties": {
+        "analysis_seconds_mean": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "review_minutes_mean": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "per_batch": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "batch_id",
+              "name",
+              "created_at",
+              "pages",
+              "analysis_seconds",
+              "review_minutes"
+            ],
+            "properties": {
+              "batch_id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "pages": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "analysis_seconds": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "review_minutes": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "originals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "batches_checked",
+        "batches_changed",
+        "files_changed"
+      ],
+      "properties": {
+        "batches_checked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "batches_changed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "files_changed": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "feedback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "numbering",
+        "orientation"
+      ],
+      "properties": {
+        "numbering": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "orientation": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

@@ -286,8 +286,21 @@ def open_browser(server: EngineServer) -> None:
         time.sleep(5)
 
 
+CLI_COMMANDS = frozenset(
+    {"admin", "beta", "feedback", "rules", "validate-profile", "validate-report"}
+)
+"""Subcomandos da linha de comando ``qa`` que o executável de suporte também atende."""
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Abre o programa. Código de saída 0 ao fechar; 2 se a configuração for inválida."""
+    given = list(sys.argv[1:] if argv is None else argv)
+    if given and given[0] in CLI_COMMANDS:
+        # QA-suporte.exe beta report, QA-suporte.exe admin token...: a mesma linha de comando
+        # do motor, sem precisar do código-fonte na estação.
+        from qa_engine.entrypoints.cli.main import main as cli
+
+        return cli(given)
     args = build_parser().parse_args(argv)
     if args.self_test is not None:
         return self_test(args.self_test, args.budget_ms)

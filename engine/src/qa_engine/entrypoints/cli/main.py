@@ -7,6 +7,8 @@ Exemplos::
     qa rules
     qa validate-profile profiles/demo.yaml
     qa admin token                         # gera o token de administrador desta máquina
+    qa feedback export --out coleta.zip    # exemplos do beta para o ajuste fino (só local)
+    qa beta report --since 2026-12-01      # métricas do piloto a partir do banco local
 """
 
 from __future__ import annotations
@@ -16,6 +18,7 @@ import json
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 from qa_engine import __version__
 from qa_engine.application.contracts import ContractError, validate
@@ -90,6 +93,103 @@ def _admin_token(args: argparse.Namespace) -> int:
     return 0
 
 
+def _data_dir(args: argparse.Namespace) -> Path:
+    """Pasta de dados: a indicada ou a do programa desktop desta conta."""
+    if args.data_dir:
+        return Path(args.data_dir)
+    from qa_engine.adapters.paths import AppPaths
+    from qa_engine.adapters.settings import LayeredSettings
+
+    return LayeredSettings.for_desktop(AppPaths.detect()).load().settings.data_dir
+
+
+def _open_store(args: argparse.Namespace) -> tuple[Any, Any, Path] | None:
+    from qa_engine.adapters.feedback import SqliteFeedbackStore
+    from qa_engine.adapters.sqlite import SqliteRepository
+
+    data_dir = _data_dir(args)
+    db = data_dir / "qa.sqlite3"
+    if not db.is_file():
+        print(f"banco não encontrado em {db}: nenhum lote foi aberto nesta conta", file=sys.stderr)
+        return None
+    repo = SqliteRepository(db)
+    return repo, SqliteFeedbackStore(repo, data_dir), data_dir
+
+
+def _feedback_export(args: argparse.Namespace) -> int:
+    """Pacote com os exemplos confirmados pelos garantidores (fica na rede da empresa)."""
+    from qa_engine.application.feedback import export_package
+
+    opened = _open_store(args)
+    if opened is None:
+        return 1
+    repo, store, _ = opened
+    try:
+        examples = store.examples(args.kind, args.since, args.until)
+        counts = export_package(examples, args.out)
+    finally:
+        repo.close()
+    print(
+        f"{counts['numbering']} exemplo(s) de numeração e {counts['orientation']} de orientação "
+        f"em {args.out}. Contém imagens de documentos: não envie para fora da empresa."
+    )
+    return 0
+
+
+def _beta_report(args: argparse.Namespace) -> int:
+    """Métricas do piloto, calculadas do banco local (nada sai da máquina)."""
+    from datetime import UTC, datetime
+
+    from qa_engine.adapters.local_folder import LocalFolderSource
+    from qa_engine.application.beta import beta_report, metrics_for, report_text
+    from qa_engine.application.local_batch import SNAPSHOT_FILE, compare_snapshot
+
+    opened = _open_store(args)
+    if opened is None:
+        return 1
+    repo, store, data_dir = opened
+    folder = LocalFolderSource()
+    try:
+        metrics = dict(repo.beta_metrics())
+        for row in repo.list_batches():
+
+            def changes(row: Any = row) -> list[str] | None:
+                snapshot = data_dir / "batches" / row.id / SNAPSHOT_FILE
+                if row.source != "local" or not snapshot.is_file() or not row.root.is_dir():
+                    return None
+                try:
+                    return compare_snapshot(
+                        folder, row.root, json.loads(snapshot.read_text("utf-8"))
+                    )
+                except OSError:
+                    return None
+
+            current = metrics_for(repo, row.id, changes)
+            if current is not None:
+                metrics[row.id] = current
+        counts = {
+            kind: len(store.examples(kind, args.since, args.until))
+            for kind in ("numbering", "orientation")
+        }
+        report = beta_report(
+            list(metrics.values()),
+            counts,
+            args.since,
+            args.until,
+            datetime.now(tz=UTC).isoformat(timespec="seconds"),
+        )
+    finally:
+        repo.close()
+    validate(report, "beta-report.schema.json")
+    text = json.dumps(report, ensure_ascii=False, indent=2) if args.json else report_text(report)
+    if args.out:
+        args.out.write_text(text + "\n", "utf-8")
+        print(f"relatório gravado em {args.out}")
+    else:
+        print(text)
+    return 0
+
+
 def _rules(_: argparse.Namespace) -> int:
     for rule in RULES:
         m = manifest(rule)
@@ -144,6 +244,28 @@ def build_parser() -> argparse.ArgumentParser:
     token = admin_sub.add_parser("token", help="gerar o token de administrador (diagnóstico)")
     token.add_argument("--config", type=Path, help="arquivo da máquina (padrão: o do sistema)")
     token.set_defaults(func=_admin_token)
+
+    feedback = sub.add_parser("feedback", help="coleta do beta (exemplos confirmados)")
+    feedback_sub = feedback.add_subparsers(dest="feedback_command", required=True)
+    export = feedback_sub.add_parser("export", help="gerar o pacote para o ajuste fino")
+    export.add_argument("--out", type=Path, required=True, help="arquivo .zip de saída")
+    export.add_argument("--kind", choices=["numbering", "orientation"], help="só um tipo")
+    export.add_argument("--since", help="a partir de (ISO 8601, ex.: 2026-12-01)")
+    export.add_argument("--until", help="antes de (ISO 8601)")
+    export.add_argument("--data-dir", type=Path, help="pasta de dados (padrão: a desta conta)")
+    export.set_defaults(func=_feedback_export)
+
+    beta = sub.add_parser("beta", help="acompanhamento do piloto")
+    beta_sub = beta.add_subparsers(dest="beta_command", required=True)
+    report = beta_sub.add_parser("report", help="métricas do piloto a partir do banco local")
+    report.add_argument("--since", help="lotes criados a partir de (ISO 8601)")
+    report.add_argument("--until", help="lotes criados antes de (ISO 8601)")
+    report.add_argument(
+        "--json", action="store_true", help="saída em JSON (beta-report.schema.json)"
+    )
+    report.add_argument("--out", type=Path, help="gravar num arquivo em vez de mostrar")
+    report.add_argument("--data-dir", type=Path, help="pasta de dados (padrão: a desta conta)")
+    report.set_defaults(func=_beta_report)
 
     vr = sub.add_parser("validate-report", help="validar um report.json contra o contrato")
     vr.add_argument("report", type=Path)

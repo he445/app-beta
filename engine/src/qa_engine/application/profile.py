@@ -64,6 +64,9 @@ class Profile:
     """Configuração por regra: ``enabled``, ``severity`` e ``params``."""
     numbering_reader: NumberingImageConfig = field(default_factory=lambda: NumberingImageConfig())
     """Como ler a numeração da imagem (região, riscado, reconhecedor)."""
+    feedback_enabled: bool = False
+    """Coleta do beta: guardar as confirmações do garantidor como exemplos rotulados."""
+    feedback_retention_days: int = 180
     raw: Mapping[str, Any] = field(default_factory=dict)
 
     def station(self, station_id: str | None) -> Station | None:
@@ -188,6 +191,8 @@ def profile_from_dict(data: Mapping[str, Any]) -> Profile:
             high_confidence=float(numbering.get("high_confidence", 0.85)),
         ),
         identifier_pattern=str(data.get("identifier_pattern", "{batch}-{document}")),
+        feedback_enabled=bool(data.get("feedback", {}).get("enabled", False)),
+        feedback_retention_days=int(data.get("feedback", {}).get("retention_days", 180)),
         numbering_reader=NumberingImageConfig(
             regions=tuple(
                 (float(r[0]), float(r[1]), float(r[2]), float(r[3]))

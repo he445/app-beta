@@ -310,3 +310,45 @@ class TextRecognizer(Protocol):
     def read(self, gray: NDArray[np.uint8]) -> list[TextReading]:
         """Leituras com confiança de 0 a 1."""
         ...
+
+
+@dataclass(frozen=True, slots=True)
+class FeedbackExample:
+    """Uma confirmação do revisor guardada como exemplo rotulado (coleta do beta).
+
+    ``label`` é o que o revisor decidiu; ``model``, o que o modelo tinha dito. A imagem
+    (recorte da numeração ou miniatura da página) fica só nesta máquina.
+    """
+
+    kind: str
+    """``numbering`` ou ``orientation``."""
+    batch_id: str
+    page_id: str
+    reviewer: str
+    created_at: str
+    expires_at: str
+    label: Mapping[str, Any]
+    model: Mapping[str, Any]
+    image_png: bytes | None = None
+
+
+class FeedbackStore(Protocol):
+    """Onde ficam os exemplos rotulados do beta (um por tipo e página)."""
+
+    def add(self, example: FeedbackExample) -> None:
+        """Grava o exemplo; uma nova confirmação da mesma página substitui a anterior."""
+        ...
+
+    def remove(self, kind: str, page_id: str) -> None:
+        """Apaga o exemplo de uma página (o revisor desfez a confirmação)."""
+        ...
+
+    def examples(
+        self, kind: str | None = None, since: str | None = None, until: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Exemplos com ``label``, ``model`` e ``image_path`` (ou ``None``)."""
+        ...
+
+    def purge(self, now_iso: str) -> int:
+        """Apaga os vencidos; devolve quantos."""
+        ...

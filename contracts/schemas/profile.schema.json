@@ -205,6 +205,26 @@
         }
       },
       "description": "Configuração por regra. Regra ausente fica ligada com os padrões do manifesto."
+    },
+    "feedback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Guardar as confirmações do garantidor como exemplos rotulados (só nesta máquina)."
+        },
+        "retention_days": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3650,
+          "default": 180,
+          "description": "Dias até um exemplo ser apagado."
+        }
+      },
+      "description": "Coleta do beta (docs/especificacoes/coleta-do-beta.md). Depende do aval de quem cuida de LGPD."
     }
   }
 }
