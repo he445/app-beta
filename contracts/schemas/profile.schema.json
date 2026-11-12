@@ -81,6 +81,44 @@
           "minimum": 0,
           "maximum": 1,
           "description": "A partir disso a leitura é confiável: ancora lacunas e a ordem proposta."
+        },
+        "regions": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Onde procurar o número na página já orientada, em frações [x0, y0, x1, y1], testadas em ordem. Padrão: canto superior direito [0.60, 0.00, 1.00, 0.18].",
+          "items": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        "struck_threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Nota de riscado a partir da qual o escrito é tratado como numeração anterior. Padrão 0,6."
+        },
+        "recognizer": {
+          "enum": [
+            "ppocrv5-mobile-rec",
+            "trocr-small-handwritten"
+          ],
+          "description": "Reconhecedor do número escrito. Padrão: ppocrv5-mobile-rec (escolhido pelo bench)."
+        },
+        "min_height_mm": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 30,
+          "description": "Altura mínima de um escrito, em milímetros (texto impresso menor que isso não é lido). Padrão 3."
+        },
+        "read_from_image": {
+          "type": "boolean",
+          "description": "Ler a numeração da imagem quando o lote não tem numbering.json. Padrão: sim (exige os modelos)."
         }
       },
       "description": "Numeração de folhas."

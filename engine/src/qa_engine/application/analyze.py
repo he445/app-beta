@@ -16,7 +16,8 @@ import numpy as np
 from qa_engine.adapters.metadata import LOSSY_COMPRESSIONS
 from qa_engine.application.layout import DocumentLayout, discover, read_manifest
 from qa_engine.application.metadata import MetadataField, document_metadata, match_station
-from qa_engine.application.profile import Profile
+from qa_engine.application.numbering_image import ImageNumberingReader
+from qa_engine.application.profile import NumberingImageConfig, Profile
 from qa_engine.detectors import corrupted_file, duplicate_page, orientation, sequence
 from qa_engine.detectors.base import (
     ANALYSIS_DPI,
@@ -46,7 +47,7 @@ from qa_engine.domain.scoring import (
     green_sample,
     pages_needing_review,
 )
-from qa_engine.domain.sequencing import PageCandidates, PageNumbering
+from qa_engine.domain.sequencing import Mark, PageCandidates, PageNumbering
 from qa_engine.ports import (
     Clock,
     Executor,
@@ -71,6 +72,8 @@ class PageTask:
     duplicate_min_ink: float
     models_dir: Path | None = None
     """Modelos embarcados; sem eles, a orientação não é classificada."""
+    numbering: NumberingImageConfig | None = None
+    """Ler a numeração da imagem (sem ``numbering.json`` no lote e com modelos)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +88,12 @@ class PageResult:
     observations: Mapping[str, Observation] = field(default_factory=dict)
     fingerprint: tuple[int, Any, float, bool] | None = None
     error: str | None = None
+    marks: tuple[Mark, ...] = ()
+    """Marcas de numeração lidas da imagem."""
+    numbering_crop: bytes | None = None
+    """Recorte da região da numeração (PNG), para a tela de Sequência."""
+    written: bool = False
+    """Algum escrito na região da numeração (mesmo ilegível)."""
 
 
 def _classifier(models_dir: Path) -> OrientationClassifier:
@@ -98,6 +107,25 @@ def _classifier(models_dir: Path) -> OrientationClassifier:
 
 
 _CLASSIFIERS: dict[Path, OrientationClassifier] = {}
+_READERS: dict[tuple[Path, str, float, float], ImageNumberingReader] = {}
+
+
+def _reader(models_dir: Path, config: NumberingImageConfig) -> ImageNumberingReader:
+    """Leitor de numeração do processo (modelos carregados uma vez por processo)."""
+    from qa_engine.adapters.text_detection import OpenCvTextDetector, PaddleTextDetector
+    from qa_engine.adapters.text_recognition import recognizer_by_name
+
+    key = (models_dir.resolve(), config.recognizer, config.struck_threshold, config.min_height_mm)
+    if key not in _READERS:
+        _READERS[key] = ImageNumberingReader(
+            PaddleTextDetector(key[0]),
+            recognizer_by_name(key[0], config.recognizer),
+            struck_threshold=config.struck_threshold,
+            min_height_mm=config.min_height_mm,
+            fallback=OpenCvTextDetector(),
+        )
+    return _READERS[key]
+
 
 ORIENTED_RULES = frozenset({"skew"})
 """Regras que dependem do sentido do texto: medidas na vista já orientada."""
@@ -153,6 +181,11 @@ def analyze_page(
         else detectors[rule].measure(raster, features, params)
         for rule, params in task.rules
     }
+    numbering_read = None
+    if task.numbering is not None and task.models_dir is not None:
+        numbering_read = _reader(task.models_dir, task.numbering).read(
+            upright_raster.gray, ANALYSIS_DPI, task.numbering.regions
+        )
     blur_obs = observations.get("blur")
     sharpness = blur_obs.values["energy"] if blur_obs is not None else 0.0
     fingerprint = (
@@ -169,6 +202,9 @@ def analyze_page(
         loaded.scale,
         observations,
         fingerprint,
+        marks=numbering_read.marks if numbering_read else (),
+        numbering_crop=numbering_read.crop_png if numbering_read else None,
+        written=numbering_read.written if numbering_read else False,
     )
 
 
@@ -216,6 +252,12 @@ class BatchAnalysis:
     engine_version: str
     baselines: Mapping[str, Mapping[str, Stats]] = field(default_factory=dict)
     """Linha de base de cada detector, usada para reanalisar cópias corrigidas."""
+    marks: Mapping[str, tuple[Mark, ...]] = field(default_factory=dict)
+    """Marcas de numeração de cada página, como o resolvedor as recebeu."""
+    numbering_source: str = "none"
+    """``sidecar`` (numbering.json), ``image`` (lidas da imagem) ou ``none``."""
+    numbering_crops: Mapping[str, bytes] = field(default_factory=dict)
+    """Recorte da região da numeração por página (PNG)."""
     station_ids: Mapping[str, str | None] = field(default_factory=dict)
     """Identificador da estação por página: define os ajustes de regra aplicados a ela."""
 
@@ -360,6 +402,16 @@ def analyze_batch(
         rel: match_station(profile.stations, dict(meta.tags), rel) or fallback
         for rel, meta in file_meta.items()
     }
+    from qa_engine.adapters.numbering import SIDECAR_NAME
+
+    has_sidecar = (root / SIDECAR_NAME).is_file()
+    read_images = (
+        profile.numbering_enabled
+        and profile.numbering_reader.enabled
+        and not has_sidecar
+        and models_dir is not None
+    )
+    image_numbering = profile.numbering_reader if read_images else None
     rules_cache: dict[str | None, tuple[tuple[str, Mapping[str, Any]], ...]] = {}
 
     def rules_for(station_id: str | None) -> tuple[tuple[str, Mapping[str, Any]], ...]:
@@ -392,6 +444,7 @@ def analyze_batch(
             rules_for(station_id_of(rel)),
             float(profile.params(duplicate_page.ID, station_id_of(rel))["min_ink_coverage"]),
             models_dir,
+            image_numbering,
         )
         for _, rel, page_in_file, ok in plan
         if ok is not None
@@ -408,6 +461,8 @@ def analyze_batch(
     page_keys: dict[str, str] = {}
     stations: dict[str, str] = {}
     station_ids: dict[str, str | None] = {}
+    image_marks: dict[str, tuple[Mark, ...]] = {}
+    crops: dict[str, bytes] = {}
     done = 0
     for doc_name, rel, page_in_file, ok in plan:
         meta = file_meta[rel]
@@ -450,6 +505,10 @@ def analyze_batch(
                 )
             continue
         observations[pid] = dict(result.observations)
+        if image_numbering is not None:
+            image_marks[f"{rel}#{page_in_file}"] = result.marks
+            if result.numbering_crop:
+                crops[pid] = result.numbering_crop
         scales[pid] = result.scale
         if result.fingerprint is not None and profile.enabled(duplicate_page.ID, station_ids[pid]):
             dh, thumb, sharp, eligible = result.fingerprint
@@ -491,7 +550,14 @@ def analyze_batch(
             )
 
     # Sequência e completude por documento.
-    marks = numbering_reader.read(root, list(page_keys)) if profile.numbering_enabled else {}
+    if not profile.numbering_enabled:
+        marks: Mapping[str, Sequence[Mark]] = {}
+        source = "none"
+    elif image_numbering is not None:
+        marks, source = image_marks, "image"
+    else:
+        marks = numbering_reader.read(root, list(page_keys))
+        source = "sidecar" if has_sidecar else "none"
     by_page_key = {pid: key for key, pid in page_keys.items()}
     numbering: dict[str, PageNumbering] = {}
     proposed: dict[str, tuple[str, ...]] = {}
@@ -567,6 +633,9 @@ def analyze_batch(
         summary=summary,
         engine_version=engine_version,
         baselines=baselines,
+        marks={pid: tuple(marks.get(key, ())) for key, pid in page_keys.items()},
+        numbering_source=source,
+        numbering_crops=crops,
         station_ids=station_ids,
     )
 

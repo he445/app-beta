@@ -8,6 +8,13 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Numeração lida da imagem (ADR-0015): sem `numbering.json` no lote, a análise procura o
+  número de folha escrito à mão no canto da página já de pé (detector PP-OCRv5 com plano
+  B por componentes conexos, separação de números lado a lado, riscado por geometria e
+  reconhecedor PP-OCRv5 restrito ao vocabulário de folha; TrOCR como alternativa). Perfil
+  `numbering`: `regions`, `struck_threshold`, `recognizer`, `min_height_mm`,
+  `read_from_image`. Relatório com `numbering.source` e `numbering.marks`; re-resolução
+  usa as marcas gravadas; recorte da região em `GET /pages/{id}/numbering-crop` (contrato 0.11.0).
 - Numeração manuscrita sintética (`tools/synth/numbering.py`): oito cenários do leitor por
   imagem e recortes rotulados, com fontes manuscritas OFL versionadas; bench dos
   reconhecedores (`tools/bench_numbering.py`: acerto exato, entre as três leituras,

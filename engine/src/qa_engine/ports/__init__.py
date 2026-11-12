@@ -273,3 +273,40 @@ class OrientationClassifier(Protocol):
     def classify(self, gray: NDArray[np.uint8]) -> OrientationPrediction:
         """Orientação mais provável e a probabilidade de cada ângulo."""
         ...
+
+
+@dataclass(frozen=True, slots=True)
+class TextBox:
+    """Um escrito encontrado numa imagem: retângulo em pixels e a confiança do detector."""
+
+    x: int
+    y: int
+    w: int
+    h: int
+    score: float = 1.0
+
+
+class TextRegionDetector(Protocol):
+    """Acha cada escrito (palavra ou número) numa imagem em cinza."""
+
+    def detect(self, gray: NDArray[np.uint8]) -> list[TextBox]:
+        """Escritos encontrados, de cima para baixo e da esquerda para a direita."""
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class TextReading:
+    """Uma leitura possível de um escrito."""
+
+    text: str
+    confidence: float
+
+
+class TextRecognizer(Protocol):
+    """Lê um escrito recortado: até três leituras, da mais à menos provável."""
+
+    name: str
+
+    def read(self, gray: NDArray[np.uint8]) -> list[TextReading]:
+        """Leituras com confiança de 0 a 1."""
+        ...

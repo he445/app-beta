@@ -542,6 +542,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/pages/{page_id}/numbering-crop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                page_id: components["parameters"]["PageId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Recorte da região onde a numeração foi lida
+         * @description Região do canto (vista de pé, 150 dpi) onde o leitor por imagem achou a numeração
+         *     de folha, para o revisor conferir na tela de Sequência. 404 quando a numeração veio
+         *     de `numbering.json` ou a página não foi lida.
+         *
+         */
+        get: operations["getNumberingCrop"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/pages/{page_id}/rotation": {
         parameters: {
             query?: never;
@@ -1113,6 +1138,19 @@ export interface components {
             confidence: number;
             /** @description Números riscados (numeração anterior). */
             previous: string[];
+            /**
+             * @description De onde vieram as marcas: lidas da imagem, do numbering.json do lote ou digitadas pelo revisor.
+             * @enum {unknown}
+             */
+            source?: "image" | "sidecar" | "reviewer";
+            /** @description Marcas encontradas na região, como o resolvedor as recebeu: até três leituras cada e se está riscada. */
+            marks?: {
+                readings: {
+                    text: string;
+                    confidence: number;
+                }[];
+                struck: boolean;
+            }[];
         };
         /** Page */
         "page.schema": {
@@ -1518,6 +1556,19 @@ export interface components {
                 min_confidence?: number;
                 /** @description A partir disso a leitura é confiável: ancora lacunas e a ordem proposta. */
                 high_confidence?: number;
+                /** @description Onde procurar o número na página já orientada, em frações [x0, y0, x1, y1], testadas em ordem. Padrão: canto superior direito [0.60, 0.00, 1.00, 0.18]. */
+                regions?: number[][];
+                /** @description Nota de riscado a partir da qual o escrito é tratado como numeração anterior. Padrão 0,6. */
+                struck_threshold?: number;
+                /**
+                 * @description Reconhecedor do número escrito. Padrão: ppocrv5-mobile-rec (escolhido pelo bench).
+                 * @enum {unknown}
+                 */
+                recognizer?: "ppocrv5-mobile-rec" | "trocr-small-handwritten";
+                /** @description Altura mínima de um escrito, em milímetros (texto impresso menor que isso não é lido). Padrão 3. */
+                min_height_mm?: number;
+                /** @description Ler a numeração da imagem quando o lote não tem numbering.json. Padrão: sim (exige os modelos). */
+                read_from_image?: boolean;
             };
             /** @description Campos: {batch}, {document}, {seq}. */
             identifier_pattern?: string;
@@ -2333,6 +2384,30 @@ export interface operations {
                 /** @description Largura máxima em pixels (miniaturas e telas); omitido = resolução original */
                 max_width?: number;
             };
+            header?: never;
+            path: {
+                page_id: components["parameters"]["PageId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PNG */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["Problem"];
+        };
+    };
+    getNumberingCrop: {
+        parameters: {
+            query?: never;
             header?: never;
             path: {
                 page_id: components["parameters"]["PageId"];

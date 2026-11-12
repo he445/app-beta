@@ -39,6 +39,52 @@
         "type": "string"
       },
       "description": "Números riscados (numeração anterior)."
+    },
+    "source": {
+      "enum": [
+        "image",
+        "sidecar",
+        "reviewer"
+      ],
+      "description": "De onde vieram as marcas: lidas da imagem, do numbering.json do lote ou digitadas pelo revisor."
+    },
+    "marks": {
+      "type": "array",
+      "description": "Marcas encontradas na região, como o resolvedor as recebeu: até três leituras cada e se está riscada.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "readings",
+          "struck"
+        ],
+        "properties": {
+          "readings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "text",
+                "confidence"
+              ],
+              "properties": {
+                "text": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              }
+            }
+          },
+          "struck": {
+            "type": "boolean"
+          }
+        }
+      }
     }
   }
 }

@@ -2,7 +2,7 @@
 
 # Referência da API
 
-Contrato **0.10.0**. A fonte é `contracts/openapi.yaml`, com os
+Contrato **0.11.0**. A fonte é `contracts/openapi.yaml`, com os
 formatos em `contracts/schemas/` (JSON Schema 2020-12), validados pelo Spectral na CI.
 Com o motor no ar, a versão interativa fica em `/docs`.
 
@@ -39,6 +39,7 @@ Erros seguem o RFC 9457 (`application/problem+json`).
 | Rota | Função | Respostas |
 | --- | --- | --- |
 | `GET /pages/{page_id}/image` | Imagem da página, original ou corrigida | 200, 401, 404 |
+| `GET /pages/{page_id}/numbering-crop` | Recorte da região onde a numeração foi lida | 200, 401, 404 |
 | `PUT /pages/{page_id}/numbering` | Confirmar ou corrigir a numeração lida (tecla N) | 200, 401, 404, 422 |
 
 ## Correção em lote ("Corrigir tudo") e lote corrigido para baixar

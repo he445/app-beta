@@ -73,6 +73,7 @@ nav:
           - "0012 Configuração em camadas": adr/0012-configuracao-em-camadas.md
           - "0013 Lote local lido no lugar": adr/0013-lote-local-lido-no-lugar.md
           - "0014 Orientação por classificador ONNX": adr/0014-orientacao-por-classificador-onnx.md
+          - "0015 Numeração lida da imagem": adr/0015-numeracao-por-imagem.md
           - "0016 Diagnóstico com token de administrador": adr/0016-diagnostico-com-token-de-administrador.md
           - "0017 Documentação numa pasta só": adr/0017-documentacao-em-uma-pasta.md
           - Modelo: adr/0000-template.md
@@ -81,6 +82,7 @@ nav:
       - Layout do lote: especificacoes/batch-layout.md
       - Lote local: especificacoes/lote-local.md
       - Sequência e completude: especificacoes/sequencing.md
+      - Numeração lida da imagem: especificacoes/numeracao-por-imagem.md
       - Correções e lote corrigido: especificacoes/corrections.md
       - Pontuação e veredito: especificacoes/scoring.md
       - Metadados: especificacoes/metadata.md

@@ -20,7 +20,9 @@ convertido em caixas pelo pós-processamento do detector (DB).
 
 ## Métricas medidas
 
-Ainda não medidas no programa: entram com os fixtures sintéticos de numeração.
+Nas 36 páginas dos oito cenários sintéticos de numeração, com o plano B por componentes
+conexos, separação de números lado a lado e reconhecedor padrão: 34 páginas com as
+marcas certas, de 80 a 120 ms por página (detector, riscado e leitura).
 
 ## Limitações conhecidas
 

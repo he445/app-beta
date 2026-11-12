@@ -153,6 +153,31 @@ def baselines_from_json(data: Mapping[str, Any]) -> dict[str, dict[str, Stats]]:
     }
 
 
+def report_marks(
+    pages: Sequence[Mapping[str, Any]],
+) -> tuple[dict[str, tuple[Mark, ...]], dict[str, str]]:
+    """Marcas lidas na análise (``numbering.marks``) e a origem de cada uma, por página.
+
+    Com o leitor por imagem, as marcas não estão em arquivo nenhum do lote: a
+    re-resolução usa as que a análise gravou no relatório.
+    """
+    by_page: dict[str, tuple[Mark, ...]] = {}
+    sources: dict[str, str] = {}
+    for page in pages:
+        numbering = page.get("numbering") or {}
+        if "marks" not in numbering:
+            continue
+        by_page[page["id"]] = tuple(
+            Mark(
+                tuple(Reading(r["text"], float(r["confidence"])) for r in m["readings"]),
+                bool(m.get("struck", False)),
+            )
+            for m in numbering["marks"]
+        )
+        sources[page["id"]] = str(numbering.get("source", "image"))
+    return by_page, sources
+
+
 def renumber(
     report: Mapping[str, Any],
     profile: Profile,
@@ -174,10 +199,14 @@ def renumber(
     new = json.loads(json.dumps(report))
     pages = {p["id"]: p for p in new["pages"]}
     keys = {f"{p['source_file']}#{p['page_in_file']}": p["id"] for p in new["pages"]}
-    marks = SidecarNumberingReader().read(batch_root, list(keys))
-    by_page: dict[str, Sequence[Mark]] = {keys[k]: v for k, v in marks.items()}
+    by_page, sources = report_marks(new["pages"])
+    if not by_page:
+        marks = SidecarNumberingReader().read(batch_root, list(keys))
+        by_page = {keys[k]: tuple(v) for k, v in marks.items()}
+        sources = dict.fromkeys(by_page, "sidecar")
     for page_id, value in overrides.items():
         by_page[page_id] = (Mark((Reading(value, 1.0),)),)
+        sources[page_id] = "reviewer"
     duplicates = {
         f["target"]["id"]: f["correction"]["params"].get("duplicate_of", "")
         for f in new["findings"]
@@ -195,7 +224,10 @@ def renumber(
         )
         doc["proposed_order"] = list(result.order) if result.reordered else []
         for numbering in result.pages:
-            pages[numbering.page_id]["numbering"] = numbering_json(numbering)
+            pid = numbering.page_id
+            pages[pid]["numbering"] = numbering_json(
+                numbering, by_page.get(pid, ()), sources.get(pid)
+            )
         for item in flags:
             if not profile.enabled(item.rule):
                 continue

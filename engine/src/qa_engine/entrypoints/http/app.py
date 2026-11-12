@@ -330,6 +330,11 @@ class Engine:
             )
             report = analysis_json(analysis)
             validate(report, "analysis.schema.json")
+            if analysis.numbering_crops:
+                crops = work / NUMBERING_CROPS
+                crops.mkdir(exist_ok=True)
+                for page_id, png in analysis.numbering_crops.items():
+                    (crops / f"{page_id}.png").write_bytes(png)
             (self.batch_dir(batch_id) / "baselines.json").write_text(
                 json.dumps(baselines_json(analysis.baselines)), encoding="utf-8"
             )
@@ -338,6 +343,10 @@ class Engine:
             log.exception("falha na análise do lote %s", batch_id)
             self.record_error(exc, "worker", "análise do lote", batch_id, "critical")
             self.repo.fail(batch_id, f"{exc.__class__.__name__}: {exc}"[:500])
+
+
+NUMBERING_CROPS = "numbering"
+"""Pasta, dentro da pasta de trabalho do lote, com o recorte da numeração de cada página."""
 
 
 def capabilities(settings: Settings, demo_batches: int, editable: bool = False) -> list[str]:
@@ -879,6 +888,16 @@ def create_app(
         buf = io.BytesIO()
         Image.fromarray(img).save(buf, format="PNG")
         return Response(buf.getvalue(), media_type="image/png")
+
+    @app.get("/pages/{page_id}/numbering-crop")
+    def numbering_crop(page_id: str) -> Response:
+        page = engine.repo.get_page(page_id)
+        if page is None:
+            raise HTTPException(404, "página não encontrada")
+        path = engine.batch_dir(page["batch_id"]) / NUMBERING_CROPS / f"{page_id}.png"
+        if not path.is_file():
+            raise HTTPException(404, "página sem recorte de numeração")
+        return Response(path.read_bytes(), media_type="image/png")
 
     @app.get("/documents/{document_id}/metadata")
     def document_metadata(document_id: str) -> list[dict[str, Any]]:

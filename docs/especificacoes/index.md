@@ -11,6 +11,7 @@ com a suíte de `conformance/`.
 | [`lote-local.md`](lote-local.md) | Lote lido no lugar: espera de estabilidade, retrato e raízes permitidas |
 | [`detectors/`](detectors/blank_page.md) | Um documento por regra de página, no modelo obrigatório |
 | [`sequencing.md`](sequencing.md) | Numeração, sequência e completude (regras de documento) |
+| [`numeracao-por-imagem.md`](numeracao-por-imagem.md) | Leitura da numeração manuscrita no canto da página |
 | [`scoring.md`](scoring.md) | Severidade, estado do documento, veredito e amostragem |
 | [`metadata.md`](metadata.md) | Metadados do Decreto 10.278/2020 e técnicos |
 | [`corrections.md`](corrections.md) | Versão corrigida, "Corrigir tudo", desfazer em lote e lote corrigido |

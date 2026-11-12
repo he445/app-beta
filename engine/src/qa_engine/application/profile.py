@@ -37,6 +37,17 @@ class Station:
 
 
 @dataclass(frozen=True, slots=True)
+class NumberingImageConfig:
+    """Leitura da numeração na imagem (``numbering`` do perfil)."""
+
+    regions: tuple[tuple[float, float, float, float], ...] = ((0.60, 0.00, 1.00, 0.18),)
+    struck_threshold: float = 0.6
+    recognizer: str = "ppocrv5-mobile-rec"
+    min_height_mm: float = 3.0
+    enabled: bool = True
+
+
+@dataclass(frozen=True, slots=True)
 class Profile:
     """Perfil validado contra ``contracts/schemas/profile.schema.json``."""
 
@@ -51,6 +62,8 @@ class Profile:
     stations: tuple[Station, ...]
     rules: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
     """Configuração por regra: ``enabled``, ``severity`` e ``params``."""
+    numbering_reader: NumberingImageConfig = field(default_factory=lambda: NumberingImageConfig())
+    """Como ler a numeração da imagem (região, riscado, reconhecedor)."""
     raw: Mapping[str, Any] = field(default_factory=dict)
 
     def station(self, station_id: str | None) -> Station | None:
@@ -175,6 +188,16 @@ def profile_from_dict(data: Mapping[str, Any]) -> Profile:
             high_confidence=float(numbering.get("high_confidence", 0.85)),
         ),
         identifier_pattern=str(data.get("identifier_pattern", "{batch}-{document}")),
+        numbering_reader=NumberingImageConfig(
+            regions=tuple(
+                (float(r[0]), float(r[1]), float(r[2]), float(r[3]))
+                for r in numbering.get("regions", [[0.60, 0.00, 1.00, 0.18]])
+            ),
+            struck_threshold=float(numbering.get("struck_threshold", 0.6)),
+            recognizer=str(numbering.get("recognizer", "ppocrv5-mobile-rec")),
+            min_height_mm=float(numbering.get("min_height_mm", 3.0)),
+            enabled=bool(numbering.get("read_from_image", True)),
+        ),
         stations=stations,
         rules=rules,
         raw=dict(data),

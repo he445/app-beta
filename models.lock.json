@@ -83,10 +83,10 @@
           "size": 23082942
         },
         {
-          "path": "trocr-small-handwritten/decoder_model_merged_quantized.onnx",
-          "url": "https://huggingface.co/Xenova/trocr-small-handwritten/resolve/02bea33ca09a70e2e2d91140a7e6e1a729606a5b/onnx/decoder_model_merged_quantized.onnx",
-          "sha256": "51076aa396ab5939c4668db9de901ad51765094b4c05c4c8c1f8ae2012ba1e08",
-          "size": 40527613
+          "path": "trocr-small-handwritten/decoder_model_quantized.onnx",
+          "url": "https://huggingface.co/Xenova/trocr-small-handwritten/resolve/02bea33ca09a70e2e2d91140a7e6e1a729606a5b/onnx/decoder_model_quantized.onnx",
+          "sha256": "40166e4f975b3cecd24bb422db80eb06912777c8e8a56ab44f6bd771ec5df553",
+          "size": 40159904
         },
         {
           "path": "trocr-small-handwritten/tokenizer.json",

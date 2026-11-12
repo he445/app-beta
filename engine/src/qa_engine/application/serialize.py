@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any
 
 from qa_engine.application.analyze import BatchAnalysis, BatchSummary
 from qa_engine.application.metadata import MetadataField
 from qa_engine.domain.model import Decision, Finding, Page
-from qa_engine.domain.sequencing import PageNumbering
+from qa_engine.domain.sequencing import Mark, PageNumbering
 
 
 def iso(dt: datetime) -> str:
@@ -58,14 +58,33 @@ def finding_json(finding: Finding) -> dict[str, Any]:
     return data
 
 
-def numbering_json(numbering: PageNumbering) -> dict[str, Any]:
-    """Numeração resolvida de uma página."""
-    return {
+def marks_json(marks: Sequence[Mark]) -> list[dict[str, Any]]:
+    """Marcas no formato de ``numbering.marks``."""
+    return [
+        {
+            "readings": [
+                {"text": r.text, "confidence": round(r.confidence, 4)} for r in m.readings
+            ],
+            "struck": m.struck,
+        }
+        for m in marks
+    ]
+
+
+def numbering_json(
+    numbering: PageNumbering, marks: Sequence[Mark] | None = None, source: str | None = None
+) -> dict[str, Any]:
+    """Numeração resolvida de uma página (com as marcas e a origem, quando houver)."""
+    data: dict[str, Any] = {
         "state": numbering.state.value,
         "value": str(numbering.value) if numbering.value is not None else None,
         "confidence": round(numbering.confidence, 4),
         "previous": list(numbering.previous),
     }
+    if marks is not None and source in {"image", "sidecar", "reviewer"}:
+        data["source"] = source
+        data["marks"] = marks_json(marks)
+    return data
 
 
 def page_json(
@@ -73,6 +92,8 @@ def page_json(
     numbering: PageNumbering | None,
     station: str | None,
     station_id: str | None = None,
+    marks: Sequence[Mark] | None = None,
+    source: str | None = None,
 ) -> dict[str, Any]:
     """Página no formato de ``page.schema.json``."""
     data: dict[str, Any] = {
@@ -91,7 +112,7 @@ def page_json(
         "station_id": station_id,
     }
     if numbering is not None:
-        data["numbering"] = numbering_json(numbering)
+        data["numbering"] = numbering_json(numbering, marks, source)
     return data
 
 
@@ -159,6 +180,8 @@ def analysis_json(
                 analysis.numbering.get(p.id),
                 analysis.stations.get(p.id),
                 analysis.station_ids.get(p.id),
+                analysis.marks.get(p.id),
+                analysis.numbering_source,
             )
             for p in analysis.pages
         ],
