@@ -1,4 +1,4 @@
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { getSession, logout, onSessionChange, type Health } from "./api/client";
 import { EngineContext, hasCapability } from "./api/engine";
 import { href, useRoute, type Route } from "./router";
@@ -15,6 +15,8 @@ import { Settings } from "./screens/Settings";
 import { Diagnostics } from "./screens/Diagnostics";
 import { Management } from "./screens/Management";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { ShortcutsHelp } from "./components/ShortcutsHelp";
+import { isHelpKey } from "./lib/keys";
 
 function useSession() {
   return useSyncExternalStore(onSessionChange, getSession);
@@ -33,6 +35,16 @@ export function App() {
 function Shell({ engine }: { engine: Health }) {
   const route = useRoute();
   const session = useSession();
+  const [help, setHelp] = useState(false);
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (!isHelpKey(e)) return;
+      e.preventDefault();
+      setHelp(true);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const osSession = hasCapability(engine, "os_session");
   const ready = Boolean(session.reviewer) && (!engine.auth_required || Boolean(session.token));
   if (!ready) return <Login engine={engine} />;
@@ -59,6 +71,7 @@ function Shell({ engine }: { engine: Health }) {
           )}
           {hasCapability(engine, "folder_export") && <a href={href({ name: "management" })}>Gestão</a>}
           {engine.admin && <a href={href({ name: "diagnostics" })}>Diagnóstico</a>}
+          <button className="link" onClick={() => setHelp(true)} title="Tecla ?">Atalhos</button>
           <span className="muted reviewer-name">{session.reviewer}</span>
           <span className="muted small" title="Versão do programa">v{engine.version}</span>
           {!osSession && <button className="link" onClick={logout}>{session.token ? "Sair" : "Trocar"}</button>}
@@ -67,6 +80,12 @@ function Shell({ engine }: { engine: Health }) {
       <ErrorBoundary key={route.name}>
         <Screen route={route} />
       </ErrorBoundary>
+      {help && (
+        <ShortcutsHelp
+          first={route.name === "review" ? "review" : route.name === "sequence" ? "sequence" : undefined}
+          onClose={() => setHelp(false)}
+        />
+      )}
     </div>
   );
 }

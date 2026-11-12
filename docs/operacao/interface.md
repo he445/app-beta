@@ -1,6 +1,8 @@
 # Interface de revisão
 
-Guia para garantidores e conferentes. Para instalar e publicar, veja
+Referência das telas para garantidores e conferentes; para começar, leia o
+[manual do conferente](manual-do-conferente.md). Dentro do programa, a tecla **?**
+mostra todos os atalhos. Para instalar e publicar, veja
 [Desenvolver a interface](../guias/desenvolver-interface.md).
 
 ## Fluxo

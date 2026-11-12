@@ -8,6 +8,11 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Manual do conferente (`docs/operacao/manual-do-conferente.md`): conferir uma caixa do
+  começo ao fim e treinar com a caixa de exemplo do pacote (`samples\lote-exemplo`), com
+  o resultado esperado. O roteiro desktop de ponta a ponta segue o manual nessa caixa.
+  Tela de atalhos dentro do programa: tecla **?** em qualquer tela (ou **Atalhos** no
+  topo), com os atalhos da tela atual primeiro.
 - Voltar versão: a versão nova copia o banco para `data_dir/atualizacoes` antes de
   migrá-lo (as cinco mais recentes) e registra cada versão que abriu o banco (migração
   0012); a versão anterior aberta com um banco mais novo não mexe em nada e mostra a

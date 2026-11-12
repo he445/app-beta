@@ -3,11 +3,13 @@
 // Com token de administrador, confere também a tela de Diagnóstico com um erro forçado.
 // Com a pasta de um lote de três folhas sem número, confere a tela de Sequência: o
 // documento resolvido só no teclado e a reordenação indo para o lote corrigido.
-// Uso: node e2e/desktop.cjs <link de acesso> <pasta do lote> [capturas] [token de admin] [lote de sequência]
+// Com a caixa de exemplo do pacote, segue o manual do conferente do começo ao fim.
+// Uso: node e2e/desktop.cjs <link de acesso> <pasta do lote> [capturas] [token de admin] [lote de sequência] [caixa de exemplo]
 const { chromium } = require("playwright");
+const { conferirCaixaDeExemplo } = require("./manual-flow.cjs");
 
 (async () => {
-  const [link, folder, shots, adminToken, sequenceFolder] = process.argv.slice(2);
+  const [link, folder, shots, adminToken, sequenceFolder, manualFolder] = process.argv.slice(2);
   if (!link || !folder) throw new Error("uso: desktop.cjs <link> <pasta do lote> [capturas]");
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1366, height: 860 } });
@@ -117,6 +119,12 @@ const { chromium } = require("playwright");
   if (sequenceFolder) {
     await sequence(page, sequenceFolder, shots).catch(async (err) => {
       if (shots) await page.screenshot({ path: `${shots}/desktop-sequencia-erro.png`, fullPage: true });
+      throw err;
+    });
+  }
+  if (manualFolder) {
+    await conferirCaixaDeExemplo(page, manualFolder, shots).catch(async (err) => {
+      if (shots) await page.screenshot({ path: `${shots}/manual-erro.png`, fullPage: true });
       throw err;
     });
   }

@@ -45,7 +45,7 @@ export function keyToAction(e: KeyLike): ReviewAction | null {
 }
 
 export function isTyping(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
+  if (typeof HTMLElement === "undefined" || !(target instanceof HTMLElement)) return false;
   return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
 }
 
@@ -99,4 +99,50 @@ export function thumbnailKey(e: KeyLike): "numbering" | "zoom" | null {
   if (key === "enter") return "numbering";
   if (key === "z") return "zoom";
   return null;
+}
+
+export interface ShortcutGroup {
+  id: "global" | "review" | "sequence" | "zoom";
+  title: string;
+  items: [string, string][];
+}
+
+/** Todos os atalhos do programa, por tela (tela de atalhos, tecla ?). */
+export const SHORTCUT_GROUPS: ShortcutGroup[] = [
+  {
+    id: "global",
+    title: "Em qualquer tela",
+    items: [
+      ["?", "Mostrar esta lista de atalhos"],
+      ["Esc", "Fechar a lista, o zoom ou a janela aberta"],
+    ],
+  },
+  { id: "review", title: "Revisão", items: SHORTCUTS },
+  {
+    id: "sequence",
+    title: "Sequência",
+    items: [
+      ["Enter", "No campo do número: grava e vai para a próxima página com dúvida"],
+      ["Tab", "Passa para a próxima página com dúvida sem gravar"],
+      ["Esc", "No campo do número: volta ao valor anterior"],
+      ["Alt + ← →", "Move a página uma posição para a esquerda / direita"],
+      ["Ctrl+Z", "Desfaz a última numeração ou mudança de ordem"],
+      ["Z ou duplo clique", "Amplia a página"],
+    ],
+  },
+  {
+    id: "zoom",
+    title: "Página ampliada",
+    items: [
+      ["← →", "Página anterior / seguinte"],
+      ["Espaço", "Mais zoom / menos zoom"],
+      ["Esc", "Fecha"],
+    ],
+  },
+];
+
+/** A tecla ? abre a lista de atalhos (fora de campos de texto). */
+export function isHelpKey(e: KeyLike & { target?: EventTarget | null }): boolean {
+  if (e.ctrlKey || e.metaKey || e.altKey) return false;
+  return e.key === "?" && !isTyping(e.target ?? null);
 }

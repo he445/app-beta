@@ -139,6 +139,8 @@ jobs:
         run: uv run --project engine python tools/synth/synth.py showcase --out "$RUNNER_TEMP/Lotes/Caixa 0412"
       - name: Lote de três folhas sem número (tela de Sequência)
         run: uv run --project engine python tools/synth/numbering.py sequencia --out "$RUNNER_TEMP/Lotes/Sequência 01"
+      - name: Caixa de exemplo do pacote (manual do conferente)
+        run: uv run --project engine python tools/synth/synth.py selftest --out "$RUNNER_TEMP/Lotes/lote-exemplo"
       - name: Programa sem janela e fluxo no navegador
         env:
           HOME: ${{ runner.temp }}/home
@@ -153,7 +155,7 @@ jobs:
           for i in $(seq 1 60); do grep -q '^acesso:' "$RUNNER_TEMP/desktop.log" && break; sleep 1; done
           cat "$RUNNER_TEMP/desktop.log"
           link=$(grep '^acesso:' "$RUNNER_TEMP/desktop.log" | awk '{print $2}')
-          cd ui && npm run e2e:desktop -- "$link" "$RUNNER_TEMP/Lotes/Caixa 0412" "$RUNNER_TEMP/capturas" "$admin" "$RUNNER_TEMP/Lotes/Sequência 01"
+          cd ui && npm run e2e:desktop -- "$link" "$RUNNER_TEMP/Lotes/Caixa 0412" "$RUNNER_TEMP/capturas" "$admin" "$RUNNER_TEMP/Lotes/Sequência 01" "$RUNNER_TEMP/Lotes/lote-exemplo"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
