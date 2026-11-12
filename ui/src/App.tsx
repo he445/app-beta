@@ -15,6 +15,7 @@ import { Settings } from "./screens/Settings";
 import { Diagnostics } from "./screens/Diagnostics";
 import { Management } from "./screens/Management";
 import { BoxLockBanner } from "./components/BoxLockBanner";
+import { ShortcutsDialog } from "./components/ShortcutsDialog";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
 function useSession() {
@@ -60,10 +61,14 @@ function Shell({ engine }: { engine: Health }) {
           )}
           {hasCapability(engine, "folder_export") && <a href={href({ name: "management" })}>Gestão</a>}
           {engine.admin && <a href={href({ name: "diagnostics" })}>Diagnóstico</a>}
+          <button className="link" onClick={() => window.dispatchEvent(new Event("qa:atalhos"))} title="Atalhos de teclado (?)">
+            Atalhos (?)
+          </button>
           <span className="muted reviewer-name">{session.reviewer}</span>
           {!osSession && <button className="link" onClick={logout}>{session.token ? "Sair" : "Trocar"}</button>}
         </div>
       </header>
+      <ShortcutsDialog />
       {batchId && hasCapability(engine, "local_batches") && <BoxLockBanner batchId={batchId} />}
       <ErrorBoundary key={route.name}>
         <Screen route={route} />

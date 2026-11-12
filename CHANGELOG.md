@@ -8,6 +8,10 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Adicionado
 
+- Manual do conferente (`docs/operacao/manual-do-conferente.md`): a caixa de exemplo do
+  pacote conferida do começo ao fim. Tela de atalhos de teclado em qualquer tela (tecla
+  **?** ou "Atalhos (?)" no topo), com os atalhos da revisão, da sequência e da página
+  ampliada. O CI segue o manual na caixa de exemplo (`e2e/manual.cjs`).
 - Voltar versão: antes de aplicar migrações novas, o banco é copiado para
   `backups/antes-de-atualizar`; uma versão anterior não abre banco de versão mais nova e
   diz como restaurar (`qa backup restore --before-update`); guia de atualizar e voltar

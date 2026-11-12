@@ -154,6 +154,19 @@ jobs:
           cat "$RUNNER_TEMP/desktop.log"
           link=$(grep '^acesso:' "$RUNNER_TEMP/desktop.log" | awk '{print $2}')
           cd ui && npm run e2e:desktop -- "$link" "$RUNNER_TEMP/Lotes/Caixa 0412" "$RUNNER_TEMP/capturas" "$admin" "$RUNNER_TEMP/Lotes/Sequência 01"
+      - name: Manual do conferente seguido na caixa de exemplo
+        env:
+          HOME: ${{ runner.temp }}/home-manual
+          QA_BATCH_SETTLE_SECONDS: "1"
+          QA_WORKERS: "2"
+        run: |
+          pkill -TERM -f "python -m qa_engine.entrypoints.desktop" || true
+          mkdir -p "$HOME"
+          uv run --project engine python tools/synth/synth.py selftest --out "$RUNNER_TEMP/Lotes/lote-exemplo"
+          (cd engine && nohup uv run python -m qa_engine.entrypoints.desktop --headless > "$RUNNER_TEMP/manual.log" 2>&1 &)
+          for i in $(seq 1 60); do grep -q '^acesso:' "$RUNNER_TEMP/manual.log" && break; sleep 1; done
+          link=$(grep '^acesso:' "$RUNNER_TEMP/manual.log" | awk '{print $2}')
+          cd ui && npm run e2e:manual -- "$link" "$RUNNER_TEMP/Lotes/lote-exemplo" "$RUNNER_TEMP/capturas"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

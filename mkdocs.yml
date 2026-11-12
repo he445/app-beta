@@ -52,6 +52,7 @@ nav:
       - Gerar o build Windows: guias/build-windows.md
   - Operação:
       - operacao/index.md
+      - Manual do conferente: operacao/manual-do-conferente.md
       - Interface de revisão: operacao/interface.md
       - Configurações: operacao/configuracoes.md
       - Diagnóstico: operacao/diagnostico.md

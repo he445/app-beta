@@ -100,3 +100,34 @@ export function thumbnailKey(e: KeyLike): "numbering" | "zoom" | null {
   if (key === "z") return "zoom";
   return null;
 }
+
+/** Atalhos de cada tela, para a tela de atalhos (tecla ?). */
+export const SHORTCUT_GROUPS: { title: string; keys: [string, string][] }[] = [
+  { title: "Revisão", keys: SHORTCUTS },
+  {
+    title: "Sequência",
+    keys: [
+      ["Enter", "No campo do número: gravar e ir para a próxima página com dúvida"],
+      ["Tab", "Ir para a próxima página sem gravar"],
+      ["Esc", "Voltar o número ao valor anterior"],
+      ["Alt + ← →", "Mover a página na ordem"],
+      ["Ctrl+Z", "Desfazer a última numeração ou mudança de ordem (fora do campo)"],
+      ["Z ou duplo clique", "Ampliar a página inteira"],
+      ["Arrastar", "Mudar a página de lugar ou soltar uma folha escaneada depois"],
+    ],
+  },
+  {
+    title: "Página ampliada",
+    keys: [
+      ["← →", "Página anterior / seguinte"],
+      ["Esc", "Fechar"],
+    ],
+  },
+  { title: "Em qualquer tela", keys: [["?", "Mostrar ou esconder esta lista de atalhos"]] },
+];
+
+/** A tecla abre a tela de atalhos? (``?``, fora de campo de texto). */
+export function isHelpKey(e: KeyLike): boolean {
+  return e.key === "?" && !e.ctrlKey && !e.metaKey && !e.altKey;
+}
+
