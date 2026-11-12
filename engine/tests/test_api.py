@@ -191,3 +191,77 @@ def test_repository_is_thread_safe(tmp_path: Path) -> None:
     with ThreadPoolExecutor(16) as pool:
         results = list(pool.map(lambda _: repo.get_batch("b"), range(2000)))
     assert all(r is not None and r.name == "lote" for r in results)
+
+
+# Tela de Sequência: numeração digitada e ordem manual (T18) ----------------------
+
+
+def put(client: TestClient, batch_id: str, doc_id: str, body: dict) -> object:  # type: ignore[type-arg]
+    return client.put(f"/batches/{batch_id}/documents/{doc_id}/numbering", json=body, headers=AUTH)
+
+
+def test_typing_and_reordering_update_state_order_and_gaps(
+    client: TestClient,
+    small_batch: Path,
+) -> None:
+    batch_id = upload(client, small_batch)["id"]
+    assert wait(client, batch_id)["status"] == "analyzed"
+    report = client.get(f"/batches/{batch_id}/report", headers=AUTH).json()
+    doc = next(d for d in report["documents"] if d["name"].endswith("DOC2"))
+    a, b, c = doc["page_ids"]
+
+    # Três páginas sem número lido, digitadas só no teclado: 1, 3, 2.
+    r = put(client, batch_id, doc["id"], {"reviewer": "g1", "values": {a: "1", b: "3", c: "2"}})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    validate(body, "document-numbering.schema.json")
+    assert {k: v["value"] for k, v in body["pages"].items()} == {a: "1", b: "3", c: "2"}
+    assert {k: v.get("typed") for k, v in body["pages"].items()} == {a: "1", b: "3", c: "2"}
+    assert body["document"]["proposed_order"] == [a, c, b]
+    assert any(f["rule"] == "out_of_order" for f in body["findings"])
+
+    # O revisor arrasta a página: a ordem manual resolve a sequência e some o "fora de ordem".
+    r = put(client, batch_id, doc["id"], {"reviewer": "g1", "order": [a, c, b]})
+    body = r.json()
+    assert r.status_code == 200, r.text
+    assert body["document"]["manual_order"]["page_ids"] == [a, c, b]
+    assert body["document"]["manual_order"]["reviewer"] == "g1"
+    assert body["document"]["proposed_order"] == []
+    assert not any(f["rule"] in {"out_of_order", "missing_page"} for f in body["findings"])
+    plan = client.get(f"/batches/{batch_id}/corrected-plan", headers=AUTH).json()
+    planned = next(d for d in plan["documents"] if d["document_id"] == doc["id"])
+    assert planned["reordered"] is True
+    position = {p["page_id"]: p["new_position"] for p in planned["pages"]}
+    assert (position[a], position[c], position[b]) == (1, 2, 3)
+    moved = next(p for p in planned["pages"] if p["page_id"] == b)
+    assert "pelo revisor" in moved["changes"][-1]["text"]
+
+    # Validação antes de gravar: nada muda com ordem incompleta ou valor inválido.
+    assert put(client, batch_id, doc["id"], {"reviewer": "g1", "order": [a, b]}).status_code == 422
+    bad = put(client, batch_id, doc["id"], {"reviewer": "g1", "values": {a: "um"}})
+    assert bad.status_code == 422
+    other = report["documents"][0]["page_ids"][0]
+    assert (
+        put(client, batch_id, doc["id"], {"reviewer": "g1", "values": {other: "4"}}).status_code
+        == 422
+    )
+    still = client.get(f"/batches/{batch_id}/report", headers=AUTH).json()
+    kept = next(d for d in still["documents"] if d["id"] == doc["id"])
+    assert kept["manual_order"]["page_ids"] == [a, c, b]
+
+    # Desfazer: ordem manual e um número digitado.
+    r = put(client, batch_id, doc["id"], {"reviewer": "g1", "order": None, "values": {c: None}})
+    body = r.json()
+    assert r.status_code == 200, r.text
+    assert "manual_order" not in body["document"]
+    assert "typed" not in body["pages"][c] and body["pages"][b]["typed"] == "3"
+    assert body["pages"][c]["state"] in {"inferred", "absent"}
+    after = client.get(f"/batches/{batch_id}/report", headers=AUTH).json()
+    validate(after, "analysis.schema.json")
+
+
+def test_unknown_document_is_404(client: TestClient, small_batch: Path) -> None:
+    batch_id = upload(client, small_batch)["id"]
+    wait(client, batch_id)
+    missing = "00000000-0000-4000-8000-000000000000"
+    assert put(client, batch_id, missing, {"reviewer": "g1"}).status_code == 404

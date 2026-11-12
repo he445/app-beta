@@ -72,18 +72,23 @@ def marks_json(marks: Sequence[Mark]) -> list[dict[str, Any]]:
 
 
 def numbering_json(
-    numbering: PageNumbering, marks: Sequence[Mark] | None = None, source: str | None = None
+    numbering: PageNumbering,
+    marks: Sequence[Mark] | None = None,
+    source: str | None = None,
+    typed: str | None = None,
 ) -> dict[str, Any]:
-    """Numeração resolvida de uma página (com as marcas e a origem, quando houver)."""
+    """Numeração resolvida de uma página, com as marcas lidas e a digitada, quando houver."""
     data: dict[str, Any] = {
         "state": numbering.state.value,
         "value": str(numbering.value) if numbering.value is not None else None,
         "confidence": round(numbering.confidence, 4),
         "previous": list(numbering.previous),
     }
-    if marks is not None and source in {"image", "sidecar", "reviewer"}:
+    if marks is not None and source in {"image", "sidecar"}:
         data["source"] = source
         data["marks"] = marks_json(marks)
+    if typed is not None:
+        data["typed"] = typed
     return data
 
 

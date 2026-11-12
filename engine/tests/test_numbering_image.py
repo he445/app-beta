@@ -261,7 +261,7 @@ def test_analysis_reads_from_the_image_and_records_marks_and_crops(
     first = pages["01-normal/0001.tif"]["id"]
     again = renumber(report, test_profile, root, {first: "1"})
     by_id = {p["id"]: p["numbering"] for p in again["pages"]}
-    assert by_id[first]["source"] == "reviewer"
+    assert by_id[first]["typed"] == "1" and by_id[first]["source"] == "image"
     assert by_id[pages["04-riscado/0003.tif"]["id"]]["source"] == "image"
 
 

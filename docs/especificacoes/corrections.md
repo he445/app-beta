@@ -66,7 +66,9 @@ anterior à operação.
 
 Por documento, com as decisões atuais:
 
-1. **Ordem final:** `proposed_order` se a sinalização `out_of_order` foi decidida
+1. **Ordem final:** `manual_order` quando o revisor reordenou na tela de Sequência
+   (cada página movida registra "movida da posição X para a Y pelo revisor", com revisor
+   e horário); senão `proposed_order` se a sinalização `out_of_order` foi decidida
    `correct`; senão, a ordem do arquivo.
 2. **Removidas:** páginas com `remove_page` decidido `correct` (motivo: "em branco",
    "duplicada").

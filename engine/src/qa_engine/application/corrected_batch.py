@@ -79,8 +79,9 @@ def build_plan(
 ) -> dict[str, Any]:
     """Como o lote corrigido fica com as decisões atuais.
 
-    Regras: a ordem final é ``proposed_order`` quando a reordenação foi aceita
-    (``correct``), senão a original; páginas com remoção aceita ficam fora;
+    Regras: a ordem final é ``manual_order`` (escolhida pelo revisor) quando houver;
+    senão ``proposed_order`` quando a reordenação foi aceita (``correct``), senão a
+    original; páginas com remoção aceita ficam fora;
     páginas ilegíveis não são exportadas; os arquivos são renumerados em
     sequência por documento.
 
@@ -107,7 +108,11 @@ def build_plan(
         reordered = bool(
             reorder and _decided(reorder, DecisionAction.CORRECT) and doc["proposed_order"]
         )
-        order = list(doc["proposed_order"]) if reordered else list(doc["page_ids"])
+        manual = doc.get("manual_order")
+        if manual:
+            order = list(manual["page_ids"])
+        else:
+            order = list(doc["proposed_order"]) if reordered else list(doc["page_ids"])
         old_position = {pid: i + 1 for i, pid in enumerate(doc["page_ids"])}
         folder = document_folder(doc, pages)
 
@@ -186,7 +191,21 @@ def build_plan(
             item["new_position"] = new_index + 1
             name = f"{new_index + 1:04d}.tif"
             item["target_file"] = f"{folder}/{name}" if folder else name
-            if reordered and reorder is not None and original_rank[pid] != new_index:
+            if manual and original_rank[pid] != new_index:
+                item["moved"] = True
+                item["changes"].append(
+                    {
+                        "finding_id": None,
+                        "rule": "out_of_order",
+                        "action": CorrectionAction.REORDER.value,
+                        "text": f"movida da posição {item['old_position']} para a "
+                        f"{new_index + 1} pelo revisor",
+                        "params": {},
+                        "decided_by": manual["reviewer"],
+                        "decided_at": manual["decided_at"],
+                    }
+                )
+            elif reordered and reorder is not None and original_rank[pid] != new_index:
                 item["moved"] = True
                 item["changes"].append(
                     _change(
@@ -226,7 +245,7 @@ def build_plan(
                 "document_id": doc["id"],
                 "name": doc["name"],
                 "folder": folder,
-                "reordered": reordered,
+                "reordered": reordered or bool(manual),
                 "pages": [items[pid] for pid in doc["page_ids"]],
                 "missing": missing,
             }

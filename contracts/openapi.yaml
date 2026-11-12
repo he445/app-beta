@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QA Automático de Digitalização — API do motor
-  version: 0.11.0
+  version: 0.12.0
   summary: Contrato entre a interface web, a linha de comando e o motor de análise.
   description: |
     Fonte da verdade do sistema (ADR-0002). Modelos de cada linguagem são gerados a partir
@@ -724,6 +724,39 @@ paths:
                   summary: { $ref: "schemas/batch-summary.schema.json" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /batches/{batch_id}/documents/{document_id}/numbering:
+    parameters:
+      - $ref: "#/components/parameters/BatchId"
+      - name: document_id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      tags: [review]
+      operationId: putDocumentNumbering
+      summary: Numeração digitada e ordem das páginas de um documento (tela de Sequência)
+      description: |
+        Grava a numeração digitada de uma ou mais páginas (null desfaz) e, se vier, a ordem
+        escolhida pelo revisor (null desfaz). A sequência do documento é resolvida de novo,
+        na ordem manual quando houver: estado, ordem proposta, lacunas e sinalizações de
+        sequência recalculados. A ordem manual vale sobre a proposta no lote corrigido.
+        Tudo é validado antes de gravar: valor que não é folha, página de outro documento
+        ou ordem que não seja uma permutação das páginas dão 422 sem mudar nada.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "schemas/document-numbering-update.schema.json" }
+      responses:
+        "200":
+          description: Documento depois da mudança
+          content:
+            application/json:
+              schema: { $ref: "schemas/document-numbering.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
         "422": { $ref: "#/components/responses/Problem" }
   /documents/{document_id}/metadata:
     parameters:

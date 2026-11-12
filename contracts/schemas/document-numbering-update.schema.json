@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "document-numbering-update.schema.json",
+  "title": "DocumentNumberingUpdate",
+  "description": "Numeração digitada e ordem escolhida pelo revisor num documento (tela de Sequência). O que não vier fica como está.",
+  "type": "object",
+  "required": ["reviewer"],
+  "additionalProperties": false,
+  "properties": {
+    "reviewer": { "type": "string", "minLength": 1 },
+    "values": {
+      "type": "object",
+      "description": "Por página: a numeração correta, ou null para desfazer a digitada.",
+      "additionalProperties": { "type": ["string", "null"], "minLength": 1, "maxLength": 32 }
+    },
+    "order": {
+      "type": ["array", "null"],
+      "description": "Todas as páginas do documento na ordem escolhida; null desfaz a ordem manual.",
+      "items": { "type": "string", "format": "uuid" }
+    }
+  }
+}

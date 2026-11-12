@@ -126,6 +126,21 @@ Os pesos fazem uma leitura confiável (≥ 0,5) vencer a inferência numa lacuna
 `w_gap_max` faz uma leitura com confiança acima de 0,625 vencer a inferência numa lacuna
 de qualquer tamanho (`4c − 1,5 > 1`), inclusive no fim do documento.
 
+## Numeração digitada e ordem manual
+
+Na tela de Sequência o revisor digita a numeração de uma página ou reordena o documento
+(`PUT /batches/{id}/documents/{doc}/numbering`). O documento é resolvido de novo:
+
+- A numeração digitada vira uma marca única de confiança 1 e fica em `numbering.typed`;
+  `numbering.marks` continua com o que foi lido, para comparar leitura e digitação.
+  Desfazer (`null`) volta às marcas lidas.
+- Com ordem manual, a resolução roda nessa ordem; ela fica em `manual_order` (páginas,
+  revisor e horário) e vale sobre `proposed_order` no lote corrigido.
+- Tudo é validado antes de gravar: valor que não é folha, página de outro documento ou
+  ordem que não seja uma permutação das páginas do documento não muda nada.
+- As sinalizações de sequência são regeneradas; decisões já tomadas são preservadas
+  quando a sinalização regenerada tem o mesmo identificador.
+
 ## Falhas conhecidas
 
 - Volume que recomeça em 1 aparece como fora de ordem; regra de reinício no perfil é

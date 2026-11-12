@@ -43,9 +43,9 @@ mesma em que a inclinação é medida, já girada quando a página veio de lado)
 
 Por página: as marcas (leituras com confiança e se está riscada), se há algum escrito na
 região (mesmo ilegível) e o recorte da região em PNG. No relatório, `numbering.source`
-diz de onde vieram as marcas (`image`, `sidecar` ou `reviewer`) e `numbering.marks` as
-guarda; a re-resolução depois de uma numeração digitada usa essas marcas, sem ler a
-imagem de novo. O recorte fica na pasta de trabalho do lote e é servido em
+diz de onde vieram as marcas (`image` ou `sidecar`) e `numbering.marks` as guarda; a
+re-resolução depois de uma numeração digitada (`numbering.typed`) usa essas marcas, sem
+ler a imagem de novo. O recorte fica na pasta de trabalho do lote e é servido em
 `GET /pages/{id}/numbering-crop`.
 
 ## Garantias

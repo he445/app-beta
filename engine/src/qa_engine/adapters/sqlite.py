@@ -411,6 +411,43 @@ class SqliteRepository:
                 (page_id, batch_id, value, reviewer, at),
             )
 
+    def clear_numbering(self, page_id: str) -> None:
+        """Desfaz a numeração digitada de uma página."""
+        with self._tx() as c:
+            c.execute("DELETE FROM numbering_overrides WHERE page_id = ?", (page_id,))
+
+    def set_manual_order(
+        self,
+        document_id: str,
+        batch_id: str,
+        page_ids: Sequence[str] | None,
+        reviewer: str,
+        at: str,
+    ) -> None:
+        """Grava (ou, com ``None``, desfaz) a ordem escolhida pelo revisor."""
+        with self._tx() as c:
+            if page_ids is None:
+                c.execute("DELETE FROM manual_orders WHERE document_id = ?", (document_id,))
+                return
+            c.execute(
+                "INSERT INTO manual_orders VALUES (?, ?, ?, ?, ?) ON CONFLICT(document_id) "
+                "DO UPDATE SET page_ids = excluded.page_ids, reviewer = excluded.reviewer, "
+                "decided_at = excluded.decided_at",
+                (document_id, batch_id, json.dumps(list(page_ids)), reviewer, at),
+            )
+
+    def manual_orders(self, batch_id: str) -> dict[str, dict[str, Any]]:
+        """Ordens escolhidas pelo revisor, por documento (páginas, revisor e horário)."""
+        rows = self._all(
+            "SELECT document_id, page_ids, reviewer, decided_at FROM manual_orders "
+            "WHERE batch_id = ?",
+            (batch_id,),
+        )
+        return {
+            r[0]: {"page_ids": list(json.loads(r[1])), "reviewer": r[2], "decided_at": r[3]}
+            for r in rows
+        }
+
     def numbering_overrides(self, batch_id: str) -> dict[str, str]:
         """Numerações digitadas pelo revisor, por página."""
         rows = self._all(

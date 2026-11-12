@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -174,8 +175,47 @@ def report_marks(
             )
             for m in numbering["marks"]
         )
-        sources[page["id"]] = str(numbering.get("source", "image"))
+        sources[page["id"]] = str(numbering.get("source", "image"))  # image ou sidecar
     return by_page, sources
+
+
+@dataclass(frozen=True, slots=True)
+class ManualOrder:
+    """Ordem das páginas de um documento escolhida pelo revisor."""
+
+    page_ids: tuple[str, ...]
+    reviewer: str
+    decided_at: str
+
+
+def set_manual_numbering(
+    report: Mapping[str, Any],
+    profile: Profile,
+    batch_root: Path,
+    overrides: Mapping[str, str],
+    manual_orders: Mapping[str, ManualOrder] | None = None,
+) -> dict[str, Any]:
+    """Caso de uso da tela de Sequência: numeração digitada e ordem escolhida pelo revisor.
+
+    Valida tudo antes de mudar qualquer coisa e devolve o relatório com estado, ordem e
+    lacunas de cada documento recalculados (:func:`renumber`).
+
+    Raises:
+        ValueError: valor que não é folha, página de outro documento ou ordem que não
+            é uma permutação das páginas do documento.
+    """
+    documents = {d["id"]: d for d in report["documents"]}
+    known = {pid for d in report["documents"] for pid in d["page_ids"]}
+    for page_id in overrides:
+        if page_id not in known:
+            raise ValueError(f"página desconhecida: {page_id}")
+    for doc_id, order in (manual_orders or {}).items():
+        doc = documents.get(doc_id)
+        if doc is None:
+            raise ValueError(f"documento desconhecido: {doc_id}")
+        if sorted(order.page_ids) != sorted(doc["page_ids"]):
+            raise ValueError("a ordem precisa ter cada página do documento uma vez")
+    return renumber(report, profile, batch_root, overrides, manual_orders)
 
 
 def renumber(
@@ -183,12 +223,14 @@ def renumber(
     profile: Profile,
     batch_root: Path,
     overrides: Mapping[str, str],
+    manual_orders: Mapping[str, ManualOrder] | None = None,
 ) -> dict[str, Any]:
     """Ressolve a sequência dos documentos com a numeração digitada pelo revisor.
 
-    A numeração digitada vira uma marca única de confiança 1. As sinalizações de
-    sequência são regeneradas; decisões já tomadas são preservadas quando a
-    sinalização regenerada tem o mesmo identificador.
+    A numeração digitada vira uma marca única de confiança 1. Com ordem escolhida pelo
+    revisor, a sequência é resolvida nessa ordem e ela vai para o lote corrigido
+    (``manual_order``). As sinalizações de sequência são regeneradas; decisões já
+    tomadas são preservadas quando a sinalização regenerada tem o mesmo identificador.
 
     Raises:
         ValueError: se algum valor digitado não for uma folha válida.
@@ -196,17 +238,18 @@ def renumber(
     for value in overrides.values():
         if parse_folio(value) is None:
             raise ValueError(f"numeração inválida: {value!r}")
+    manual_orders = manual_orders or {}
     new = json.loads(json.dumps(report))
     pages = {p["id"]: p for p in new["pages"]}
     keys = {f"{p['source_file']}#{p['page_in_file']}": p["id"] for p in new["pages"]}
-    by_page, sources = report_marks(new["pages"])
-    if not by_page:
+    read, sources = report_marks(new["pages"])
+    if not read:
         marks = SidecarNumberingReader().read(batch_root, list(keys))
-        by_page = {keys[k]: tuple(v) for k, v in marks.items()}
-        sources = dict.fromkeys(by_page, "sidecar")
+        read = {keys[k]: tuple(v) for k, v in marks.items()}
+        sources = dict.fromkeys(read, "sidecar")
+    by_page: dict[str, tuple[Mark, ...]] = dict(read)
     for page_id, value in overrides.items():
         by_page[page_id] = (Mark((Reading(value, 1.0),)),)
-        sources[page_id] = "reviewer"
     duplicates = {
         f["target"]["id"]: f["correction"]["params"].get("duplicate_of", "")
         for f in new["findings"]
@@ -218,7 +261,17 @@ def renumber(
     regenerated: list[dict[str, Any]] = []
     counter: dict[tuple[str, str], int] = {}
     for doc in new["documents"]:
-        cands = [PageCandidates(pid, tuple(by_page.get(pid, ()))) for pid in doc["page_ids"]]
+        manual = manual_orders.get(doc["id"])
+        if manual:
+            doc["manual_order"] = {
+                "page_ids": list(manual.page_ids),
+                "reviewer": manual.reviewer,
+                "decided_at": manual.decided_at,
+            }
+        else:
+            doc.pop("manual_order", None)
+        sequence_ids = list(manual.page_ids) if manual else list(doc["page_ids"])
+        cands = [PageCandidates(pid, tuple(by_page.get(pid, ()))) for pid in sequence_ids]
         result, flags = sequence.analyze_document(
             doc["id"], cands, profile.sequence, declared.get(doc["name"]), duplicates
         )
@@ -226,7 +279,10 @@ def renumber(
         for numbering in result.pages:
             pid = numbering.page_id
             pages[pid]["numbering"] = numbering_json(
-                numbering, by_page.get(pid, ()), sources.get(pid)
+                numbering,
+                read.get(pid, ()),
+                sources.get(pid),
+                str(overrides[pid]) if pid in overrides else None,
             )
         for item in flags:
             if not profile.enabled(item.rule):

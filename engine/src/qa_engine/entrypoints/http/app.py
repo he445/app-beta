@@ -75,10 +75,12 @@ from qa_engine.application.local_batch import (
 from qa_engine.application.models import verify_models
 from qa_engine.application.profile import Profile, load_profile, profile_from_dict
 from qa_engine.application.review import (
+    SEQUENCE_RULES,
+    ManualOrder,
     baselines_from_json,
     baselines_json,
     finding_from_json,
-    renumber,
+    set_manual_numbering,
 )
 from qa_engine.application.serialize import analysis_json, iso
 from qa_engine.application.services import run_analysis
@@ -835,6 +837,81 @@ def create_app(
         ctx = engine.context(page["batch_id"])
         return engine.service.set_rotation(ctx, page_id, int(body["angle_deg"]), body["reviewer"])
 
+    def apply_numbering(
+        batch_id: str,
+        reviewer: str,
+        values: dict[str, str | None],
+        document_id: str | None = None,
+        order: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Valida, re-resolve e só então grava numeração digitada e ordem manual."""
+        row = batch_or_404(batch_id)
+        profile = engine.batch_profile(batch_id, row.profile_id)
+        report = report_or_409(batch_id)
+        now = iso(engine.now())
+        overrides = dict(engine.repo.numbering_overrides(batch_id))
+        for page_id, value in values.items():
+            if value is None:
+                overrides.pop(page_id, None)
+            else:
+                overrides[page_id] = value
+        orders = {
+            doc: ManualOrder(tuple(o["page_ids"]), o["reviewer"], o["decided_at"])
+            for doc, o in engine.repo.manual_orders(batch_id).items()
+        }
+        if document_id is not None:
+            if order is None:
+                orders.pop(document_id, None)
+            else:
+                orders[document_id] = ManualOrder(tuple(order), reviewer, now)
+        try:
+            new = set_manual_numbering(report, profile, row.root, overrides, orders)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        for page_id, value in values.items():
+            if value is None:
+                engine.repo.clear_numbering(page_id)
+            else:
+                engine.repo.set_numbering(page_id, batch_id, value, reviewer, now)
+        if document_id is not None:
+            engine.repo.set_manual_order(document_id, batch_id, order, reviewer, now)
+        engine.repo.replace_report(batch_id, new)
+        return new
+
+    @app.put("/batches/{batch_id}/documents/{document_id}/numbering")
+    def put_document_numbering(
+        batch_id: str, document_id: str, body: Annotated[dict[str, Any], Body()]
+    ) -> dict[str, Any]:
+        validate(body, "document-numbering-update.schema.json")
+        report = report_or_409(batch_id)
+        doc = next((d for d in report["documents"] if d["id"] == document_id), None)
+        if doc is None:
+            raise HTTPException(404, "documento não encontrado neste lote")
+        values = dict(body.get("values") or {})
+        outside = [pid for pid in values if pid not in doc["page_ids"]]
+        if outside:
+            raise HTTPException(422, "página de outro documento: " + ", ".join(outside))
+        if "order" in body:
+            new = apply_numbering(batch_id, body["reviewer"], values, document_id, body["order"])
+        else:
+            new = apply_numbering(batch_id, body["reviewer"], values)
+        new_doc = next(d for d in new["documents"] if d["id"] == document_id)
+        ids = set(new_doc["page_ids"]) | {document_id}
+        result = {
+            "document": new_doc,
+            "pages": {
+                p["id"]: p["numbering"] for p in new["pages"] if p["id"] in ids and "numbering" in p
+            },
+            "findings": [
+                f
+                for f in new["findings"]
+                if f["rule"] in SEQUENCE_RULES and f["target"]["id"] in ids
+            ],
+            "summary": new["batch"]["summary"],
+        }
+        validate(result, "document-numbering.schema.json")
+        return result
+
     @app.put("/pages/{page_id}/numbering")
     def put_numbering(page_id: str, body: Annotated[dict[str, Any], Body()]) -> dict[str, Any]:
         validate(body, "numbering-update.schema.json")
@@ -842,19 +919,7 @@ def create_app(
         if page is None:
             raise HTTPException(404, "página não encontrada")
         batch_id = page["batch_id"]
-        row = batch_or_404(batch_id)
-        profile = engine.batch_profile(batch_id, row.profile_id)
-        report = report_or_409(batch_id)
-        overrides = dict(engine.repo.numbering_overrides(batch_id))
-        overrides[page_id] = body["value"]
-        try:
-            new = renumber(report, profile, row.root, overrides)
-        except ValueError as exc:
-            raise HTTPException(422, str(exc)) from exc
-        engine.repo.set_numbering(
-            page_id, batch_id, body["value"], body["reviewer"], iso(engine.now())
-        )
-        engine.repo.replace_report(batch_id, new)
+        new = apply_numbering(batch_id, body["reviewer"], {page_id: body["value"]})
         doc_pages = next(d["page_ids"] for d in new["documents"] if page_id in d["page_ids"])
         numbering = {
             p["id"]: p["numbering"]

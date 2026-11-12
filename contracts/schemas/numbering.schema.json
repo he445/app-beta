@@ -43,14 +43,13 @@
     "source": {
       "enum": [
         "image",
-        "sidecar",
-        "reviewer"
+        "sidecar"
       ],
-      "description": "De onde vieram as marcas: lidas da imagem, do numbering.json do lote ou digitadas pelo revisor."
+      "description": "De onde vieram as marcas: lidas da imagem ou do numbering.json do lote."
     },
     "marks": {
       "type": "array",
-      "description": "Marcas encontradas na região, como o resolvedor as recebeu: até três leituras cada e se está riscada.",
+      "description": "Marcas encontradas na página como foram lidas (até três leituras cada e se está riscada). A numeração digitada não entra aqui.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -85,6 +84,10 @@
           }
         }
       }
+    },
+    "typed": {
+      "type": "string",
+      "description": "Numeração digitada pelo revisor na tela de Sequência; vale sobre as marcas na resolução."
     }
   }
 }

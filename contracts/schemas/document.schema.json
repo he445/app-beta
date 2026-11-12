@@ -45,6 +45,33 @@
         "format": "uuid"
       },
       "description": "Vazio quando não há reordenação proposta."
+    },
+    "manual_order": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "page_ids",
+        "reviewer",
+        "decided_at"
+      ],
+      "description": "Ordem escolhida pelo revisor na tela de Sequência; vale sobre proposed_order no lote corrigido. Ausente quando o revisor não reordenou.",
+      "properties": {
+        "page_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "reviewer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "decided_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
     }
   }
 }

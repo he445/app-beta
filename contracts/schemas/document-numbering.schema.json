@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "document-numbering.schema.json",
+  "title": "DocumentNumbering",
+  "description": "Documento depois de uma mudança na numeração ou na ordem: estado, ordem e lacunas recalculados.",
+  "type": "object",
+  "required": ["document", "pages", "findings", "summary"],
+  "additionalProperties": false,
+  "properties": {
+    "document": { "$ref": "document.schema.json" },
+    "pages": {
+      "type": "object",
+      "description": "Numeração resolvida de cada página do documento.",
+      "additionalProperties": { "$ref": "numbering.schema.json" }
+    },
+    "findings": {
+      "type": "array",
+      "description": "Sinalizações de sequência do documento (lacunas, fora de ordem, numeração para revisar).",
+      "items": { "$ref": "finding.schema.json" }
+    },
+    "summary": { "$ref": "batch-summary.schema.json" }
+  }
+}

@@ -615,6 +615,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/batches/{batch_id}/documents/{document_id}/numbering": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: components["parameters"]["BatchId"];
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Numeração digitada e ordem das páginas de um documento (tela de Sequência)
+         * @description Grava a numeração digitada de uma ou mais páginas (null desfaz) e, se vier, a ordem
+         *     escolhida pelo revisor (null desfaz). A sequência do documento é resolvida de novo,
+         *     na ordem manual quando houver: estado, ordem proposta, lacunas e sinalizações de
+         *     sequência recalculados. A ordem manual vale sobre a proposta no lote corrigido.
+         *     Tudo é validado antes de gravar: valor que não é folha, página de outro documento
+         *     ou ordem que não seja uma permutação das páginas dão 422 sem mudar nada.
+         *
+         */
+        put: operations["putDocumentNumbering"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/documents/{document_id}/metadata": {
         parameters: {
             query?: never;
@@ -1128,6 +1157,13 @@ export interface components {
             state: "green" | "yellow" | "red";
             /** @description Vazio quando não há reordenação proposta. */
             proposed_order: string[];
+            /** @description Ordem escolhida pelo revisor na tela de Sequência; vale sobre proposed_order no lote corrigido. Ausente quando o revisor não reordenou. */
+            manual_order?: {
+                page_ids: string[];
+                reviewer: string;
+                /** Format: date-time */
+                decided_at: string;
+            };
         };
         /** PageNumbering */
         "numbering.schema": {
@@ -1139,11 +1175,11 @@ export interface components {
             /** @description Números riscados (numeração anterior). */
             previous: string[];
             /**
-             * @description De onde vieram as marcas: lidas da imagem, do numbering.json do lote ou digitadas pelo revisor.
+             * @description De onde vieram as marcas: lidas da imagem ou do numbering.json do lote.
              * @enum {unknown}
              */
-            source?: "image" | "sidecar" | "reviewer";
-            /** @description Marcas encontradas na região, como o resolvedor as recebeu: até três leituras cada e se está riscada. */
+            source?: "image" | "sidecar";
+            /** @description Marcas encontradas na página como foram lidas (até três leituras cada e se está riscada). A numeração digitada não entra aqui. */
             marks?: {
                 readings: {
                     text: string;
@@ -1151,6 +1187,8 @@ export interface components {
                 }[];
                 struck: boolean;
             }[];
+            /** @description Numeração digitada pelo revisor na tela de Sequência; vale sobre as marcas na resolução. */
+            typed?: string;
         };
         /** Page */
         "page.schema": {
@@ -1495,6 +1533,33 @@ export interface components {
             /** @description Numeração correta digitada pelo revisor (tecla N). */
             value: string;
             reviewer: string;
+        };
+        /**
+         * DocumentNumberingUpdate
+         * @description Numeração digitada e ordem escolhida pelo revisor num documento (tela de Sequência). O que não vier fica como está.
+         */
+        "document-numbering-update.schema": {
+            reviewer: string;
+            /** @description Por página: a numeração correta, ou null para desfazer a digitada. */
+            values?: {
+                [key: string]: string | null;
+            };
+            /** @description Todas as páginas do documento na ordem escolhida; null desfaz a ordem manual. */
+            order?: string[] | null;
+        };
+        /**
+         * DocumentNumbering
+         * @description Documento depois de uma mudança na numeração ou na ordem: estado, ordem e lacunas recalculados.
+         */
+        "document-numbering.schema": {
+            document: components["schemas"]["document.schema"];
+            /** @description Numeração resolvida de cada página do documento. */
+            pages: {
+                [key: string]: components["schemas"]["numbering.schema"];
+            };
+            /** @description Sinalizações de sequência do documento (lacunas, fora de ordem, numeração para revisar). */
+            findings: components["schemas"]["finding.schema"][];
+            summary: components["schemas"]["batch-summary.schema"];
         };
         /** MetadataUpdate */
         "metadata-update.schema": {
@@ -2493,6 +2558,37 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["Problem"];
+            422: components["responses"]["Problem"];
+        };
+    };
+    putDocumentNumbering: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: components["parameters"]["BatchId"];
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["document-numbering-update.schema"];
+            };
+        };
+        responses: {
+            /** @description Documento depois da mudança */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["document-numbering.schema"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["Problem"];
+            409: components["responses"]["Problem"];
             422: components["responses"]["Problem"];
         };
     };
