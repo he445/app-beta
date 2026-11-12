@@ -6,12 +6,6 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ## [Não lançado]
 
-### Corrigido
-
-- Fechar o programa com uma análise em andamento podia derrubar o processo no Windows
-  (conexão do banco fechada no meio de uma consulta): o fechamento espera a consulta
-  em curso e a análise para sem registrar erro.
-
 ### Adicionado
 
 - Manual do conferente (`docs/operacao/manual-do-conferente.md`): a caixa de exemplo do
@@ -242,6 +236,9 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Corrigido
 
+- Fechar o programa com uma análise em andamento podia derrubar o processo no Windows
+  (conexão do banco fechada no meio de uma consulta): o fechamento espera a consulta
+  em curso e a análise para sem registrar erro.
 - A versão corrigida de uma página era reaproveitada comparando só as sinalizações da
   cadeia; agora compara também ação e parâmetros.
 - Windows: a segunda abertura do programa não conseguia ler a porta da primeira (o
