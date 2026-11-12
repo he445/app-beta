@@ -201,15 +201,26 @@ def reader() -> ImageNumberingReader:
     )
 
 
-def resolved(root: Path, key: dict[str, Any], name: str, reader: ImageNumberingReader) -> Any:
+def resolved(
+    root: Path, key: dict[str, Any], name: str, reader: ImageNumberingReader
+) -> tuple[Any, list[Any]]:
     from qa_engine.adapters.images import FileImageSource
 
     doc = key["documents"][name]
     cands = []
+    seen = []
     for i, page in enumerate(doc["pages"]):
         gray = FileImageSource().load(root / page["file"], 0, 150).gray
-        cands.append(PageCandidates(f"p{i}", reader.read(gray, 150).marks))
-    return resolve(cands, SequenceParams(mode=NumberingMode(doc["mode"])))
+        read = reader.read(gray, 150)
+        cands.append(PageCandidates(f"p{i}", read.marks))
+        seen.append(
+            (
+                [(r.text, round(r.confidence, 3)) for m in read.marks for r in m.readings],
+                [(b.x, b.y, b.w, b.h) for b in read.boxes],
+            )
+        )
+    result = resolve(cands, SequenceParams(mode=NumberingMode(doc["mode"])))
+    return result, seen
 
 
 @needs_models
@@ -233,8 +244,8 @@ def test_scenarios_through_the_image_reader(
     check: Any,
 ) -> None:
     root, key = scenario_batch
-    result = resolved(root, key, name, reader)
-    assert check(result), [(p.state.value, str(p.value)) for p in result.pages]
+    result, seen = resolved(root, key, name, reader)
+    assert check(result), ([(p.state.value, str(p.value)) for p in result.pages], seen)
 
 
 @needs_models
