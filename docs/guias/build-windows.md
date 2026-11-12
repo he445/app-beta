@@ -32,7 +32,14 @@ Windows → Run workflow) e quando muda o que afeta o pacote:
 2. `deploy/windows/build.ps1`: interface, lote de exemplo, documentação offline,
    PyInstaller, recursos ao lado do `QA.exe`, teste de fumaça e zip com SHA-256;
 3. o programa sem janela responde em `/health` e a segunda abertura não sobe outro motor;
-4. o zip e o `.sha256` ficam como artefato do workflow.
+4. o zip e o `.sha256` ficam como artefato do workflow;
+5. numa tag `v*` (por exemplo `v1.0.0`, igual a `qa_engine.__version__`), o mesmo zip e o
+   `.sha256` são publicados na página de versões do repositório (Releases), com link
+   fixo para a TI baixar. Tag diferente da versão do programa falha o passo.
+
+Publicar uma versão: suba `__version__` em `engine/src/qa_engine/__init__.py` e em
+`engine/pyproject.toml`, feche a seção no `CHANGELOG.md`, faça o commit na `main` e crie
+a tag (`git tag -a v1.0.0 -m "..." && git push origin v1.0.0`).
 
 ## Na sua máquina Windows
 

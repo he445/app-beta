@@ -31,6 +31,8 @@ jobs:
     name: Testes, build e teste de fumaça (windows-latest)
     runs-on: windows-latest
     timeout-minutes: 60
+    permissions:
+      contents: write # só o passo da tag v* usa: publicar a versão com o pacote
     defaults:
       run:
         shell: pwsh
@@ -87,3 +89,21 @@ jobs:
           path: |
             build/dist/*.zip
             build/dist/*.zip.sha256
+      - name: Publicar a versão (tag v*) com o zip e o SHA-256
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = (uv run --project engine python -c "import qa_engine; print(qa_engine.__version__)").Trim()
+          if ("v$version" -ne $env:GITHUB_REF_NAME) { throw "tag $env:GITHUB_REF_NAME não bate com a versão $version do programa" }
+          $files = Get-ChildItem build/dist -File | Where-Object { $_.Name -like "*.zip" -or $_.Name -like "*.zip.sha256" } | ForEach-Object { $_.FullName }
+          $notes = Join-Path $env:RUNNER_TEMP "notas.md"
+          @"
+          Pacote portátil para Windows 10 e 11 (64 bits): extraia o zip numa pasta com permissão de escrita e abra ``QA.exe``. Não precisa de administrador nem de internet.
+
+          - Confira o arquivo com o ``.sha256`` (``Get-FileHash -Algorithm SHA256 <zip>``); é o hash que a TI usa para liberar o programa no antivírus.
+          - O executável não tem assinatura digital: o SmartScreen avisa (Mais informações → Executar assim mesmo).
+          - Leia ``LEIA-ME.txt``; a documentação completa está em ``docs\index.html`` dentro do pacote. Para treinar: ``samples\lote-exemplo`` e o manual do conferente.
+          - O que mudou: [CHANGELOG](https://github.com/$env:GITHUB_REPOSITORY/blob/$env:GITHUB_REF_NAME/CHANGELOG.md).
+          "@ | Set-Content $notes -Encoding utf8
+          gh release create $env:GITHUB_REF_NAME @files --verify-tag --title "QA de Digitalização $version" --notes-file $notes

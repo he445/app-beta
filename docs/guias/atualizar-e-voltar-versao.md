@@ -9,7 +9,8 @@ continuam valendo de uma versão para outra.
 1. Feche o programa.
 2. Renomeie a pasta atual, por exemplo `QA-SOS-Docs-1.0.0` para
    `QA-SOS-Docs-1.0.0-anterior`. **Não apague**: é ela que permite voltar.
-3. Extraia o zip da versão nova (confira o SHA-256 publicado com ele) e abra o `QA.exe`.
+3. Baixe o zip da versão nova na página de versões (Releases) do repositório, confira o
+   SHA-256 publicado com ele, extraia e abra o `QA.exe`.
 
 Ao abrir, se a versão nova precisar mudar o banco (migração), ela primeiro grava uma
 cópia em `%LOCALAPPDATA%\SOSDocs\QA\atualizacoes\qa-antes-da-<nova>-de-<anterior>-<data>.sqlite3`

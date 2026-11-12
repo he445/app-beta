@@ -6,6 +6,11 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ## [Não lançado]
 
+## [1.0.0] — 2026-11-12
+
+Primeira versão do piloto: programa desktop portátil para Windows 10 e 11 (64 bits), sem
+instalação nem administrador, com o mesmo motor e a mesma interface da demonstração.
+
 ### Adicionado
 
 - Manual do conferente (`docs/operacao/manual-do-conferente.md`): conferir uma caixa do
@@ -252,6 +257,11 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ### Corrigido
 
+- Fechar o programa com análise ou "Corrigir tudo" em andamento não derruba mais o
+  processo no Windows: o banco espera a consulta em curso antes de fechar, e o trabalho
+  interrompido pelo fechamento para sem registrar erro (o lote pode ser aberto de novo).
+- Restaurar uma cópia do banco no Windows: o diário (WAL) é levado para dentro do banco
+  antes da troca, em vez de apagar `-wal` e `-shm` em uso.
 - A versão corrigida de uma página era reaproveitada comparando só as sinalizações da
   cadeia; agora compara também ação e parâmetros.
 - Windows: a segunda abertura do programa não conseguia ler a porta da primeira (o

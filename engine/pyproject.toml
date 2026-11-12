@@ -1,6 +1,6 @@
 [project]
 name = "qa-engine"
-version = "0.2.0"
+version = "1.0.0"
 description = "Motor de referência do QA automático de digitalização (PoC)."
 readme = "README.md"
 requires-python = ">=3.12"

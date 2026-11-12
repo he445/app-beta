@@ -229,6 +229,8 @@ class Engine:
                 program_version=__version__,
                 now=lambda: self.now(),
             )
+        self.closing = False
+        """O programa está fechando (trabalhos de fundo param sem registrar erro)."""
         self._stop = threading.Event()
         self._maintenance: threading.Thread | None = None
         self.backups = settings.mode == "desktop"
@@ -867,6 +869,9 @@ class Engine:
         try:
             self.service.run_bulk(self.context(batch_id), operation_id)
         except Exception as exc:
+            if self.closing:
+                log.info("correção em lote %s interrompida ao fechar o programa", operation_id)
+                return
             log.exception("falha na correção em lote %s", operation_id)
             self.record_error(exc, "worker", "correção em lote", batch_id)
 
@@ -937,6 +942,11 @@ class Engine:
             )
             self.release(batch_id, root, profile, analysis)
         except Exception as exc:
+            if self.closing:
+                # O programa fechou no meio da análise: o banco já foi fechado. O lote
+                # fica como estava e pode ser aberto de novo.
+                log.info("análise do lote %s interrompida ao fechar o programa", batch_id)
+                return
             log.exception("falha na análise do lote %s", batch_id)
             self.record_error(exc, "worker", "análise do lote", batch_id, "critical")
             self.repo.fail(batch_id, f"{exc.__class__.__name__}: {exc}"[:500])
@@ -1037,6 +1047,7 @@ def create_app(
         engine.start_maintenance()
         yield
         engine.stop_maintenance()
+        engine.closing = True
         engine.queue.shutdown(wait=False, cancel_futures=True)
         engine.corrections.shutdown(wait=False, cancel_futures=True)
         engine.repo.close()
