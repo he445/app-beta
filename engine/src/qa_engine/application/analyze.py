@@ -16,7 +16,7 @@ import numpy as np
 from qa_engine.adapters.metadata import LOSSY_COMPRESSIONS
 from qa_engine.application.layout import DocumentLayout, discover, read_manifest
 from qa_engine.application.metadata import MetadataField, document_metadata, match_station
-from qa_engine.application.numbering_image import ImageNumberingReader
+from qa_engine.application.numbering_image import DEFAULT_CONFUSIONS, ImageNumberingReader
 from qa_engine.application.profile import NumberingImageConfig, Profile
 from qa_engine.detectors import blank_page, corrupted_file, duplicate_page, orientation, sequence
 from qa_engine.detectors.base import (
@@ -109,7 +109,9 @@ def _classifier(models_dir: Path) -> OrientationClassifier:
 
 
 _CLASSIFIERS: dict[Path, OrientationClassifier] = {}
-_READERS: dict[tuple[Path, str, float, float], ImageNumberingReader] = {}
+_READERS: dict[
+    tuple[Path, str, float, float, tuple[tuple[str, str, float], ...]], ImageNumberingReader
+] = {}
 
 
 def _reader(models_dir: Path, config: NumberingImageConfig) -> ImageNumberingReader:
@@ -117,7 +119,13 @@ def _reader(models_dir: Path, config: NumberingImageConfig) -> ImageNumberingRea
     from qa_engine.adapters.text_detection import OpenCvTextDetector, PaddleTextDetector
     from qa_engine.adapters.text_recognition import recognizer_by_name
 
-    key = (models_dir.resolve(), config.recognizer, config.struck_threshold, config.min_height_mm)
+    key = (
+        models_dir.resolve(),
+        config.recognizer,
+        config.struck_threshold,
+        config.min_height_mm,
+        config.confusions,
+    )
     if key not in _READERS:
         _READERS[key] = ImageNumberingReader(
             PaddleTextDetector(key[0]),
@@ -125,6 +133,7 @@ def _reader(models_dir: Path, config: NumberingImageConfig) -> ImageNumberingRea
             struck_threshold=config.struck_threshold,
             min_height_mm=config.min_height_mm,
             fallback=OpenCvTextDetector(),
+            confusions=config.confusions or DEFAULT_CONFUSIONS,
         )
     return _READERS[key]
 

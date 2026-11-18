@@ -27,6 +27,10 @@ limiares, e como a numeração e as estações são tratadas.
 | `numbering.struck_threshold` | número |  |  | Nota de riscado a partir da qual o escrito é tratado como numeração anterior. Padrão 0,6. mín. 0, máx. 1 |
 | `numbering.recognizer` | `ppocrv5-mobile-rec` ou `trocr-small-handwritten` |  |  | Reconhecedor do número escrito. Padrão: ppocrv5-mobile-rec (escolhido pelo bench). |
 | `numbering.min_height_mm` | número |  |  | Altura mínima de um escrito, em milímetros (texto impresso menor que isso não é lido). Padrão 3. mín. 0.5, máx. 30 |
+| `numbering.confusions` | lista de objeto |  |  | Trocas de dígito que a letra de mão provoca. Para cada dígito da leitura mais confiável que está na tabela, entra a alternativa trocada (um dígito por vez), com a confiança multiplicada pelo peso; o resolvedor decide pela sequência e a alternativa escolhida vai para o revisor. Padrão: 1↔7, 2↔9, 0↔9, 3↔5, 7↔9 e 0↔6, peso 0,5. |
+| `numbering.confusions[].read` | texto | sim |  | Dígito lido pelo reconhecedor. padrão `^[0-9]$` |
+| `numbering.confusions[].alternative` | texto | sim |  | Dígito que pode ser o certo. padrão `^[0-9]$` |
+| `numbering.confusions[].weight` | número | sim |  | Confiança da alternativa relativa à leitura de onde ela saiu. máx. 1 |
 | `numbering.read_from_image` | sim/não |  |  | Ler a numeração da imagem quando o lote não tem numbering.json. Padrão: sim (exige os modelos). |
 | `identifier_pattern` | texto |  |  | Campos: {batch}, {document}, {seq}. |
 | `stations` | lista de objeto |  |  | Estações de digitalização. Uma página é ligada à estação pelo equipamento gravado no arquivo ou pela pasta. |

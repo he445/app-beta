@@ -116,6 +116,37 @@
           "maximum": 30,
           "description": "Altura mínima de um escrito, em milímetros (texto impresso menor que isso não é lido). Padrão 3."
         },
+        "confusions": {
+          "type": "array",
+          "description": "Trocas de dígito que a letra de mão provoca. Para cada dígito da leitura mais confiável que está na tabela, entra a alternativa trocada (um dígito por vez), com a confiança multiplicada pelo peso; o resolvedor decide pela sequência e a alternativa escolhida vai para o revisor. Padrão: 1↔7, 2↔9, 0↔9, 3↔5, 7↔9 e 0↔6, peso 0,5.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "read",
+              "alternative",
+              "weight"
+            ],
+            "properties": {
+              "read": {
+                "type": "string",
+                "pattern": "^[0-9]$",
+                "description": "Dígito lido pelo reconhecedor."
+              },
+              "alternative": {
+                "type": "string",
+                "pattern": "^[0-9]$",
+                "description": "Dígito que pode ser o certo."
+              },
+              "weight": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 1,
+                "description": "Confiança da alternativa relativa à leitura de onde ela saiu."
+              }
+            }
+          }
+        },
         "read_from_image": {
           "type": "boolean",
           "description": "Ler a numeração da imagem quando o lote não tem numbering.json. Padrão: sim (exige os modelos)."

@@ -52,6 +52,30 @@ Bench em 300 recortes sintéticos (`tools/bench_numbering.py`, sete fontes manus
 
 O PP-OCRv5 lê com busca restrita ao vocabulário de número de folha (ADR-0015).
 
+Dados públicos (relatório de testes de 18/11/2026): ARDIS Dataset I, parte III (1.517
+datas de 4 dígitos de registros paroquiais suecos, com os 22 rótulos errados da planilha
+corrigidos e os 3 ambíguos fora) e CVL Digit Strings (125 sequências de até 5 dígitos;
+licença só para pesquisa: medir, nunca ajustar). A coluna "leitor" mede o que o resolvedor
+de sequência recebe (`tools/bench_numbering.py --reader`): a etapa 4 da
+[numeração por imagem](../especificacoes/numeracao-por-imagem.md), antes e depois da
+tabela de trocas configurável.
+
+| PP-OCRv5_mobile_rec | Exato | Entre as três | Entre as cinco | ms por recorte |
+| --- | --- | --- | --- | --- |
+| ARDIS, leitura crua do reconhecedor | 89,1% | 95,8% | — | 8 |
+| ARDIS, leitor antes (filtro 0,3 nas três leituras, só 1↔7) | 88,0% | 90,0% | — | 8 |
+| ARDIS, leitor depois (tabela padrão, até cinco leituras) | 88,0% | 92,0% | 95,6% | 8,5 |
+| CVL, leitura crua do reconhecedor | 67,2% | 76,8% | — | 14 |
+| CVL, leitor antes | 60,0% | 61,6% | — | 14 |
+| CVL, leitor depois | 60,0% | 66,4% | 69,6% | 14 |
+
+Dos 20 erros reais com confiança de 0,85 ou mais no ARDIS (o reconhecedor com certeza do
+dígito errado), o valor certo chegava ao resolvedor em nenhum antes e chega em 16 depois:
+o filtro de 0,3 descartava a segunda leitura do reconhecedor, quase sempre abaixo disso.
+A meta de 97% entre as três leituras não foi alcançada: com três vagas, cada alternativa
+toma o lugar de uma leitura do reconhecedor, e os pares que faltariam (9→3, 1→5, 7→8, 4→7
+e outros, um ou dois casos cada) só se justificariam ajustando a tabela às datas do ARDIS.
+
 ## Limitações conhecidas
 
 Nenhum dos dois foi ajustado com a letra dos documentos da operação. Leitura com

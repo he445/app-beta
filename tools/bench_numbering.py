@@ -6,10 +6,17 @@ recortes``); durante o beta, com os recortes que os garantidores confirmaram
 (``qa feedback export``). Vence quem acerta mais entre as três leituras dentro do
 orçamento de tempo.
 
+Com ``--reader``, mede o que o resolvedor de sequência recebe: a etapa 4 do leitor
+(formato de folha, melhor leitura com confiança mínima, leituras secundárias e
+alternativas da tabela de trocas do perfil). ``--top`` muda quantas leituras contam
+(padrão 3).
+
 Uso::
 
     uv run --project engine python tools/bench_numbering.py recortes --models models
     uv run --project engine python tools/bench_numbering.py recortes --models models --json
+    uv run --project engine python tools/bench_numbering.py recortes --models models
+        --reader --profile profiles/sos-piloto.yaml --top 5
 """
 
 from __future__ import annotations
@@ -78,11 +85,12 @@ def bench(
     recognize: Recognize,
     crops: Sequence[tuple[NDArray[np.uint8], Mapping[str, Any]]],
     min_confidence: float = 0.5,
+    top: int = 3,
 ) -> BenchResult:
     """Mede um reconhecedor nos recortes.
 
-    Acerto exato: a primeira leitura, na forma canônica, é o rótulo. Acerto entre as três:
-    alguma das três primeiras é. Ambíguo: nenhuma leitura forma número de folha com
+    Acerto exato: a primeira leitura, na forma canônica, é o rótulo. Acerto entre as
+    três: alguma das ``top`` primeiras é. Ambíguo: nenhuma leitura forma número de folha com
     confiança de pelo menos ``min_confidence`` (vai para o garantidor).
     """
     hits: list[bool] = []
@@ -94,7 +102,7 @@ def bench(
     for gray, label in crops:
         want = canonical(str(label["text"]))
         started = time.perf_counter()
-        readings = list(recognize(gray))[:3]
+        readings = list(recognize(gray))[:top]
         times.append(time.perf_counter() - started)
         got = [(canonical(text), conf) for text, conf in readings]
         exact = bool(got) and got[0][0] == want
@@ -116,6 +124,20 @@ def bench(
         exact_struck=rate(struck_hits) if struck_hits else None,
         exact_clean=rate(clean_hits) if clean_hits else None,
     )
+
+
+def reader_stage(profile: Path | None) -> Callable[[Sequence[Reading]], Sequence[Reading]]:
+    """Etapa 4 do leitor com a tabela de trocas do perfil (ou a padrão)."""
+    from qa_engine.application.numbering_image import DEFAULT_CONFUSIONS, candidate_readings
+    from qa_engine.application.profile import load_profile
+
+    table = load_profile(profile).numbering_reader.confusions if profile else ()
+    confusions = table or DEFAULT_CONFUSIONS
+
+    def stage(raw: Sequence[Reading]) -> Sequence[Reading]:
+        return [(r.text, r.confidence) for r in candidate_readings(raw, confusions)]
+
+    return stage
 
 
 def table(results: Sequence[BenchResult]) -> str:
@@ -142,18 +164,28 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("crops", type=Path, help="pasta com labels.json e os recortes")
     parser.add_argument("--models", type=Path, required=True, help="pasta dos modelos")
     parser.add_argument("--only", action="append", default=[], help="só este reconhecedor")
+    parser.add_argument(
+        "--reader", action="store_true", help="mede as leituras da etapa 4 do leitor"
+    )
+    parser.add_argument("--profile", type=Path, help="perfil com a tabela de trocas (--reader)")
+    parser.add_argument("--top", type=int, default=3, help="leituras que contam (padrão 3)")
     parser.add_argument("--json", action="store_true", help="saída em JSON")
     args = parser.parse_args(argv)
     from qa_engine.adapters.text_recognition import recognizers
 
     crops = load_crops(args.crops)
+    stage = reader_stage(args.profile) if args.reader else None
     results = []
     for name, recognizer in recognizers(args.models).items():
         if args.only and name not in args.only:
             continue
-        results.append(
-            bench(name, lambda g, r=recognizer: [(x.text, x.confidence) for x in r.read(g)], crops)
-        )
+
+        def recognize(g: NDArray[np.uint8], r: Any = recognizer) -> Sequence[Reading]:
+            raw = [(x.text, x.confidence) for x in r.read(g)]
+            return raw if stage is None else stage(raw)
+
+        label = f"{name} (leitor)" if stage else name
+        results.append(bench(label, recognize, crops, top=args.top))
     if args.json:
         print(json.dumps([r.json() for r in results], ensure_ascii=False, indent=2))
     else:

@@ -22,6 +22,19 @@ numbering:
     - [0.60, 0.00, 1.00, 0.18] # canto superior direito
   struck_threshold: 0.6
   recognizer: ppocrv5-mobile-rec
+  confusions:                  # trocas de dígito da letra de mão: lido → alternativa (peso)
+    - { read: "1", alternative: "7", weight: 0.5 }
+    - { read: "7", alternative: "1", weight: 0.5 }
+    - { read: "2", alternative: "9", weight: 0.5 }
+    - { read: "9", alternative: "2", weight: 0.5 }
+    - { read: "0", alternative: "9", weight: 0.5 }
+    - { read: "9", alternative: "0", weight: 0.5 }
+    - { read: "3", alternative: "5", weight: 0.5 }
+    - { read: "5", alternative: "3", weight: 0.5 }
+    - { read: "7", alternative: "9", weight: 0.5 }
+    - { read: "9", alternative: "7", weight: 0.5 }
+    - { read: "6", alternative: "0", weight: 0.5 }
+    - { read: "0", alternative: "6", weight: 0.5 }
 feedback:                      # coleta do beta, só nesta máquina (aval de LGPD antes do piloto)
   enabled: true
   retention_days: 180

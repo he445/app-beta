@@ -31,6 +31,14 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
   errada; 5,7% das páginas de pé passam a ir para revisão. A conformidade aceita a
   orientação incerta na página muito inclinada (`skew` → `orientation` em
   `co_occurrence`).
+- Numeração por imagem: o reconhecedor errava dígitos com confiança alta ("1990" no
+  lugar de "1920") sem o valor certo entre as leituras, e o filtro de confiança 0,3
+  descartava a segunda leitura dele. A troca 1↔7 virou uma tabela configurável no perfil
+  (`numbering.confusions`: 1↔7, 2↔9, 0↔9, 3↔5, 7↔9 e 0↔6, peso 0,5); a confiança mínima
+  vale só para a melhor leitura; ficam até cinco leituras, as do reconhecedor primeiro.
+  No ARDIS, dos 20 erros reais com confiança alta, o valor certo passa a chegar ao
+  resolvedor em 16 (antes, nenhum). O bench de numeração ganha `--reader` (mede o que o
+  resolvedor recebe) e `--top`.
 
 ## [1.0.0] — 2026-11-12
 

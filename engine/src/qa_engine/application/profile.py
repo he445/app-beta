@@ -45,6 +45,8 @@ class NumberingImageConfig:
     recognizer: str = "ppocrv5-mobile-rec"
     min_height_mm: float = 3.0
     enabled: bool = True
+    confusions: tuple[tuple[str, str, float], ...] = ()
+    """Trocas de dígito (lido, alternativa, peso); vazio: a tabela padrão do leitor."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -208,6 +210,10 @@ def profile_from_dict(data: Mapping[str, Any]) -> Profile:
             recognizer=str(numbering.get("recognizer", "ppocrv5-mobile-rec")),
             min_height_mm=float(numbering.get("min_height_mm", 3.0)),
             enabled=bool(numbering.get("read_from_image", True)),
+            confusions=tuple(
+                (str(c["read"]), str(c["alternative"]), float(c["weight"]))
+                for c in numbering.get("confusions", [])
+            ),
         ),
         stations=stations,
         rules=rules,

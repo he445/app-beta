@@ -322,11 +322,19 @@ def test_confusable_alternative_lets_the_sequence_decide() -> None:
     from qa_engine.application.numbering_image import with_confusions
     from qa_engine.domain.sequencing import Mark, Reading
 
-    # Leitura com certeza do dígito errado: a alternativa entra com confiança menor.
+    # Leitura com certeza do dígito errado: as alternativas entram com confiança menor.
     readings = with_confusions([Reading("72-A", 0.73)])
-    assert [(r.text, round(r.confidence, 3)) for r in readings] == [("72-A", 0.73), ("12-A", 0.365)]
-    assert [r.text for r in with_confusions([Reading("17", 0.9)])] == ["17", "77", "11"]
+    assert [(r.text, round(r.confidence, 3)) for r in readings] == [
+        ("72-A", 0.73),
+        ("79-A", 0.365),  # empate: o dígito mais à direita primeiro
+        ("12-A", 0.365),
+        ("92-A", 0.365),
+    ]
+    assert [r.text for r in with_confusions([Reading("17", 0.9)])] == ["17", "11", "19", "77"]
     assert with_confusions([]) == ()
+    # Só 1↔7, como antes da tabela configurável.
+    only_17 = (("1", "7", 0.5), ("7", "1", 0.5))
+    assert [r.text for r in with_confusions([Reading("17", 0.9)], only_17)] == ["17", "11", "77"]
 
     def page(pid: str, *texts: tuple[str, float]) -> PageCandidates:
         return PageCandidates(pid, (Mark(with_confusions([Reading(t, c) for t, c in texts])),))
@@ -345,3 +353,34 @@ def test_confusable_alternative_lets_the_sequence_decide() -> None:
         [page("a", ("71", 0.9)), page("b", ("72", 0.9)), page("c", ("73", 0.9))], SequenceParams()
     )
     assert [str(p.value) for p in kept.pages] == ["71", "72", "73"]
+
+
+def test_recognizer_readings_come_first_and_the_table_fills_the_rest() -> None:
+    """P3 do relatório de testes: "1990" no lugar de "1920" e o certo fora das leituras."""
+    from qa_engine.application.numbering_image import (
+        MAX_READINGS,
+        candidate_readings,
+        with_confusions,
+    )
+    from qa_engine.domain.sequencing import Reading
+
+    # Segunda e terceira leituras do reconhecedor ficam, mesmo abaixo de 0,3.
+    readings = candidate_readings([("1905", 0.6), ("1903", 0.12), ("1908", 0.05), ("x", 0.2)])
+    texts = [r.text for r in readings]
+    assert texts[0] == "1905" and {"1903", "1908"} <= set(texts)
+    assert len(texts) == MAX_READINGS and "x" not in texts
+    # A melhor abaixo de 0,3: não vira marca.
+    assert candidate_readings([("12", 0.29), ("13", 0.2)]) == ()
+    # O 2 com laço lido como 9: a troca no dígito da direita vem antes.
+    alternatives = [r.text for r in with_confusions([Reading("1990", 0.97)])]
+    assert alternatives == ["1990", "1999", "1996", "1920", "1900"]
+    # Tabela vazia: só as leituras do reconhecedor.
+    assert [r.text for r in with_confusions([Reading("12", 0.9)], ())] == ["12"]
+
+
+def test_profile_reads_the_confusion_table(repo: Path) -> None:
+    from qa_engine.application.numbering_image import DEFAULT_CONFUSIONS
+    from qa_engine.application.profile import load_profile
+
+    profile = load_profile(repo / "profiles" / "sos-piloto.yaml")
+    assert profile.numbering_reader.confusions == DEFAULT_CONFUSIONS
