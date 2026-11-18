@@ -83,8 +83,56 @@ def test_bands_automatic_review_and_nothing() -> None:
     assert automatic.correction.params == {"angle_deg": 270, "detected_deg": 90}
     review = flag_for(180, 0.75)
     assert review is not None and review.correction.params["review"] is True
-    assert flag_for(270, 0.55) is None  # abaixo de review_threshold
+    assert flag_for(0, 0.55) is None  # abaixo de review_threshold e 0° acima do piso
     assert flag_for(0, 0.99) is None  # de pé
+    uncertain = flag_for(270, 0.55)  # P(0°) ≤ 0,45: não dá para dizer que está de pé
+    assert uncertain is not None and uncertain.correction.params["uncertain"] is True
+
+
+def spread_flag(probabilities: dict[int, float], **changes: object) -> object:
+    angle = max(probabilities, key=lambda a: probabilities[a])
+    prediction = OrientationPrediction(angle, probabilities[angle], probabilities)
+    gray = page_150(3, 3)
+    raster = PageRaster(gray, 1.0, 150, orientation=prediction)
+    obs = orientation.DETECTOR.measure(raster, compute_features(gray), params(**changes))
+    return orientation.DETECTOR.evaluate(obs, {}, params(**changes))
+
+
+def test_spread_probabilities_are_uncertain_not_upright() -> None:
+    """P2 do relatório de testes: "não sei" vai para revisão, não vira "está certa"."""
+    flag = spread_flag({0: 0.28, 90: 0.26, 180: 0.24, 270: 0.22})
+    assert flag is not None
+    assert flag.correction.params == {
+        "angle_deg": 270,
+        "detected_deg": 90,
+        "review": True,
+        "uncertain": True,
+    }
+    assert flag.measure == 0.28 and flag.threshold == 0.5
+    assert flag.message.startswith("Orientação incerta")
+    # 0° mais provável, mas abaixo do piso: sugere a rotação mais provável.
+    top_upright = spread_flag({0: 0.46, 90: 0.05, 180: 0.04, 270: 0.45})
+    assert top_upright is not None and top_upright.correction.params["detected_deg"] == 270
+    # 0° acima do piso: nada.
+    assert spread_flag({0: 0.55, 90: 0.15, 180: 0.15, 270: 0.15}) is None
+    # Rotação acima de review_threshold: sugestão normal, não incerta.
+    normal = spread_flag({0: 0.10, 90: 0.70, 180: 0.10, 270: 0.10})
+    assert normal is not None and "uncertain" not in normal.correction.params
+    # Piso zero desliga a orientação incerta.
+    assert spread_flag({0: 0.28, 90: 0.26, 180: 0.24, 270: 0.22}, upright_min_probability=0) is None
+
+
+def test_uncertain_never_enters_fix_all_nor_applies_to_low_ink() -> None:
+    from qa_engine.detectors.base import Observation
+
+    flag = spread_flag({0: 0.10, 90: 0.40, 180: 0.30, 270: 0.20})
+    assert flag is not None and flag.correction.params["review"] is True
+    # Pouca tinta (carimbo, rubrica): o modelo espalha sem haver texto; nada.
+    obs = Observation(
+        {"angle": 180.0, "probability": 0.87, "upright_probability": 0.06},
+        extra={"low_ink": True, "runner_up": (180, 0.87)},
+    )
+    assert orientation.DETECTOR.evaluate(obs, {}, params()) is None
 
 
 def test_review_band_stays_out_of_fix_all() -> None:

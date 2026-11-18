@@ -17,6 +17,7 @@ from qa_engine.detectors.base import (
     Params,
 )
 from qa_engine.domain.model import Correction, CorrectionAction, CorrectionClass, Severity
+from qa_engine.ports import OrientationPrediction
 
 ID = "orientation"
 LABEL = {
@@ -43,6 +44,27 @@ def low_ink(features: PageFeatures, params: Params) -> bool:
     return bool(params["skip_blank"]) and features.ink_coverage < float(params["min_ink_coverage"])
 
 
+def upright_probability(prediction: OrientationPrediction) -> float:
+    """Probabilidade de a página estar de pé (0°).
+
+    Sem as probabilidades de cada ângulo, usa o maior valor possível: a própria
+    probabilidade se o mais provável é 0°, senão ``1 − p``.
+    """
+    if 0 in prediction.probabilities:
+        return float(prediction.probabilities[0])
+    p = float(prediction.probability)
+    return p if prediction.angle == 0 else 1.0 - p
+
+
+def runner_up(prediction: OrientationPrediction) -> tuple[int, float] | None:
+    """Rotação (ângulo diferente de 0°) mais provável e sua probabilidade."""
+    rotated = {a: float(v) for a, v in prediction.probabilities.items() if a != 0}
+    if not rotated:
+        return (prediction.angle, float(prediction.probability)) if prediction.angle else None
+    angle = max(rotated, key=lambda a: rotated[a])
+    return angle, rotated[angle]
+
+
 def suggest_at(features: PageFeatures, params: Params) -> float:
     """Probabilidade mínima para a regra propor a rotação nesta página."""
     key = "auto_threshold" if low_ink(features, params) else "review_threshold"
@@ -60,8 +82,12 @@ class Orientation:
         if prediction is None or skips(features, params):
             return Observation({"angle": math.nan, "probability": math.nan}, eligible=False)
         return Observation(
-            {"angle": float(prediction.angle), "probability": float(prediction.probability)},
-            extra={"low_ink": low_ink(features, params)},
+            {
+                "angle": float(prediction.angle),
+                "probability": float(prediction.probability),
+                "upright_probability": upright_probability(prediction),
+            },
+            extra={"low_ink": low_ink(features, params), "runner_up": runner_up(prediction)},
         )
 
     def evaluate(self, obs: Observation, baseline: Baseline, params: Params) -> Flag | None:
@@ -78,7 +104,9 @@ class Orientation:
         sparse = bool(obs.extra.get("low_ink"))
         review_at = auto_at if sparse else float(params["review_threshold"])
         if angle == 0 or probability < review_at:
-            return None
+            if sparse:
+                return None  # carimbo e rubrica: sem sentido de leitura, o modelo espalha
+            return self._uncertain(obs, params)
         automatic = probability >= auto_at and not sparse
         turn = undo_angle(angle)
         correction_params: dict[str, object] = {"angle_deg": turn, "detected_deg": angle}
@@ -104,6 +132,34 @@ class Orientation:
                 correction_params,
             ),
             message=f"Página {LABEL[angle]} (confiança {probability:.0%}).",
+        )
+
+    @staticmethod
+    def _uncertain(obs: Observation, params: Params) -> Flag | None:
+        """Nenhuma rotação convence e 0° também não: "não sei" vai para revisão."""
+        upright = obs.values.get("upright_probability", math.nan)
+        floor = float(params["upright_min_probability"])
+        best = obs.extra.get("runner_up")
+        if not math.isfinite(upright) or upright >= floor or best is None:
+            return None
+        angle, probability = int(best[0]), float(best[1])
+        turn = undo_angle(angle)
+        return Flag(
+            severity=Severity.MEDIUM,
+            measure=round(upright, 4),
+            threshold=floor,
+            confidence=round(1.0 - upright, 4),
+            correction=Correction(
+                CorrectionClass.AUTOMATIC,
+                CorrectionAction.ROTATE,
+                f"Rotação mais provável: girar {turn}° no sentido horário na cópia. "
+                "Confira a página antes de aplicar (C) ou deixe de pé.",
+                {"angle_deg": turn, "detected_deg": angle, "review": True, "uncertain": True},
+            ),
+            message=(
+                f"Orientação incerta: o modelo não confirma a página de pé (0°: {upright:.0%}); "
+                f"a rotação mais provável é {LABEL[angle]} ({probability:.0%})."
+            ),
         )
 
 

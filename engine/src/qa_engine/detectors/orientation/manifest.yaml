@@ -1,5 +1,5 @@
 id: orientation
-version: 1.1.0
+version: 1.2.0
 title: Página de lado ou de cabeça para baixo
 spec: docs/especificacoes/detectors/orientation.md
 input: page_gray_150dpi
@@ -8,6 +8,7 @@ severity: medium
 params:
   auto_threshold: { type: number, default: 0.90, minimum: 0, maximum: 1, description: "Probabilidade a partir da qual a rotação entra no Corrigir tudo" }
   review_threshold: { type: number, default: 0.60, minimum: 0, maximum: 1, description: "Probabilidade a partir da qual a rotação é sugerida para revisão" }
+  upright_min_probability: { type: number, default: 0.5, minimum: 0, maximum: 1, description: "Probabilidade de 0° abaixo da qual a página sem rotação convincente vai para revisão como orientação incerta" }
   skip_blank: { type: boolean, default: true, description: "Não classificar página branca e exigir confiança alta na página com pouca tinta" }
   blank_ink_coverage: { type: number, default: 0.003, minimum: 0, maximum: 1, description: "Cobertura de tinta abaixo da qual a página é branca e não é classificada" }
   min_ink_coverage: { type: number, default: 0.01, minimum: 0, maximum: 1, description: "Cobertura de tinta abaixo da qual a página tem pouca tinta: só sinaliza a partir de auto_threshold, sempre para revisão" }

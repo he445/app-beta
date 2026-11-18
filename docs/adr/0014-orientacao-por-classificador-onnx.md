@@ -30,7 +30,9 @@ na amostra real.
   do centro comutam, então o ângulo medido na vista girada vale na cópia.
 - **Três faixas:** acima de `auto_threshold` (0,90), rotação automática no "Corrigir
   tudo"; entre `review_threshold` (0,60) e o automático, rotação sugerida que o revisor
-  confere e aplica com C; abaixo, nada.
+  confere e aplica com C; abaixo, nada. Revisto na regra 1.2.0: abaixo do limite, se a
+  probabilidade de 0° também fica abaixo de `upright_min_probability` (0,5), a página vai
+  para revisão como orientação incerta.
 - **Página quase branca não é classificada** (`min_ink_coverage` 0,01): o carimbo de um
   verso não tem sentido de leitura e o modelo erra nele. Pelo mesmo motivo, inclinação e
   desfoque também deixam de avaliar página quase branca (`skew` e `blur` 1.1.0).

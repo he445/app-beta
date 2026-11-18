@@ -1,6 +1,6 @@
 # orientation: Página de lado ou de cabeça para baixo
 
-Versão: 1.1.0 · Severidade padrão: médio
+Versão: 1.2.0 · Severidade padrão: médio
 
 ## Objetivo
 
@@ -22,7 +22,9 @@ se skip_blank e cobertura_de_tinta < blank_ink_coverage: inelegível (página br
 pouca_tinta ← skip_blank e cobertura_de_tinta < min_ink_coverage
 a, p ← classificador(página)
 limite ← auto_threshold se pouca_tinta, senão review_threshold
-se a = 0 ou p < limite: nada
+se a = 0 ou p < limite:
+    se pouca_tinta ou p₀ ≥ upright_min_probability: nada
+    senão: orientação incerta (abaixo)
 correção = girar (360 − a) mod 360 graus no sentido horário, na cópia
 se p ≥ auto_threshold e não pouca_tinta: correção automática (entra no "Corrigir tudo")
 senão: correção sugerida com review = verdadeiro (fica para o revisor, que aplica com C)
@@ -32,6 +34,15 @@ Página com pouca tinta (bilhete, despacho curto, só assinatura) é classificad
 rotação só é proposta com probabilidade de pelo menos `auto_threshold` e nunca entra no
 "Corrigir tudo": pouco escrito engana o modelo, e passar girada sem aviso é pior que uma
 revisão a mais.
+
+**Orientação incerta.** Quando nenhuma rotação passa do limite e a probabilidade de a
+página estar de pé, `p₀`, fica abaixo de `upright_min_probability`, o modelo não sabe: a
+página vai para revisão com a rotação mais provável entre 90°, 180° e 270° sugerida
+(`params.review = true`, `params.uncertain = true`), nunca no "Corrigir tudo". O revisor
+aplica com C ou deixa de pé (giro 0). Sem as probabilidades de cada ângulo, `p₀` é o maior
+valor possível: `p` se `a = 0`, senão `1 − p`. Não vale para a página com pouca tinta,
+porque no carimbo e na rubrica o modelo espalha a probabilidade sem haver texto. Com
+`upright_min_probability` = 0, a orientação incerta fica desligada.
 
 Na análise da página, quando `a ≠ 0` e `p ≥ limite`, as regras que dependem do
 sentido do texto (`skew`) são medidas numa **vista girada em memória** (a página
@@ -46,6 +57,7 @@ inclinação medido na vista girada vale na cópia girada.
 | --- | --- | --- | --- | --- |
 | `auto_threshold` | número | 0,90 | 0 a 1 | Probabilidade a partir da qual a rotação é automática |
 | `review_threshold` | número | 0,60 | 0 a 1 | Probabilidade a partir da qual a rotação é sugerida para revisão |
+| `upright_min_probability` | número | 0,5 | 0 a 1 | Probabilidade de 0° abaixo da qual a página sem rotação convincente vai para revisão como orientação incerta |
 | `skip_blank` | sim/não | sim | | Não classificar página branca e exigir confiança alta na página com pouca tinta |
 | `blank_ink_coverage` | número | 0,003 | 0 a 1 | Cobertura de tinta abaixo da qual a página é branca e não é classificada |
 | `min_ink_coverage` | número | 0,01 | 0 a 1 | Cobertura de tinta abaixo da qual a página tem pouca tinta |
@@ -55,10 +67,13 @@ automática que o revisor desfizer conta como erro, e `auto_threshold` sobe até
 
 ## Saída
 
-- `measure` e `confidence`: probabilidade `p`; `threshold`: o limite que ela passou.
+- `measure` e `confidence`: probabilidade `p`; `threshold`: o limite que ela passou. Na
+  orientação incerta, `measure` = `p₀`, `threshold` = `upright_min_probability` e
+  `confidence` = `1 − p₀`.
 - Correção `automatic/rotate`, `params.angle_deg` = giro horário que desfaz,
   `params.detected_deg` = `a`, e `params.review = true` na faixa média e na página com
-  pouca tinta; nesta, também `params.low_ink = true`.
+  pouca tinta; nesta, também `params.low_ink = true`. Na orientação incerta,
+  `detected_deg` é a rotação mais provável e `params.uncertain = true`.
 - Mensagem: "Página de lado (girada para a direita)", "de cabeça para baixo" ou "de lado
   (girada para a esquerda)", com a confiança.
 
@@ -80,7 +95,10 @@ os mesmos.
 - Página paisagem (tabela, planta) gira quando o texto está de lado, como o revisor faz
   hoje. Se a operação definir outra regra para paisagem, ela vira parâmetro do perfil.
 - O modelo olha o recorte central da página reduzida: página com texto só nas bordas
-  tende a confiança baixa e cai na revisão ou em nada.
+  tende a confiança baixa e cai na revisão (sugerida ou incerta).
+- Texto muito inclinado (4° ou mais) tira a certeza de 0°: a página torta pode vir com
+  orientação incerta junto com a sinalização de inclinação (coocorrência aceita na
+  conformidade).
 
 ## Casos de conformidade
 
@@ -95,6 +113,10 @@ devolve o original pixel a pixel) está em `engine/tests/test_orientation.py`.
 
 ## Histórico de versões
 
+- 1.2.0: orientação incerta (`upright_min_probability`): sem rotação convincente e com
+  0° abaixo de 0,5, a página vai para revisão em vez de passar como de pé. No kit público,
+  as giradas sem sinalização caem de 11 para 3, as revisões sobem de 52 para 71 e 5,7% das
+  páginas de pé vão para revisão.
 - 1.1.0: página com pouca tinta passa a ser classificada; só sinaliza a partir de
   `auto_threshold` e sempre para revisão (novo `blank_ink_coverage` para a página branca).
   No relatório de testes de 18/11/2026, duas páginas manuscritas giradas com menos de 1%

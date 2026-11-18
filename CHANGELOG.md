@@ -23,6 +23,14 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
   `auto_threshold`, nunca no "Corrigir tudo". Só a página branca (novo
   `blank_ink_coverage`, 0,3%) fica sem classificar; o verso só com carimbo continua sem
   sinalização. No kit público, as silenciosas caem de 13 para 11.
+- Orientação (regra 1.2.0): confiança baixa virava "página certa". Quando nenhuma
+  rotação passa de `review_threshold` e a probabilidade de 0° fica abaixo do novo
+  `upright_min_probability` (0,5), a página vai para revisão como **orientação
+  incerta**, com a rotação mais provável sugerida e nunca no "Corrigir tudo". No kit
+  público, as giradas sem sinalização caem de 11 para 3, sem nenhuma correção automática
+  errada; 5,7% das páginas de pé passam a ir para revisão. A conformidade aceita a
+  orientação incerta na página muito inclinada (`skew` → `orientation` em
+  `co_occurrence`).
 
 ## [1.0.0] — 2026-11-12
 
