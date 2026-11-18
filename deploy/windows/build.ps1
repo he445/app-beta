@@ -28,8 +28,17 @@ $parts = ($version.Split(".") + @("0", "0", "0"))[0..3] -join ", "
 Write-Host "1. interface"
 Push-Location ui
 npm ci --no-audit --no-fund
-$env:VITE_API_URL = ""
-npm run build
+# Motor na mesma origem: VITE_API_URL precisa existir e estar vazio. No Windows PowerShell
+# 5.1, `$env:VITE_API_URL = ""` APAGA a variável, e a interface cai no "/api" do servidor
+# de desenvolvimento (o programa responde 404 e não abre). O arquivo .env vale em qualquer
+# versão do PowerShell.
+Remove-Item Env:VITE_API_URL -ErrorAction SilentlyContinue
+Set-Content .env.production.local "VITE_API_URL=" -Encoding ascii
+try { npm run build } finally { Remove-Item .env.production.local }
+if ($LASTEXITCODE -ne 0) { throw "build da interface falhou" }
+if (Select-String -Path dist/assets/*.js -Pattern '"/api"' -SimpleMatch -Quiet) {
+  throw "interface compilada aponta para /api (VITE_API_URL não chegou vazio ao Vite)"
+}
 Pop-Location
 
 Write-Host "2. lote de exemplo do teste de fumaça"

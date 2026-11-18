@@ -64,6 +64,11 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
   esperava e ela caía na tela de token. As pontes agora só expõem métodos, e a interface
   espera a pywebview terminar quando ela já está na página (até 30 s), sem tomar o
   `api: {}` vazio do começo por ponte pronta. Contorno na 1.0.0: `QA.exe --browser`.
+- Build Windows local (`deploy/windows/build.ps1`): no Windows PowerShell 5.1,
+  `$env:VITE_API_URL = ""` apaga a variável e a interface saía apontando para `/api`
+  (o programa abria em "Não foi possível falar com o motor — 404"). O build passa o
+  valor vazio por `ui/.env.production.local` e recusa interface compilada com `/api`.
+  O pacote do CI (PowerShell 7) não era afetado.
 
 ## [1.0.0] — 2026-11-12
 
