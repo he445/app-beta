@@ -23,6 +23,7 @@ from qa_engine.domain.sequencing import (
     PageNumberingState,
     SequenceParams,
     SequenceResult,
+    document_doubt,
     resolve,
 )
 
@@ -186,6 +187,31 @@ def analyze_document(
                 severity,
             )
         )
+
+    doubt = document_doubt(result, params)
+    if doubt is not None:
+        span = (
+            f"fls. {doubt.first} a {doubt.last}"
+            if doubt.first != doubt.last
+            else (f"fls. {doubt.first}")
+        )
+        if doubt.alternative_first is not None and doubt.alternative_last is not None:
+            other = (
+                f"fls. {doubt.alternative_first} a {doubt.alternative_last}"
+                if doubt.alternative_first != doubt.alternative_last
+                else f"fls. {doubt.alternative_first}"
+            )
+            message = (
+                f"Numeração do documento inteiro em dúvida: {span} também fecha como {other} "
+                f"({doubt.read} lido no lugar de {doubt.alternative}). Confira o documento."
+            )
+        else:
+            message = (
+                f"Numeração do documento começa em fls. {doubt.first}, depois de fls. "
+                f"{params.max_first_folio}: confira se continua outro volume ou se a "
+                "leitura está errada."
+            )
+        flags.append(_review(doubt.page_id, message, 0.0, 0.0, Severity.HIGH))
 
     if declared_count is not None and len(pages) < declared_count:
         short = declared_count - len(pages)

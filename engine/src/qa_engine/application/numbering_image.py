@@ -19,7 +19,7 @@ from numpy.typing import NDArray
 from PIL import Image
 
 from qa_engine.detectors.strike import strike_score
-from qa_engine.domain.sequencing import Mark, Reading, parse_folio
+from qa_engine.domain.sequencing import DIGIT_CONFUSIONS, Mark, Reading, parse_folio
 from qa_engine.ports import TextBox, TextRecognizer, TextRegionDetector
 
 Region = tuple[float, float, float, float]
@@ -41,20 +41,7 @@ EDGE_MARGIN = 0.01
 """Faixa junto à borda da página (fração do lado menor) ignorada na busca nos cantos."""
 Confusion = tuple[str, str, float]
 """Dígito lido, alternativa e peso (confiança da alternativa relativa à leitura)."""
-DEFAULT_CONFUSIONS: tuple[Confusion, ...] = (
-    ("1", "7", 0.5),
-    ("7", "1", 0.5),
-    ("2", "9", 0.5),
-    ("9", "2", 0.5),
-    ("0", "9", 0.5),
-    ("9", "0", 0.5),
-    ("3", "5", 0.5),
-    ("5", "3", 0.5),
-    ("7", "9", 0.5),
-    ("9", "7", 0.5),
-    ("6", "0", 0.5),
-    ("0", "6", 0.5),
-)
+DEFAULT_CONFUSIONS: tuple[Confusion, ...] = tuple((a, b, 0.5) for a, b in DIGIT_CONFUSIONS)
 """Trocas que a letra de mão provoca: o 1 com serifa e o 7; o 2 com laço e o 9; o 9 com
 rabo longo e o 0; 3 e 5; 7 e 9; 6 e 0 (relatório de testes de 18/11/2026)."""
 MAX_READINGS = 5

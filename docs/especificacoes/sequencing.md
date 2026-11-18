@@ -1,6 +1,6 @@
 # Sequência e completude
 
-Versão: 1.1.0 · Regras: `missing_page` (crítico), `out_of_order` (médio),
+Versão: 1.2.0 · Regras: `missing_page` (crítico), `out_of_order` (médio),
 `numbering_review` (alto ou médio), `completeness_unverifiable` (baixo)
 
 ## Objetivo
@@ -95,6 +95,29 @@ uma âncora confiável antes dela: a última página com valor foi confiável, o
 `recto_verso`, só houve versos `absent` desde a última página confiável. Valor igual ao
 anterior é **repetição**.
 
+### 5. Checagem de documento
+
+Um reconhecedor que erra sempre o mesmo dígito (o 2 com laço lido como 9) produz uma
+sequência coerente: 1920 a 1925 lidas como 1990 a 1995, todas com confiança alta, e o
+resolvedor aceita. Isso só passa sem lacuna nem retrocesso quando o dígito trocado é igual
+em todas as folhas, e trocar um dígito comum a todas soma a mesma constante a cada folha:
+a sequência alternativa fecha exatamente tão bem quanto a lida.
+
+```text
+folhas ← valores das páginas com valor, na ordem proposta
+para cada posição, da unidade para a esquerda:
+    se todas as folhas têm o mesmo dígito d nessa posição:
+        para cada troca (d → e) em confusions, na ordem, com e < d:
+            se e = 0 e a posição é a primeira casa de alguma folha: pula (zero à esquerda)
+            dúvida: a numeração também fecha somando (e − d) × 10^posição a cada folha
+se nenhuma troca e max_first_folio definido e menor folha > max_first_folio: dúvida (salto)
+```
+
+Só a troca para um dígito **menor** conta: folha baixa é mais comum que alta (todo
+documento tem fls. 1, poucos têm fls. 1990). Documento que começa em fls. 1 nunca tem dígito
+comum a todas as folhas, então nunca cai aqui. A tabela `confusions` é a mesma da leitura
+por imagem (`numbering.confusions`, padrão 1↔7, 2↔9, 0↔9, 3↔5, 7↔9 e 0↔6).
+
 ## Sinalizações
 
 | Regra | Alvo | Quando | Severidade | Correção |
@@ -106,6 +129,7 @@ anterior é **repetição**.
 | `numbering_review` | página | repetição, salvo se a página está num par de `duplicate_page` | alto | idem |
 | `numbering_review` | página | `ambiguous` ou `illegible` | alto | idem |
 | `numbering_review` | página | `inferred` | médio | idem |
+| `numbering_review` | primeira página com valor | dúvida da checagem de documento (troca sistemática ou salto) | alto | idem |
 | `completeness_unverifiable` | documento | nenhuma página com marca e sem contagem declarada | baixo | `escalate/human_review` |
 
 Uma dúvida nunca vira "página faltando": vira `numbering_review`.
@@ -119,7 +143,8 @@ Uma dúvida nunca vira "página faltando": vira `numbering_review`.
 | `high_confidence` | 0,85 | | `w_gap` | 1,0 |
 | `w_read` | 4,0 | | `w_back` | 4,0 |
 | `w_infer` | 1,0 | | `w_repeat` | 1,0 |
-| | | | `w_gap_max` | 1,5 |
+| `confusions` | tabela padrão | | `w_gap_max` | 1,5 |
+| `max_first_folio` | desligado | | | |
 
 Os pesos fazem uma leitura confiável (≥ 0,5) vencer a inferência numa lacuna de uma folha
 (`4c − 1 > 2 − 1`) e uma leitura errada isolada perder para o contexto. O teto
@@ -145,17 +170,26 @@ Na tela de Sequência o revisor digita a numeração de uma página ou reordena 
 
 - Volume que recomeça em 1 aparece como fora de ordem; regra de reinício no perfil é
   fase seguinte.
+- Volume que continua outro com todas as folhas na mesma centena (fls. 901 a 950) cai na
+  checagem de documento: a evidência não distingue da troca 9 → 2. O revisor confirma uma
+  vez. Erro sistemático fora da tabela de trocas só é pego pelo `max_first_folio`.
+- A lacuna confirmada depende de `high_confidence`, e a confiança do reconhecedor não é
+  calibrada: uma leitura errada em dois dígitos com 0,94 (1922 lida como 1999) vira "Faltam
+  fls. 1996 a 1998", com ação física.
 - A trilha de numeração anterior (riscada) é registrada, mas não resolvida por uma
   segunda programação dinâmica.
 - Numeração impressa ("Página 3 de 12") depende da porta `OcrEngine` (fase seguinte).
 
 ## Casos de conformidade
 
-`conformance/fixtures/sequencing/*.json` (entrada e saída esperada do resolvedor) e
+`conformance/fixtures/sequencing/*.json` (entrada e saída esperada do resolvedor; a
+checagem de documento em `erro-sistematico-de-digito`) e
 `conformance/fixtures/core` (documentos `DOC0004`, `DOC0005`, `DOC0006`).
 
 ## Histórico de versões
 
 - 1.0.0: versão inicial.
+- 1.2.0: checagem de documento (troca sistemática de dígito e, opcional, início depois
+  de `max_first_folio`), com `numbering_review` na primeira página com valor.
 - 1.1.0: teto `w_gap_max` na penalidade de salto (lacuna grande no fim do documento
   era confundida com leitura errada).

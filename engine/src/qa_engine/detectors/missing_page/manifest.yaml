@@ -1,5 +1,5 @@
 id: missing_page
-version: 1.1.0
+version: 1.2.0
 title: Página faltando
 spec: docs/especificacoes/sequencing.md
 input: document_numbering

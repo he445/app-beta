@@ -39,6 +39,13 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
   No ARDIS, dos 20 erros reais com confiança alta, o valor certo passa a chegar ao
   resolvedor em 16 (antes, nenhum). O bench de numeração ganha `--reader` (mede o que o
   resolvedor recebe) e `--top`.
+- Sequência (regras 1.2.0): um erro consistente do reconhecedor virava sequência
+  plausível (1920 a 1925 lidas como 1990 a 1995, todas com confiança alta, aceitas sem
+  sinalização). A checagem de documento manda o documento para revisão
+  (`numbering_review` na primeira página) quando todas as folhas têm um dígito em comum
+  que a tabela de trocas diz poder ser um dígito menor, com a numeração alternativa na
+  mensagem; opcionalmente, quando a numeração começa depois de
+  `numbering.max_first_folio`. Documento que começa em fls. 1 nunca cai nela.
 
 ## [1.0.0] — 2026-11-12
 

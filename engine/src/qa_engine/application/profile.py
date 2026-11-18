@@ -13,7 +13,7 @@ from qa_engine.application.contracts import validate
 from qa_engine.detectors.registry import RULES, manifest, params_for
 from qa_engine.domain.model import Severity
 from qa_engine.domain.scoring import VerdictPolicy
-from qa_engine.domain.sequencing import NumberingMode, SequenceParams
+from qa_engine.domain.sequencing import DIGIT_CONFUSIONS, NumberingMode, SequenceParams
 
 PARAM_SOURCES = ("manifest", "profile", "station")
 """De onde pode vir o valor de um parâmetro, do mais fraco para o mais forte."""
@@ -195,6 +195,15 @@ def profile_from_dict(data: Mapping[str, Any]) -> Profile:
             mode=NumberingMode(numbering.get("mode", "simple")),
             min_confidence=float(numbering.get("min_confidence", 0.5)),
             high_confidence=float(numbering.get("high_confidence", 0.85)),
+            confusions=tuple(
+                (str(c["read"]), str(c["alternative"])) for c in numbering.get("confusions", [])
+            )
+            or DIGIT_CONFUSIONS,
+            max_first_folio=(
+                int(numbering["max_first_folio"])
+                if numbering.get("max_first_folio") is not None
+                else None
+            ),
         ),
         identifier_pattern=str(data.get("identifier_pattern", "{batch}-{document}")),
         feedback_enabled=bool(data.get("feedback", {}).get("enabled", False)),
