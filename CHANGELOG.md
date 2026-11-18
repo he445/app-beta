@@ -6,6 +6,15 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ## [Não lançado]
 
+### Adicionado
+
+- Bench de orientação (`tools/bench_orientation.py`): roda o mesmo caminho da análise
+  (raster de análise, página quase branca, classificador e decisão da regra) numa pasta
+  de páginas com gabarito (`arquivo`, `angulo_real`) e conta cada desfecho: correção
+  automática certa ou errada, sugestão para revisão, página certa girada por engano e
+  página girada sem sinalização (erro silencioso). `--set` testa outro valor de
+  parâmetro sem mudar o perfil.
+
 ## [1.0.0] — 2026-11-12
 
 Primeira versão do piloto: programa desktop portátil para Windows 10 e 11 (64 bits), sem

@@ -27,6 +27,23 @@ Base sintética (páginas A5 a 300 dpi com texto, `tools/synth`): em 12 páginas
 pouco texto (cobertura 0,013): sem sinalização. Página só com carimbo: o modelo dizia
 180° com 0,87; por isso página quase branca não é classificada.
 
+Dados públicos (RVL-CDIP, subset `vaclavpechtor/rvl_cdip-small-200`: 160 páginas
+manuscritas e 40 formulários a cerca de 100 dpi, mais as mesmas 200 giradas ao acaso com
+seed 42; 398 páginas avaliadas), perfil `sos-piloto`, medido com
+`tools/bench_orientation.py` na versão 1.0.0:
+
+| Desfecho | Páginas |
+| --- | --- |
+| Página certa, não sinalizada | 242 |
+| Girada, corrigida automaticamente (todas certas) | 93 |
+| Girada, corrigida com sugestão para revisão | 44 |
+| Girada, não sinalizada (erro silencioso) | 13 |
+| Girada, ângulo errado, enviada para revisão | 3 |
+| Página certa, girada por engano, enviada para revisão | 3 |
+
+Entre 0,85 e 0,90 de probabilidade aparece 1 erro em 28 correções; entre 0,80 e 0,90,
+3 em 41: o `auto_threshold` de 0,90 se mantém.
+
 No beta, as rotações confirmadas e desfeitas pelos garantidores medem o acerto na letra
 e no papel reais.
 

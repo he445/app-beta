@@ -257,3 +257,34 @@ def test_manual_rotation_is_an_audited_decision_and_goes_to_the_corrected_batch(
             ).status_code
             == 409
         )
+
+
+# Bench de orientação (tools/bench_orientation.py) ------------------------------------
+
+
+def test_bench_outcomes_follow_the_report(tmp_path: Path) -> None:
+    """Desfechos do bench: correta, automática certa, silenciosa e ângulo errado."""
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
+    import bench_orientation as bench
+
+    assert bench.classify_outcome(0, 0, False, False) == "upright_ok"
+    assert bench.classify_outcome(90, 90, False, False) == "rotated_auto_ok"
+    assert bench.classify_outcome(90, 0, False, False) == "rotated_silent"
+    assert bench.classify_outcome(180, 90, True, False) == "rotated_review_wrong"
+    assert bench.classify_outcome(0, 180, True, False) == "upright_review"
+    assert bench.classify_outcome(270, 0, True, True) == "rotated_uncertain"
+
+    save(tmp_path / "a.tif", page_150(1, 1))
+    save(tmp_path / "b.tif", page_150(2, 2))
+    labels = tmp_path / "gabarito.csv"
+    labels.write_text("arquivo,angulo_real\na.tif,90\nb.tif,180\n", "utf-8")
+    outcomes = bench.bench(
+        tmp_path, bench.load_labels(labels), params(), None, classifier=Fixed(90, 0.95)
+    )
+    assert [o.outcome for o in outcomes] == ["rotated_auto_ok", "rotated_auto_wrong"]
+    data = bench.summary(outcomes)
+    assert data["automatic_wrong"] == 1 and data["silent"] == 0
+    assert data["per_angle"]["90"] == {"hits": 1, "n": 1}
+    assert "| Girada, corrigida automaticamente | 1 |" in bench.table(data)
