@@ -171,7 +171,7 @@ def analyze_page(
         if classifier is not None:
             prediction = classifier.classify(raster.gray)
             raster = replace(raster, orientation=prediction)
-            review_at = float(rules[orientation.ID]["review_threshold"])
+            review_at = orientation.suggest_at(features, rules[orientation.ID])
             if prediction.angle and prediction.probability >= review_at:
                 view = oriented_view(raster.gray, prediction.angle)
                 upright_raster = replace(raster, gray=view)

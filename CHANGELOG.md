@@ -15,6 +15,15 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
   página girada sem sinalização (erro silencioso). `--set` testa outro valor de
   parâmetro sem mudar o perfil.
 
+### Corrigido
+
+- Orientação (regra 1.1.0): página manuscrita com pouca tinta (abaixo de
+  `min_ink_coverage`, 1%) deixava de ser classificada e passava girada sem aviso. Agora
+  ela é classificada e a rotação é proposta para revisão quando a confiança chega a
+  `auto_threshold`, nunca no "Corrigir tudo". Só a página branca (novo
+  `blank_ink_coverage`, 0,3%) fica sem classificar; o verso só com carimbo continua sem
+  sinalização. No kit público, as silenciosas caem de 13 para 11.
+
 ## [1.0.0] — 2026-11-12
 
 Primeira versão do piloto: programa desktop portátil para Windows 10 e 11 (64 bits), sem

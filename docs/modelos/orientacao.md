@@ -25,7 +25,8 @@ para 256, recorte central de 224 × 224, RGB normalizado (média 0,485 0,456 0,4
 Base sintética (páginas A5 a 300 dpi com texto, `tools/synth`): em 12 páginas (3 de pé e
 3 em cada ângulo), 12 acertos, todos com probabilidade entre 0,92 e 0,93. Página com
 pouco texto (cobertura 0,013): sem sinalização. Página só com carimbo: o modelo dizia
-180° com 0,87; por isso página quase branca não é classificada.
+180° com 0,87; por isso a página com pouca tinta só é sinalizada a partir de 0,90 e
+sempre para revisão.
 
 Dados públicos (RVL-CDIP, subset `vaclavpechtor/rvl_cdip-small-200`: 160 páginas
 manuscritas e 40 formulários a cerca de 100 dpi, mais as mesmas 200 giradas ao acaso com
@@ -54,3 +55,4 @@ acima disso desligaria a rotação automática.
 
 - Página com pouco texto ou só com carimbo: confiança baixa; a regra manda para revisão.
 - Página em branco: não é classificada (pulada).
+- Página com pouca tinta: classificada; só sinalizada com 0,90 ou mais, para revisão.

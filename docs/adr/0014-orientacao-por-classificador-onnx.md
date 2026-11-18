@@ -34,6 +34,9 @@ na amostra real.
 - **Página quase branca não é classificada** (`min_ink_coverage` 0,01): o carimbo de um
   verso não tem sentido de leitura e o modelo erra nele. Pelo mesmo motivo, inclinação e
   desfoque também deixam de avaliar página quase branca (`skew` e `blur` 1.1.0).
+  Revisto na regra `orientation` 1.1.0: a página com pouca tinta é classificada e só
+  sinalizada com confiança alta, sempre para revisão; só a página branca
+  (`blank_ink_coverage` 0,003) fica sem classificar.
 
 ## Consequências
 

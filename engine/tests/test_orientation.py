@@ -120,6 +120,62 @@ def test_blank_page_is_never_classified(tmp_path: Path, test_profile: Profile) -
     assert not result.observations["orientation"].eligible
 
 
+def sparse_150() -> np.ndarray:
+    """Bilhete curto: tinta entre página branca e o limite de pouca tinta."""
+    gray = blank_150(9).copy()
+    cv2.putText(gray, "manuscrito curto", (300, 600), cv2.FONT_HERSHEY_SCRIPT_SIMPLEX, 1.6, 20, 3)
+    return gray
+
+
+def test_low_ink_page_is_classified_but_only_flags_high_confidence_for_review(
+    tmp_path: Path,
+) -> None:
+    """P1 do relatório de testes: bilhete curto girado não pode passar calado."""
+    gray = sparse_150()
+    coverage = compute_features(gray).ink_coverage
+    assert params()["blank_ink_coverage"] <= coverage < params()["min_ink_coverage"]
+    path = save(tmp_path / "bilhete.tif", gray)
+
+    def flag(angle: int, probability: float) -> object:
+        classifier = Fixed(angle, probability)
+        result = analyze_page(
+            PageTask(path, 0, (("orientation", params()),), 0.05), classifier=classifier
+        )
+        assert classifier.calls == 1
+        obs = result.observations["orientation"]
+        assert obs.eligible and obs.extra["low_ink"] is True
+        return orientation.DETECTOR.evaluate(obs, {}, params())
+
+    high = flag(180, 0.93)
+    assert high is not None
+    assert high.correction.params == {
+        "angle_deg": 180,
+        "detected_deg": 180,
+        "review": True,
+        "low_ink": True,
+    }
+    assert high.threshold == params()["auto_threshold"]
+    assert flag(180, 0.87) is None  # abaixo de auto_threshold: carimbo (CX001/DOC0007)
+    assert flag(0, 0.99) is None
+
+
+def test_low_ink_rotation_never_enters_fix_all() -> None:
+    from qa_engine.detectors.base import Observation
+
+    obs = Observation({"angle": 90.0, "probability": 0.99}, extra={"low_ink": True})
+    flag = orientation.DETECTOR.evaluate(obs, {}, params())
+    assert flag is not None and flag.correction.params["review"] is True
+
+
+def test_skip_blank_off_classifies_low_ink_like_any_page() -> None:
+    gray = sparse_150()
+    raster = PageRaster(gray, 1.0, 150, orientation=OrientationPrediction(90, 0.70))
+    changed = params(skip_blank=False)
+    obs = orientation.DETECTOR.measure(raster, compute_features(gray), changed)
+    flag = orientation.DETECTOR.evaluate(obs, {}, changed)
+    assert flag is not None and "low_ink" not in flag.correction.params
+
+
 def test_skew_is_measured_on_the_upright_view(tmp_path: Path) -> None:
     """Página inclinada 2,5° e digitalizada de lado: a inclinação é medida de pé."""
     hi = synth.Page(synth.text_page(random.Random(42), (1748, 2480), 7, 5, 7))

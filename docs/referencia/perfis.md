@@ -80,15 +80,16 @@ Especificação: [blank_page.md](../especificacoes/detectors/blank_page.md).
 
 ### `orientation`
 
-Página de lado ou de cabeça para baixo. Versão 1.0.0, severidade `medium`.
+Página de lado ou de cabeça para baixo. Versão 1.1.0, severidade `medium`.
 Especificação: [orientation.md](../especificacoes/detectors/orientation.md).
 
 | Parâmetro | Tipo | Padrão | Faixa | Descrição |
 | --- | --- | --- | --- | --- |
 | `auto_threshold` | número | `0.9` | mín. 0, máx. 1 | Probabilidade a partir da qual a rotação entra no Corrigir tudo |
 | `review_threshold` | número | `0.6` | mín. 0, máx. 1 | Probabilidade a partir da qual a rotação é sugerida para revisão |
-| `skip_blank` | sim/não | `true` |  | Não classificar página quase sem tinta |
-| `min_ink_coverage` | número | `0.01` | mín. 0, máx. 1 | Cobertura de tinta abaixo da qual a página é quase branca e não é classificada |
+| `skip_blank` | sim/não | `true` |  | Não classificar página branca e exigir confiança alta na página com pouca tinta |
+| `blank_ink_coverage` | número | `0.003` | mín. 0, máx. 1 | Cobertura de tinta abaixo da qual a página é branca e não é classificada |
+| `min_ink_coverage` | número | `0.01` | mín. 0, máx. 1 | Cobertura de tinta abaixo da qual a página tem pouca tinta: só sinaliza a partir de auto_threshold, sempre para revisão |
 
 ### `black_borders`
 
