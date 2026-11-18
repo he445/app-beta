@@ -21,7 +21,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from qa_engine.adapters.local_folder import display_path
-from qa_engine.application.bulk import SkipCategory, plan_bulk, skip_entry
+from qa_engine.application.bulk import SkipCategory, plan_bulk, plan_decisions, skip_entry
 from qa_engine.application.complements import page_path
 from qa_engine.application.contracts import validate
 from qa_engine.application.corrected_batch import build_plan, manifest_csv, plan_totals, raster_dpi
@@ -377,16 +377,41 @@ class CorrectionService:
         return op
 
     def start_bulk(
-        self, ctx: BatchContext, scope_kind: str, scope_id: str | None, reviewer: str
+        self,
+        ctx: BatchContext,
+        scope_kind: str,
+        scope_id: str | None,
+        reviewer: str,
+        *,
+        rule: str | None = None,
+        action: DecisionAction | None = None,
+        partial: bool = False,
     ) -> dict[str, Any]:
-        """Cria a operação "Corrigir tudo" na fila; ``run_bulk`` a executa.
+        """Cria a operação em lote na fila; ``run_bulk`` a executa.
+
+        Sem ``action``: "Corrigir pasta" (escopo ``document``) ou "Corrigir tudo" (``batch``),
+        só o que é automático e seguro. Com ``action``: "Decidir semelhantes", a mesma
+        decisão em todas as sinalizações pendentes de ``rule`` no escopo.
+
+        Args:
+            ctx: lote.
+            scope_kind: ``batch`` ou ``document``.
+            scope_id: documento, no escopo ``document``.
+            reviewer: quem pediu.
+            rule: só as sinalizações desta regra (obrigatória com ``action``).
+            action: decisão a aplicar em todas (``approve``, ``reject``, ``source_defect``).
+            partial: a caixa ainda está em análise; vale para os processos já prontos.
 
         Raises:
-            NotFoundError: documento fora do lote.
+            NotFoundError: documento fora do relatório (inexistente ou ainda em análise).
             ConflictError: já há uma operação em andamento no lote.
+            ValueError: decisão sem regra, ``correct`` como decisão em lote ou regra que
+                exige decisão individual (página faltando).
         """
         if any(op["status"] in {"queued", "running"} for op in self.operations(ctx.batch_id)):
             raise ConflictError("já há uma correção em lote em andamento neste lote")
+        if action is not None and (rule is None or action is DecisionAction.CORRECT):
+            raise ValueError("decisão em lote pede uma regra e approve, reject ou source_defect")
         report = self._report(ctx)
         if scope_kind == "document":
             if not any(d["id"] == scope_id for d in report["documents"]):
@@ -394,8 +419,12 @@ class CorrectionService:
         else:
             scope_id = ctx.batch_id
         assert scope_id is not None
-        plan = plan_bulk(report, scope_kind, scope_id)
-        operation = {
+        plan = (
+            plan_decisions(report, scope_kind, scope_id, rule)
+            if action is not None and rule is not None
+            else plan_bulk(report, scope_kind, scope_id, rule)
+        )
+        operation: dict[str, Any] = {
             "id": str(uuid.uuid4()),
             "batch_id": ctx.batch_id,
             "scope": {"kind": scope_kind, "id": scope_id},
@@ -404,6 +433,12 @@ class CorrectionService:
             "reviewer": reviewer,
             "started_at": iso(self.clock.now()),
         }
+        if rule is not None:
+            operation["rule"] = rule
+        if action is not None:
+            operation["action"] = action.value
+        if partial:
+            operation["partial"] = True
         self.store.create_operation(operation)
         return operation
 
@@ -417,9 +452,12 @@ class CorrectionService:
         if op is None:
             raise NotFoundError("operação não encontrada")
         reviewer = op["reviewer"]
+        if op.get("action"):
+            self._run_decisions(ctx, op)
+            return
         try:
             report = self._report(ctx)
-            plan = plan_bulk(report, op["scope"]["kind"], op["scope"]["id"])
+            plan = plan_bulk(report, op["scope"]["kind"], op["scope"]["id"], op.get("rule"))
             self.store.update_operation(operation_id, status="running", total=plan.total, done=0)
             pages = {p["id"]: p for p in report["pages"]}
             current = {f["id"]: f for f in report["findings"]}
@@ -484,6 +522,54 @@ class CorrectionService:
                     "skipped_total": len(skipped),
                     "skipped": skipped,
                     "pages": pages_result,
+                },
+            )
+        except Exception as exc:
+            self.store.update_operation(
+                operation_id,
+                status="failed",
+                current=None,
+                finished_at=iso(self.clock.now()),
+                error=f"{exc.__class__.__name__}: {exc}"[:500],
+            )
+            raise
+
+    def _run_decisions(self, ctx: BatchContext, op: Mapping[str, Any]) -> None:
+        """Decidir semelhantes: a mesma decisão em cada sinalização do plano, por processo.
+
+        Não regrava imagem (só ``correct`` muda a cadeia da página); cada processo é gravado
+        numa transação, com o identificador da operação (desfazer em lote).
+        """
+        operation_id = op["id"]
+        action = DecisionAction(op["action"])
+        try:
+            report = self._report(ctx)
+            plan = plan_decisions(report, op["scope"]["kind"], op["scope"]["id"], op["rule"])
+            self.store.update_operation(operation_id, status="running", total=plan.total, done=0)
+            applied_by_rule: Counter[str] = Counter()
+            for done, unit in enumerate(plan.units, start=1):
+                self.store.update_operation(operation_id, current=unit.label)
+                now = self.clock.now()
+                decided = [
+                    decide(f, action, op["reviewer"], now, None, operation_id)
+                    for f in unit.findings
+                ]
+                self.store.record_decisions(ctx.batch_id, decided, None)
+                applied_by_rule.update(f["rule"] for f in decided)
+                self.store.update_operation(operation_id, done=done)
+            final = self._report(ctx)
+            self.store.set_summary(ctx.batch_id, recompute_summary(final, ctx.profile))
+            self.store.update_operation(
+                operation_id,
+                status="applied",
+                current=None,
+                finished_at=iso(self.clock.now()),
+                result={
+                    "applied_total": sum(applied_by_rule.values()),
+                    "applied_by_rule": dict(sorted(applied_by_rule.items())),
+                    "skipped_total": 0,
+                    "skipped": [],
+                    "pages": [],
                 },
             )
         except Exception as exc:

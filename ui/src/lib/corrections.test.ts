@@ -10,6 +10,8 @@ import {
   saveState,
   skippedText,
   mergeApplied,
+  operationSummary,
+  similarCounts,
   unsavedOperation,
   unsavedOperations,
 } from "./corrections";
@@ -194,5 +196,52 @@ describe("operações e faixa Depois", () => {
     const done = op("applied", 1, 1, { result });
     expect(skippedText(done, new Set(["d2"]))).toBe("1 página faltando (decida abaixo)");
     expect(skippedText(done)).toBe("1 página faltando (decida abaixo) · 1 precisa redigitalizar");
+  });
+});
+
+describe("Decidir semelhantes e Corrigir pasta (ADR-0024)", () => {
+  const finding = (id: string, rule: string, target: string, decided = false) =>
+    ({
+      id,
+      rule,
+      target: { kind: "page", id: target },
+      ...(decided ? { decision: { action: "approve", reviewer: "g1", decided_at: "2026-11-18T10:00:00Z" } } : {}),
+    }) as unknown as import("../api/types").Finding;
+  const report = {
+    pages: [],
+    findings: [
+      finding("1", "low_resolution", "p1"),
+      finding("2", "low_resolution", "p2"),
+      finding("3", "low_resolution", "p9"),
+      finding("4", "low_resolution", "p1", true),
+      finding("5", "skew", "p1"),
+    ],
+  };
+
+  it("conta as pendentes da mesma regra na pasta e na caixa", () => {
+    expect(similarCounts(report, "low_resolution", { id: "d1", page_ids: ["p1", "p2"] })).toEqual({ folder: 2, box: 3 });
+    expect(similarCounts(report, "low_resolution", undefined)).toEqual({ folder: 0, box: 3 });
+    expect(similarCounts(report, "blur", { id: "d1", page_ids: ["p1"] })).toEqual({ folder: 0, box: 0 });
+  });
+
+  it("decisão em lote não conta como correção a salvar", () => {
+    const decided = op("applied", 3, 3, {
+      id: "dec",
+      action: "approve",
+      rule: "low_resolution",
+      result: { applied_total: 3, applied_by_rule: { low_resolution: 3 }, skipped_total: 0, skipped: [], pages: [] },
+    });
+    expect(unsavedOperations([decided], "d1")).toEqual([]);
+  });
+
+  it("resume o que a operação fez", () => {
+    const result = (n: number, skipped = 0) => ({ applied_total: n, applied_by_rule: {}, skipped_total: skipped, skipped: [], pages: [] });
+    expect(operationSummary(op("applied", 1, 1, { action: "approve", rule: "low_resolution", result: result(400) }))).toBe(
+      "Caixa: 400 × Resolução abaixo do exigido aprovada(s).",
+    );
+    expect(
+      operationSummary(op("applied", 1, 1, { scope: { kind: "document", id: "d1" }, result: result(3, 2) }), "CX1/DOC1"),
+    ).toBe("Pasta CX1/DOC1: 3 correção(ões) aplicada(s); 2 pedem decisão humana ou redigitalização.");
+    expect(operationSummary(op("applied", 0, 0, { partial: true, result: result(0) }))).toContain("só as pastas já prontas");
   });
 });

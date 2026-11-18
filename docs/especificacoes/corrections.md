@@ -1,6 +1,6 @@
 # Correções, correção em lote e lote corrigido
 
-Versão: 1.0.0 · ADR-0009
+Versão: 1.1.0 · ADR-0009, ADR-0024
 
 ## Versão corrigida de uma página
 
@@ -29,9 +29,10 @@ sinalização, ação e parâmetros (uma rotação trocada de 90° para 270° gr
 **Correções proibidas** nunca são oferecidas: aumentar resolução por
 interpolação, nitidez artificial, clarear página ilegível, preencher área cortada.
 
-## "Corrigir tudo"
+## "Corrigir pasta" e "Corrigir tudo"
 
-Escopo: um documento ou o lote inteiro. Considera só sinalizações **sem decisão**.
+Escopo: um documento (**Corrigir pasta**) ou o lote inteiro (**Corrigir tudo**), e
+opcionalmente só uma regra (`rule`). Considera só sinalizações **sem decisão**.
 
 ```text
 para cada sinalização sem decisão no escopo:
@@ -54,6 +55,27 @@ documento com reordenação. O progresso gravado é `done` de `total` unidades. 
 página não interrompe as outras: ela volta como `failed`.
 
 Só uma operação por lote pode estar em andamento (`409` para a segunda).
+
+**Com a caixa em análise** (liberação por processo), a operação vale para os processos
+já prontos: o documento pedido tem de estar pronto (`409` se ainda está em análise), e o
+escopo de lote inteiro volta com `partial: true`. As decisões entram como as individuais
+e a passada final as mantém (ADR-0024).
+
+## "Decidir semelhantes"
+
+Pedido com `rule` e `action` (`approve`, `reject` ou `source_defect`), no escopo de um
+documento ou do lote:
+
+```text
+se rule = missing_page: 422 (cada página faltando pede decisão própria)
+para cada sinalização sem decisão da regra no escopo:
+    decide action (revisor, horário, operation_id)
+```
+
+Uma unidade de progresso por documento; nenhuma imagem é regravada (só `correct` muda a
+cadeia de correções da página). `correct` não é aceito como decisão em lote. O
+resultado traz `applied_by_rule` e nada em `skipped`. Desfazer em lote vale do mesmo
+jeito. Essas decisões não viram exemplo da coleta do beta.
 
 ### Desfazer em lote
 

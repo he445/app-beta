@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QA Automático de Digitalização — API do motor
-  version: 0.18.0
+  version: 0.19.0
   summary: Contrato entre a interface web, a linha de comando e o motor de análise.
   description: |
     Fonte da verdade do sistema (ADR-0002). Modelos de cada linguagem são gerados a partir
@@ -512,12 +512,17 @@ paths:
     post:
       tags: [corrections]
       operationId: startBulkCorrection
-      summary: Corrigir tudo (documento ou lote inteiro)
+      summary: Corrigir pasta, Corrigir tudo ou Decidir semelhantes
       description: |
-        Decide `correct` em todas as sinalizações PENDENTES com correção automática do escopo:
-        correções de imagem (aplicadas numa cópia), remoção de página em branco e reordenação
-        pela numeração. Página faltando, defeitos que exigem redigitalização e o que pede
-        decisão humana ficam pendentes e voltam em `result.skipped`. Roda em segundo plano;
+        Sem `action`: decide `correct` em todas as sinalizações PENDENTES com correção
+        automática do escopo (a pasta, `document`, ou a caixa, `batch`), opcionalmente só de
+        `rule`: correções de imagem (aplicadas numa cópia), remoção de página em branco e
+        reordenação pela numeração. Página faltando, defeitos que exigem redigitalização e o
+        que pede decisão humana ficam pendentes e voltam em `result.skipped`.
+        Com `rule` e `action` (Decidir semelhantes): a mesma decisão em todas as pendentes
+        da regra no escopo; `missing_page` responde 422.
+        Com a caixa em análise, vale para os processos já prontos: pasta ainda em análise
+        responde 409 e a caixa inteira volta com `partial` (ADR-0024). Roda em segundo plano;
         acompanhe o progresso real em `GET /bulk-corrections/{operation_id}`.
       requestBody:
         required: true

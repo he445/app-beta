@@ -79,7 +79,7 @@ const slug = DEVICE.toLowerCase().replace(/\s+/g, '-');
   await page.waitForTimeout(800);
   await overflow('sequência (antes)');
   await shot('5-sequencia-antes');
-  await page.getByRole('button', { name: 'Corrigir tudo' }).tap();
+  await page.getByRole('button', { name: 'Corrigir pasta' }).tap();
   await page.locator('.progress-overlay').waitFor({ timeout: 10000 });
   const titles = [];
   for (;;) {
@@ -96,7 +96,7 @@ const slug = DEVICE.toLowerCase().replace(/\s+/g, '-');
   const rescan = (await page.locator('[aria-label="Antes"] .note-rescan').allTextContents()).join(' | ');
   console.log(`[${DEVICE}] depois: ${after} · removidas: ${removed} · redigitalizar: ${rescan}`);
   if (!after.includes('endireitada') || !removed.includes('em branco') || !rescan.toLowerCase().includes('desfoque')) {
-    problems.push('resultado do Corrigir tudo incompleto');
+    problems.push('resultado do Corrigir pasta incompleto');
   }
   await overflow('sequência (depois)');
   await shot('6-sequencia-depois');

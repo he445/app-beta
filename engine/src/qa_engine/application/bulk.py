@@ -119,7 +119,31 @@ def is_automatic(finding: Mapping[str, Any]) -> bool:
     return bool(finding["target"]["kind"] == "document")
 
 
-def plan_bulk(report: Mapping[str, Any], scope_kind: str, scope_id: str) -> BulkPlan:
+def _in_scope(
+    report: Mapping[str, Any], scope_kind: str, scope_id: str, rule: str | None
+) -> tuple[list[Mapping[str, Any]], list[Mapping[str, Any]]]:
+    """Documentos do escopo e as sinalizações **sem decisão** deles (da regra, se dada)."""
+    documents = [d for d in report["documents"] if scope_kind == "batch" or d["id"] == scope_id]
+    page_ids = {pid for d in documents for pid in d["page_ids"]}
+    doc_ids = {d["id"] for d in documents}
+    findings: list[Mapping[str, Any]] = []
+    for finding in report["findings"]:
+        target = finding["target"]
+        if finding.get("decision") or (rule is not None and finding["rule"] != rule):
+            continue
+        if target["kind"] == "page" and target["id"] not in page_ids:
+            continue
+        if target["kind"] == "document" and target["id"] not in doc_ids:
+            continue
+        if target["kind"] == "batch" and scope_kind != "batch":
+            continue
+        findings.append(finding)
+    return documents, findings
+
+
+def plan_bulk(
+    report: Mapping[str, Any], scope_kind: str, scope_id: str, rule: str | None = None
+) -> BulkPlan:
     """Separa o que o "Corrigir tudo" aplica do que deixa pendente.
 
     Só considera sinalizações **sem decisão** dentro do escopo. A ordem das
@@ -127,24 +151,15 @@ def plan_bulk(report: Mapping[str, Any], scope_kind: str, scope_id: str) -> Bulk
 
     Args:
         report: relatório no formato de ``analysis.schema.json``.
-        scope_kind: ``batch`` ou ``document``.
+        scope_kind: ``batch`` ou ``document`` (a pasta do processo).
         scope_id: identificador do lote ou do documento.
+        rule: só as sinalizações desta regra (``None``: todas).
     """
-    documents = [d for d in report["documents"] if scope_kind == "batch" or d["id"] == scope_id]
-    page_doc = {pid: d for d in documents for pid in d["page_ids"]}
-    doc_ids = {d["id"] for d in documents}
+    documents, in_scope = _in_scope(report, scope_kind, scope_id, rule)
     by_target: dict[str, list[Mapping[str, Any]]] = {}
     skipped: list[dict[str, Any]] = []
-    for finding in report["findings"]:
+    for finding in in_scope:
         target = finding["target"]
-        if finding.get("decision"):
-            continue
-        if target["kind"] == "page" and target["id"] not in page_doc:
-            continue
-        if target["kind"] == "document" and target["id"] not in doc_ids:
-            continue
-        if target["kind"] == "batch" and scope_kind != "batch":
-            continue
         if is_automatic(finding):
             by_target.setdefault(target["id"], []).append(finding)
         else:
@@ -178,3 +193,44 @@ def plan_bulk(report: Mapping[str, Any], scope_kind: str, scope_id: str) -> Bulk
                 )
             )
     return BulkPlan(units=tuple(units), skipped=tuple(skipped))
+
+
+DECISION_EXCLUDED_RULES = MISSING_PAGE_RULES
+"""Regras fora do "Decidir semelhantes": cada página faltando pede decisão própria
+(retrabalho, defeito de origem ou aprovar mesmo assim), e salvar depende disso."""
+
+
+def plan_decisions(
+    report: Mapping[str, Any], scope_kind: str, scope_id: str, rule: str
+) -> BulkPlan:
+    """Decidir semelhantes: todas as sinalizações sem decisão de uma regra no escopo.
+
+    Uma unidade de progresso por documento (a decisão não regrava imagem: só ``correct``
+    muda a cadeia de correções da página). Nada fica pendente por categoria.
+
+    Raises:
+        ValueError: regra fora do "Decidir semelhantes" (página faltando).
+    """
+    if rule in DECISION_EXCLUDED_RULES:
+        raise ValueError(
+            "Página faltando não entra em decisão em lote: decida cada uma na revisão."
+        )
+    documents, in_scope = _in_scope(report, scope_kind, scope_id, rule)
+    page_doc = {pid: d["id"] for d in documents for pid in d["page_ids"]}
+    by_doc: dict[str, list[Mapping[str, Any]]] = {}
+    for finding in in_scope:
+        target = finding["target"]
+        doc_id = page_doc.get(target["id"], target["id"])
+        by_doc.setdefault(doc_id, []).append(finding)
+    units = [
+        BulkUnit(
+            label=d["name"], page_id=None, findings=tuple(by_doc.pop(d["id"])), image_findings=()
+        )
+        for d in documents
+        if d["id"] in by_doc
+    ]
+    # O que sobrou tem alvo na caixa (só no escopo da caixa inteira).
+    batch_level = tuple(f for found in by_doc.values() for f in found)
+    if batch_level:
+        units.append(BulkUnit(label="caixa", page_id=None, findings=batch_level, image_findings=()))
+    return BulkPlan(units=tuple(units), skipped=())

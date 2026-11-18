@@ -25,7 +25,8 @@ mostra todos os atalhos. Para instalar e publicar, veja
    computador e o painel avisa ([trava por caixa](../especificacoes/trava-por-caixa.md)).
    **Não espere a caixa inteira:** durante a análise, o cartão **Processos** mostra cada
    processo como *pronto*, *analisando* ou *na fila*; clique em **Conferir** no primeiro
-   pronto. "Corrigir tudo", salvar o lote corrigido e o relatório da caixa esperam a
+   pronto. **Corrigir pasta**, **Corrigir tudo** e **Decidir semelhantes** já valem para
+   os processos prontos; salvar o lote corrigido e o relatório da caixa esperam a
    análise terminar. Se a análise final achar algo novo num processo que você já
    conferiu (uma página duplicada de um processo que chegou depois, por exemplo), ele
    aparece na Sequência com a marca **reavaliar**, só com o achado novo; o que você já
@@ -60,6 +61,15 @@ página, Q, E e W (ou os botões **Girar a página**) giram a cópia; o giro é 
 já está aplicado. Cada giro é uma decisão registrada com seu nome e horário e vai para o
 lote corrigido; voltar à orientação original registra "não girar".
 
+**Em lote, na própria revisão:** no topo da fila, **Corrigir pasta** aplica o automático
+da pasta da sinalização que está na tela e **Corrigir tudo**, o de todas as pastas. No
+painel da sinalização, **Decidir semelhantes** aplica a mesma decisão (aprovar,
+retrabalho ou defeito de origem) em todas as pendentes da mesma categoria, só **nesta
+pasta** ou **na caixa**. Por exemplo, aprovar de uma vez toda "Resolução abaixo do
+exigido" de uma caixa digitalizada sem DPI gravado. O programa pede confirmação dizendo
+quantas serão decididas, e **Desfazer** volta tudo de uma vez. Página faltando não entra:
+decida cada uma.
+
 5. **Sequência:** miniaturas na ordem do arquivo com a numeração e o estado de cada
    página. Quando a numeração foi lida da imagem, o canto mostra o recorte exato onde ela
    foi procurada. **Ampliar**, duplo clique ou Z abre a página inteira, com
@@ -81,8 +91,10 @@ lote corrigido; voltar à orientação original registra "não girar".
      tela diz em que posição ela entrou; se não for aí, arraste para o lugar certo. A
      folha aparece como "folha inserida", com **Remover** para desfazer. A pasta
      original não é tocada: a folha fica na área de complementos do lote.
-   - **Corrigir tudo** aplica as correções automáticas do documento (no painel e na
-     revisão, **Corrigir o lote inteiro**). A tela de carregamento mostra quantas páginas
+   - **Corrigir pasta** aplica as correções automáticas só da pasta (na Sequência e na
+     revisão); **Corrigir tudo** aplica as de todas as pastas da caixa (no painel e na
+     revisão). Com a caixa ainda em análise, o botão diz "Corrigir tudo (pastas
+     prontas)": rode de novo quando a análise terminar. A tela de carregamento mostra quantas páginas
      já foram corrigidas. Depois aparecem as faixas **Antes** (como está no arquivo) e
      **Depois** (o lote corrigido, renumerado), com o que mudou em cada página.
    - Desfoque, resolução baixa e arquivo ilegível **não** são "melhorados": aparecem como
@@ -91,7 +103,7 @@ lote corrigido; voltar à orientação original registra "não girar".
      retrabalho*, *defeito de origem* ou *aprovar mesmo assim*. Enquanto houver página
      faltando sem decisão, **Salvar correções** fica bloqueado.
    - **Salvar correções** gera e baixa o lote corrigido; **Desfazer correções** desfaz só
-     o que o "Corrigir tudo" aplicou. Até salvar, a tela avisa que as correções não
+     o que o "Corrigir pasta" ou o "Corrigir tudo" aplicou. Até salvar, a tela avisa que as correções não
      foram salvas.
 6. **Metadados:** confirme ou corrija os campos exigidos pelo Decreto 10.278/2020.
 7. **Relatório:** salve o lote corrigido na pasta de saída (programa desktop) ou baixe o

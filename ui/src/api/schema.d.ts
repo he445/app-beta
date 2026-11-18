@@ -424,11 +424,16 @@ export interface paths {
         get: operations["listBulkCorrections"];
         put?: never;
         /**
-         * Corrigir tudo (documento ou lote inteiro)
-         * @description Decide `correct` em todas as sinalizações PENDENTES com correção automática do escopo:
-         *     correções de imagem (aplicadas numa cópia), remoção de página em branco e reordenação
-         *     pela numeração. Página faltando, defeitos que exigem redigitalização e o que pede
-         *     decisão humana ficam pendentes e voltam em `result.skipped`. Roda em segundo plano;
+         * Corrigir pasta, Corrigir tudo ou Decidir semelhantes
+         * @description Sem `action`: decide `correct` em todas as sinalizações PENDENTES com correção
+         *     automática do escopo (a pasta, `document`, ou a caixa, `batch`), opcionalmente só de
+         *     `rule`: correções de imagem (aplicadas numa cópia), remoção de página em branco e
+         *     reordenação pela numeração. Página faltando, defeitos que exigem redigitalização e o
+         *     que pede decisão humana ficam pendentes e voltam em `result.skipped`.
+         *     Com `rule` e `action` (Decidir semelhantes): a mesma decisão em todas as pendentes
+         *     da regra no escopo; `missing_page` responde 422.
+         *     Com a caixa em análise, vale para os processos já prontos: pasta ainda em análise
+         *     responde 409 e a caixa inteira volta com `partial` (ADR-0024). Roda em segundo plano;
          *     acompanhe o progresso real em `GET /bulk-corrections/{operation_id}`.
          *
          */
@@ -1593,6 +1598,12 @@ export interface components {
             note?: string;
         };
         /**
+         * RuleId
+         * @description Identificador de uma regra registrada.
+         * @enum {unknown}
+         */
+        "rule-id.schema": "corrupted_file" | "low_resolution" | "blank_page" | "orientation" | "black_borders" | "blur" | "skew" | "exposure" | "duplicate_page" | "missing_page" | "out_of_order" | "numbering_review" | "completeness_unverifiable";
+        /**
          * BulkCorrection
          * @description Operação de correção em lote: progresso real, resultado e desfazer.
          */
@@ -1606,6 +1617,15 @@ export interface components {
                 kind: "batch" | "document";
                 id: string;
             };
+            /** @description Regra filtrada, quando houver. */
+            rule?: components["schemas"]["rule-id.schema"];
+            /**
+             * @description Decisão aplicada em lote (Decidir semelhantes); ausente = corrigir o automático.
+             * @enum {unknown}
+             */
+            action?: "approve" | "reject" | "source_defect";
+            /** @description Rodou com a caixa ainda em análise: só os processos já prontos entraram. */
+            partial?: boolean;
             /** @enum {unknown} */
             status: "queued" | "running" | "applied" | "saved" | "undone" | "failed";
             progress: {
@@ -1666,7 +1686,7 @@ export interface components {
         };
         /**
          * BulkCorrectionRequest
-         * @description Pedido de "Corrigir tudo" para um documento ou para o lote inteiro.
+         * @description Pedido de operação em lote: "Corrigir pasta" (scope document), "Corrigir tudo" (scope batch) ou "Decidir semelhantes" (com rule e action). Com a caixa em análise, vale para os processos já prontos (ADR-0024).
          */
         "bulk-correction-request.schema": {
             /** @enum {unknown} */
@@ -1674,7 +1694,14 @@ export interface components {
             /** Format: uuid */
             document_id?: string;
             reviewer: string;
-        };
+            /** @description Só as sinalizações desta regra. Obrigatória com action; página faltando (missing_page) não aceita action. */
+            rule?: components["schemas"]["rule-id.schema"];
+            /**
+             * @description Decidir semelhantes: a mesma decisão em todas as sinalizações pendentes da regra no escopo (approve = falso positivo, reject = retrabalho, source_defect = defeito de origem). Sem ela, corrige só o que é automático e seguro.
+             * @enum {unknown}
+             */
+            action?: "approve" | "reject" | "source_defect";
+        } & (unknown & unknown);
         /**
          * CorrectedPage
          * @description Uma página do lote final: de onde vem, para onde vai e o que mudou.
@@ -2042,12 +2069,6 @@ export interface components {
             value?: unknown;
             reviewer: string;
         };
-        /**
-         * RuleId
-         * @description Identificador de uma regra registrada.
-         * @enum {unknown}
-         */
-        "rule-id.schema": "corrupted_file" | "low_resolution" | "blank_page" | "orientation" | "black_borders" | "blur" | "skew" | "exposure" | "duplicate_page" | "missing_page" | "out_of_order" | "numbering_review" | "completeness_unverifiable";
         /**
          * StationOverride
          * @description O que a estação muda numa regra.

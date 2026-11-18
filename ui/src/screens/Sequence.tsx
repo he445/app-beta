@@ -1,5 +1,5 @@
 // Tela 6: sequência do documento. Mostra como está no arquivo ("Antes") e, depois do
-// "Corrigir tudo", como fica o lote corrigido ("Depois"), com página faltando decidida à mão.
+// "Corrigir pasta", como fica o lote corrigido ("Depois"), com página faltando decidida à mão.
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useBatch,
@@ -66,7 +66,8 @@ export function Sequence({ id, doc }: { id: string; doc?: string }) {
   const batch = useBatch(id);
   const plan = usePlan(id, Boolean(report.data));
   const ops = useBulkOperations(id);
-  const active = activeOperation(ops.data);
+  const running = activeOperation(ops.data);
+  const active = running?.action ? undefined : running;
   const finishing = useFinishingOperation(ops.data, active);
   const r = report.data;
   const queue = batch.data?.documents;
@@ -76,11 +77,11 @@ export function Sequence({ id, doc }: { id: string; doc?: string }) {
     [plan.data],
   );
 
-  // Depois de "Corrigir o lote inteiro", abre o primeiro documento que mudou.
+  // Depois de "Corrigir tudo", abre o primeiro documento que mudou.
   const lastFinished = useRef<string | null>(null);
   useEffect(() => {
     const latest = ops.data?.[0];
-    if (!latest || latest.status !== "applied" || latest.scope.kind !== "batch" || !plan.data) return;
+    if (!latest || latest.action || latest.status !== "applied" || latest.scope.kind !== "batch" || !plan.data) return;
     if (lastFinished.current === latest.id) return;
     lastFinished.current = latest.id;
     const current = selected ? docPlans.get(selected.id) : undefined;
@@ -268,7 +269,9 @@ function DocumentSequence({
   const active = activeOperation(ops);
   const unsavedOps = unsavedOperations(ops, document.id);
   const unsaved = unsavedOps[0];
-  const lastOp = ops?.find((op) => op.status !== "undone" && (op.scope.kind === "batch" || op.scope.id === document.id));
+  const lastOp = ops?.find(
+    (op) => !op.action && op.status !== "undone" && (op.scope.kind === "batch" || op.scope.id === document.id),
+  );
   const canSave = saveState(plan, ops);
   const targets = useMemo(() => new Set([document.id, ...document.page_ids]), [document]);
   const changed = docPlan ? hasChanges(docPlan) : false;
@@ -322,10 +325,10 @@ function DocumentSequence({
           <button
             className="primary"
             disabled={Boolean(active) || start.isPending}
-            onClick={() => start.mutate(document.id)}
-            title="Aplica as correções automáticas pendentes deste documento"
+            onClick={() => start.mutate({ documentId: document.id })}
+            title="Aplica as correções automáticas pendentes só desta pasta"
           >
-            Corrigir tudo
+            Corrigir pasta
           </button>
           <button onClick={undoLast} disabled={!history.length || setDoc.isPending} title="Desfaz a última numeração ou mudança de ordem (Ctrl+Z)">
             Desfazer
@@ -361,7 +364,7 @@ function DocumentSequence({
             <button
               disabled={undoBulk.isPending}
               onClick={async () => {
-                // Desfaz só o que os "Corrigir tudo" ainda não salvos aplicaram, do mais recente ao mais antigo.
+                // Desfaz só o que os "Corrigir pasta/tudo" ainda não salvos aplicaram, do mais recente ao mais antigo.
                 for (const op of unsavedOps) await undoBulk.mutateAsync(op.id);
               }}
             >
@@ -380,7 +383,7 @@ function DocumentSequence({
 
       {lastOp?.result && lastOp.status !== "failed" && (
         <p className="small muted">
-          {lastOp.scope.kind === "batch" ? "Corrigir o lote inteiro" : "Corrigir tudo"}:{" "}
+          {lastOp.scope.kind === "batch" ? "Corrigir tudo" : "Corrigir pasta"}:{" "}
           {lastOp.result.applied_total ? appliedText(lastOp.result.applied_by_rule) : "nada automático para corrigir"}.
           {skippedText(lastOp, targets) && <> Não corrigido automaticamente: {skippedText(lastOp, targets)}.</>}
         </p>

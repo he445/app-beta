@@ -16,8 +16,8 @@ confirmação apaga o exemplo.
 | `numbering` | O revisor digita a numeração na tela de Sequência ou na revisão | número digitado | valor e estado resolvidos, origem e marcas lidas | recorte da região da numeração (só quando lida da imagem) |
 | `orientation` | O revisor decide uma sinalização de orientação ou gira a página | giro mantido (0 quando aprovou sem girar) | ângulo proposto (`null` quando o modelo não sinalizou) e confiança | miniatura da página (256 px de largura) |
 
-Decisões tomadas pelo "Corrigir tudo" não viram exemplo: não são confirmação de uma
-pessoa. Cada exemplo vence em `feedback.retention_days` (padrão 180) e é apagado,
+Decisões tomadas pelo "Corrigir pasta", pelo "Corrigir tudo" ou pelo "Decidir
+semelhantes" não viram exemplo: não são confirmação de uma pessoa página a página. Cada exemplo vence em `feedback.retention_days` (padrão 180) e é apagado,
 com a imagem, na limpeza periódica do programa.
 
 `qa feedback export --out pacote.zip` grava `numeracao/labels.json` (no formato do

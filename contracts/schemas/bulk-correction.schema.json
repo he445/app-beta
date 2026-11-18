@@ -42,6 +42,22 @@
         }
       }
     },
+    "rule": {
+      "$ref": "rule-id.schema.json",
+      "description": "Regra filtrada, quando houver."
+    },
+    "action": {
+      "enum": [
+        "approve",
+        "reject",
+        "source_defect"
+      ],
+      "description": "Decisão aplicada em lote (Decidir semelhantes); ausente = corrigir o automático."
+    },
+    "partial": {
+      "type": "boolean",
+      "description": "Rodou com a caixa ainda em análise: só os processos já prontos entraram."
+    },
     "status": {
       "enum": [
         "queued",

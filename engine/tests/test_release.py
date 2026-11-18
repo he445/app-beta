@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 
 from conftest import page_150, save
 from qa_engine.application.analyze import BatchAnalysis
+from qa_engine.application.contracts import validate
 from qa_engine.application.profile import Profile
 from qa_engine.application.release import merge_release
 from qa_engine.application.serialize import analysis_json
@@ -76,6 +77,19 @@ def test_first_process_is_released_without_cross_process_rules(
     assert doc1["reevaluate"] == sorted(new_in_doc1) and duplicate["id"] in doc1["reevaluate"]
     doc2 = next(d for d in merged["documents"] if d["name"] == "CX1/DOC2")
     assert "reevaluate" not in doc2  # ninguém tinha conferido o DOC2
+
+
+def run_to_end(client: TestClient, batch_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    r = client.post(f"/batches/{batch_id}/bulk-corrections", json=body, headers=AUTH)
+    assert r.status_code == 202, r.text
+    for _ in range(300):
+        op: dict[str, Any] = client.get(f"/bulk-corrections/{r.json()['id']}", headers=AUTH).json()
+        if op["status"] not in {"queued", "running"}:
+            validate(op, "bulk-correction.schema.json")
+            assert op["status"] == "applied", op
+            return op
+        time.sleep(0.05)
+    raise AssertionError("operação em lote não terminou")
 
 
 @pytest.fixture
@@ -151,12 +165,39 @@ def test_reviewer_opens_the_first_process_while_the_box_is_analyzed(
             ).status_code
             == 409
         )
-        bulk = client.post(
+        # Corrigir pasta e Decidir semelhantes já valem para o processo pronto (ADR-0024);
+        # a pasta que ainda está em análise responde 409.
+        doc1 = report["documents"][0]["id"]
+        doc2 = status["documents"]["pending"][0]["id"]
+        busy = client.post(
             f"/batches/{batch_id}/bulk-corrections",
-            json={"scope": "batch", "reviewer": "g1"},
+            json={"scope": "document", "document_id": doc2, "reviewer": "g1"},
             headers=AUTH,
         )
-        assert bulk.status_code == 409
+        assert busy.status_code == 409
+        similar = next(
+            f for f in report["findings"] if f["id"] != first["id"] and f["rule"] != "missing_page"
+        )
+        same_rule = {
+            f["id"]
+            for f in report["findings"]
+            if f["rule"] == similar["rule"] and f["id"] != first["id"]
+        }
+        op = run_to_end(
+            client,
+            batch_id,
+            {
+                "scope": "document",
+                "document_id": doc1,
+                "rule": similar["rule"],
+                "action": "source_defect",
+                "reviewer": "g1",
+            },
+        )
+        assert op["result"]["applied_total"] == len(same_rule)
+        assert "partial" not in op
+        whole = run_to_end(client, batch_id, {"scope": "batch", "reviewer": "g1"})
+        assert whole["partial"] is True
 
         gated.set()
         for _ in range(300):
@@ -169,5 +210,9 @@ def test_reviewer_opens_the_first_process_while_the_box_is_analyzed(
         assert [d["name"] for d in final["documents"]] == ["CX1/DOC1", "CX1/DOC2"]
         kept = next(f for f in final["findings"] if f["id"] == first["id"])
         assert kept["decision"]["action"] == "approve"
+        for f in final["findings"]:
+            if f["id"] in same_rule:  # a decisão em lote também passa pela passada final
+                assert f["decision"]["action"] == "source_defect"
+                assert f["decision"]["operation_id"] == op["id"]
         events = client.get(f"/batches/{batch_id}/events", headers=AUTH).text
         assert "event: done" in events

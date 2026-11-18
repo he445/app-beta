@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "bulk-correction-request.schema.json",
   "title": "BulkCorrectionRequest",
-  "description": "Pedido de \"Corrigir tudo\" para um documento ou para o lote inteiro.",
+  "description": "Pedido de operação em lote: \"Corrigir pasta\" (scope document), \"Corrigir tudo\" (scope batch) ou \"Decidir semelhantes\" (com rule e action). Com a caixa em análise, vale para os processos já prontos (ADR-0024).",
   "type": "object",
   "required": [
     "scope",
@@ -23,18 +23,46 @@
     "reviewer": {
       "type": "string",
       "minLength": 1
+    },
+    "rule": {
+      "$ref": "rule-id.schema.json",
+      "description": "Só as sinalizações desta regra. Obrigatória com action; página faltando (missing_page) não aceita action."
+    },
+    "action": {
+      "enum": [
+        "approve",
+        "reject",
+        "source_defect"
+      ],
+      "description": "Decidir semelhantes: a mesma decisão em todas as sinalizações pendentes da regra no escopo (approve = falso positivo, reject = retrabalho, source_defect = defeito de origem). Sem ela, corrige só o que é automático e seguro."
     }
   },
-  "if": {
-    "properties": {
-      "scope": {
-        "const": "document"
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "scope": {
+            "const": "document"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "document_id"
+        ]
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "action"
+        ]
+      },
+      "then": {
+        "required": [
+          "rule"
+        ]
       }
     }
-  },
-  "then": {
-    "required": [
-      "document_id"
-    ]
-  }
+  ]
 }

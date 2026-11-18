@@ -269,6 +269,77 @@ def test_undo_bulk_keeps_decisions_changed_afterwards(
     assert kept["decision"]["reviewer"] == "outro"
 
 
+# Corrigir só uma regra e Decidir semelhantes (ADR-0024) ------------------------------
+
+
+def test_bulk_filtered_by_rule_corrects_only_that_rule(
+    client: TestClient, correction_batch: Path
+) -> None:
+    batch_id = upload(client, correction_batch)
+    op = run_bulk(client, batch_id, rule="skew")
+    assert op["rule"] == "skew" and "action" not in op
+    assert op["result"]["applied_by_rule"] == {"skew": 1}
+    assert {s["rule"] for s in op["result"]["skipped"]} <= {"skew"}
+    decided = [f["rule"] for f in report(client, batch_id)["findings"] if f.get("decision")]
+    assert decided == ["skew"]
+
+
+def test_decide_similar_applies_one_decision_to_every_pending_finding_of_the_rule(
+    client: TestClient, correction_batch: Path
+) -> None:
+    batch_id = upload(client, correction_batch)
+    before = report(client, batch_id)
+    low = {f["id"] for f in by_rule(before)["low_resolution"]}
+    assert low
+    op = run_bulk(client, batch_id, rule="low_resolution", action="approve")
+    assert op["action"] == "approve"
+    assert op["result"]["applied_by_rule"] == {"low_resolution": len(low)}
+    assert op["result"]["skipped_total"] == 0
+    after = report(client, batch_id)
+    for f in after["findings"]:
+        if f["id"] in low:
+            assert f["decision"]["action"] == "approve"
+            assert f["decision"]["operation_id"] == op["id"]
+        else:
+            assert not f.get("decision"), f["rule"]
+    assert op["summary"] == after["batch"]["summary"]
+
+    r = client.delete(f"/bulk-corrections/{op['id']}", params={"reviewer": REVIEWER}, headers=AUTH)
+    assert r.status_code == 200, r.text
+    assert r.json()["undo"]["undone_total"] == len(low)
+    assert report(client, batch_id) == before
+
+
+def test_decide_similar_in_one_folder_leaves_the_others(
+    client: TestClient, correction_batch: Path
+) -> None:
+    batch_id = upload(client, correction_batch)
+    rep = report(client, batch_id)
+    doc3 = doc_id(rep, "CX2/DOC3")
+    pages_doc3 = set(next(d for d in rep["documents"] if d["id"] == doc3)["page_ids"])
+    run_bulk(
+        client, batch_id, scope="document", document_id=doc3, rule="blank_page", action="reject"
+    )
+    for f in report(client, batch_id)["findings"]:
+        inside = f["target"]["id"] in pages_doc3 and f["rule"] == "blank_page"
+        assert bool(f.get("decision")) == inside, f["rule"]
+
+
+def test_decide_similar_refuses_missing_page_and_correct(
+    client: TestClient, correction_batch: Path
+) -> None:
+    batch_id = upload(client, correction_batch)
+    url = f"/batches/{batch_id}/bulk-corrections"
+    missing = {"scope": "batch", "reviewer": REVIEWER, "rule": "missing_page", "action": "approve"}
+    r = client.post(url, json=missing, headers=AUTH)
+    assert r.status_code == 422 and "decida cada uma" in r.text
+    no_rule = {"scope": "batch", "reviewer": REVIEWER, "action": "approve"}
+    assert client.post(url, json=no_rule, headers=AUTH).status_code == 422
+    correct = {"scope": "batch", "reviewer": REVIEWER, "rule": "skew", "action": "correct"}
+    assert client.post(url, json=correct, headers=AUTH).status_code == 422
+    assert client.get(url, headers=AUTH).json() == []  # nenhuma operação criada
+
+
 # Página faltando e lote corrigido -------------------------------------------------------
 
 

@@ -5,7 +5,7 @@ import { useCapability } from "../api/engine";
 import { keys, useBatch, useBoxLocks, useReport } from "../api/hooks";
 import { streamEvents } from "../api/sse";
 import type { Analysis, BatchStatus } from "../api/types";
-import { BulkBatchButton } from "../components/BulkButton";
+import { BulkButtons } from "../components/BulkButton";
 import { Bar, Card, ErrorBox, Loading, SeverityBadge, Stat } from "../components/ui";
 import { lockNotices } from "../lib/boxLocks";
 import { SEVERITIES, VERDICT_LABEL, pct, ruleLabel } from "../lib/format";
@@ -97,8 +97,8 @@ function ReleaseQueue({ batchId, queue }: { batchId: string; queue: NonNullable<
   return (
     <Card title="Processos">
       <p className="small muted">
-        Cada processo fica pronto para conferir assim que é analisado. Juntar o lote corrigido, “Corrigir tudo” e o
-        relatório da caixa esperam a caixa inteira.
+        Cada processo fica pronto para conferir assim que é analisado. “Corrigir pasta”, “Corrigir tudo” e “Decidir
+        semelhantes” já valem para os prontos; juntar o lote corrigido e o relatório da caixa esperam a caixa inteira.
       </p>
       <ul className="plain release-queue">
         {queue.ready.map((d) => (
@@ -139,7 +139,7 @@ function Dashboard({ report }: { report: Analysis }) {
           </p>
         </div>
         <div className="row wrap">
-          <BulkBatchButton batchId={id} />
+          <BulkButtons batchId={id} openSequence />
           <a className="button primary" href={href({ name: "review", id })}>
             Revisar {pending} pendente(s)
           </a>

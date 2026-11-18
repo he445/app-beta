@@ -865,7 +865,10 @@ class Engine:
         )
 
     def run_bulk(self, batch_id: str, operation_id: str) -> None:
-        """Trabalho de fundo do "Corrigir tudo"."""
+        """Trabalho de fundo do "Corrigir tudo" e do "Decidir semelhantes".
+
+        Decisão em lote não vira exemplo da coleta do beta: ninguém olhou cada página.
+        """
         try:
             self.service.run_bulk(self.context(batch_id), operation_id)
         except Exception as exc:
@@ -1475,12 +1478,36 @@ def create_app(
 
     @app.post("/batches/{batch_id}/bulk-corrections", status_code=202)
     def start_bulk(batch_id: str, body: Annotated[dict[str, Any], Body()]) -> dict[str, Any]:
+        """Corrigir pasta, Corrigir tudo e Decidir semelhantes (ADR-0024).
+
+        Com a caixa em análise, vale para os processos já prontos: a pasta pedida tem de
+        estar pronta, e a caixa inteira fica marcada ``partial``. As decisões entram como
+        as individuais e a passada final as mantém (liberação por processo).
+        """
         validate(body, "bulk-correction-request.schema.json")
-        require_final(batch_id)
+        row = batch_or_404(batch_id)
+        partial = row.status != "analyzed"
+        if partial:
+            report = engine.repo.get_report(batch_id) if row.status == "processing" else None
+            if report is None:
+                raise HTTPException(409, "nenhuma pasta pronta ainda: espere a primeira")
+            ready = {d["id"] for d in report["documents"]}
+            if body["scope"] == "document" and body.get("document_id") not in ready:
+                raise HTTPException(409, "esta pasta ainda está em análise")
         ctx = engine.context(batch_id)
-        operation = engine.service.start_bulk(
-            ctx, body["scope"], body.get("document_id"), body["reviewer"]
-        )
+        action = body.get("action")
+        try:
+            operation = engine.service.start_bulk(
+                ctx,
+                body["scope"],
+                body.get("document_id"),
+                body["reviewer"],
+                rule=body.get("rule"),
+                action=DecisionAction(action) if action else None,
+                partial=partial and body["scope"] == "batch",
+            )
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
         engine.corrections.submit(engine.run_bulk, batch_id, operation["id"])
         return operation
 

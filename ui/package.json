@@ -1,7 +1,7 @@
 {
   "name": "qa-digitalizacao-ui",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.1.0",
   "type": "module",
   "description": "Interface web do QA automático de digitalização (fala com o motor só pela API do contrato).",
   "scripts": {

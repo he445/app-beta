@@ -6,6 +6,25 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ## [Não lançado]
 
+## [1.1.0] — 2026-11-18
+
+### Adicionado
+
+- **Corrigir pasta** e **Corrigir tudo** (ADR-0024): na revisão, o topo da fila tem os
+  dois, com a pasta da sinalização que está na tela; no painel, Corrigir tudo; na
+  Sequência, o botão por documento passa a se chamar Corrigir pasta (antes "Corrigir
+  tudo", que corrigia só aquela pasta). O progresso aparece ao lado do botão, com
+  **Desfazer** no fim.
+- **Durante a análise:** Corrigir pasta vale para qualquer pasta pronta, e Corrigir tudo
+  para as pastas prontas ("Corrigir tudo (pastas prontas)", operação marcada
+  `partial`). Antes, as duas respondiam 409 até a passada final. As decisões passam pela
+  passada final como as individuais.
+- **Decidir semelhantes:** no painel da sinalização, a mesma decisão (aprovar, retrabalho
+  ou defeito de origem) em todas as pendentes da mesma categoria, nesta pasta ou na caixa,
+  com confirmação e desfazer em lote. Exemplo: aprovar toda "Resolução abaixo do exigido"
+  de uma caixa sem DPI gravado. Página faltando não entra. A API aceita `rule` (só uma
+  regra) e `action` no pedido de operação em lote; contrato 0.19.0, migração 0013.
+
 ## [1.0.1] — 2026-11-18
 
 ### Adicionado

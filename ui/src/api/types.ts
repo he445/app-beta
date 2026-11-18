@@ -15,6 +15,8 @@ export type Region = S["region.schema"];
 export type DecisionRequest = S["decision-request.schema"];
 export type BulkCorrection = S["bulk-correction.schema"];
 export type BulkSkipped = NonNullable<BulkCorrection["result"]>["skipped"][number];
+/** Decisão aplicada em lote ("Decidir semelhantes"). */
+export type BulkDecision = NonNullable<BulkCorrection["action"]>;
 export type CorrectedPlan = S["corrected-plan.schema"];
 export type CorrectedDocument = S["corrected-document.schema"];
 export type CorrectedPage = S["corrected-page.schema"];

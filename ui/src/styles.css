@@ -366,3 +366,11 @@ button.full { width: 100%; justify-content: center; }
 .shortcut-list dd { margin: 0; }
 @media (max-width: 520px) { .shortcut-list > div { grid-template-columns: 1fr; } }
 .shortcuts-help > .row:first-child { justify-content: space-between; }
+
+/* Corrigir pasta / Corrigir tudo / Decidir semelhantes (ADR-0024) */
+.bulk-buttons { display: grid; gap: 0.35rem; }
+.bulk-buttons .row > button { flex: 1; }
+.op-status { display: grid; gap: 0.25rem; }
+.op-status .link { justify-self: start; }
+.similar { display: grid; gap: 0.4rem; margin: 0.5rem 0; padding: 0.6rem; border: 1px solid var(--border); border-radius: 8px; }
+.similar h3 { margin: 0; }

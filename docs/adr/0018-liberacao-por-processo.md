@@ -29,6 +29,8 @@ Opção 2 ([especificação](../especificacoes/liberacao-por-processo.md)).
   numeração digitada e ordem manual são reaplicadas, e achado novo num processo que já
   tinha decisões marca o processo como "reavaliar".
 - Corrigir tudo, salvar o lote corrigido e o relatório por caixa esperam a passada final.
+  Revisto pela [ADR-0024](0024-corrigir-pasta-e-decidir-semelhantes.md): Corrigir pasta,
+  Corrigir tudo e Decidir semelhantes valem para os processos prontos.
 
 ## Consequências
 

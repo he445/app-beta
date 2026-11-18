@@ -28,8 +28,9 @@ faltam; o primeiro está em análise). O fluxo `GET /batches/{id}/events` emite
 `document_ready` (`id`, `name`, `ready`, `pending`) para cada processo que fica pronto.
 
 Enquanto a caixa é analisada, dá para decidir sinalizações, digitar numeração e
-reordenar. Corrigir tudo, salvar o lote corrigido e gerar o relatório por caixa
-respondem 409 até a passada final.
+reordenar. Corrigir pasta, Corrigir tudo e Decidir semelhantes valem para os processos
+prontos (ADR-0024); salvar o lote corrigido e gerar o relatório por caixa respondem 409
+até a passada final.
 
 ## Passada final e mescla
 

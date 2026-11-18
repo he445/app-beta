@@ -8,6 +8,7 @@ import type {
   BatchStatus,
   BoxLocks,
   BulkCorrection,
+  BulkDecision,
   CorrectedBatch,
   CorrectedPlan,
   DecisionAction,
@@ -136,15 +137,24 @@ export function useBulkOperations(batchId: string) {
   return query;
 }
 
+/** Pedido de operação em lote: sem pasta = a caixa; com ``action`` = Decidir semelhantes. */
+export interface BulkStart {
+  documentId?: string;
+  rule?: string;
+  action?: BulkDecision;
+}
+
 export function useStartBulk(batchId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (documentId?: string) =>
-      json<BulkCorrection>(
-        `/batches/${batchId}/bulk-corrections`,
-        "POST",
-        documentId ? { scope: "document", document_id: documentId, reviewer: reviewer() } : { scope: "batch", reviewer: reviewer() },
-      ),
+    mutationFn: (req: BulkStart = {}) =>
+      json<BulkCorrection>(`/batches/${batchId}/bulk-corrections`, "POST", {
+        scope: req.documentId ? "document" : "batch",
+        ...(req.documentId ? { document_id: req.documentId } : {}),
+        ...(req.rule ? { rule: req.rule } : {}),
+        ...(req.action ? { action: req.action } : {}),
+        reviewer: reviewer(),
+      }),
     onSuccess: (op) => {
       qc.setQueryData<BulkCorrection[]>(keys.operations(batchId), (old) => [op, ...(old ?? [])]);
     },

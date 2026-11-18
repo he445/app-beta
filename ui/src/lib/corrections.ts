@@ -1,5 +1,5 @@
 // Estado das telas de correção em lote (TAREFAS 3 e 4), como funções puras.
-import type { BulkCorrection, CorrectedDocument, CorrectedPage, CorrectedPlan } from "../api/types";
+import type { Analysis, BulkCorrection, BulkDecision, CorrectedDocument, CorrectedPage, CorrectedPlan, QaDocument } from "../api/types";
 import { ruleLabel } from "./format";
 
 export function isActive(op: BulkCorrection | undefined): boolean {
@@ -19,6 +19,7 @@ export function unsavedOperations(
   return (ops ?? []).filter(
     (op) =>
       op.status === "applied" &&
+      !op.action && // Decidir semelhantes só decide: não gera cópia corrigida
       (op.result?.applied_total ?? 0) > 0 &&
       (op.scope.kind === "batch" || op.scope.id === documentId),
   );
@@ -146,4 +147,52 @@ export function skippedText(op: BulkCorrection | undefined, targetIds?: Set<stri
     counts.set(s.category, (counts.get(s.category) ?? 0) + 1);
   }
   return [...counts.entries()].map(([c, n]) => `${n} ${SKIP_LABEL[c] ?? c}`).join(" · ");
+}
+
+/** Regras que não entram em "Decidir semelhantes": cada página faltando pede decisão própria. */
+export const NO_SIMILAR_RULES = new Set(["missing_page"]);
+
+export const BULK_DECISION_LABEL: Record<BulkDecision, string> = {
+  approve: "Aprovar (falso positivo)",
+  reject: "Retrabalho",
+  source_defect: "Defeito de origem",
+};
+
+const BULK_DECISION_DONE: Record<BulkDecision, string> = {
+  approve: "aprovada(s)",
+  reject: "em retrabalho",
+  source_defect: "como defeito de origem",
+};
+
+/** Pendentes da mesma regra na pasta do documento e na caixa (o que já está no relatório). */
+export function similarCounts(
+  report: Pick<Analysis, "findings" | "pages">,
+  rule: string,
+  document: Pick<QaDocument, "id" | "page_ids"> | undefined,
+): { folder: number; box: number } {
+  const inFolder = new Set(document ? [document.id, ...document.page_ids] : []);
+  let folder = 0;
+  let box = 0;
+  for (const f of report.findings) {
+    if (f.rule !== rule || f.decision) continue;
+    box += 1;
+    if (inFolder.has(f.target.id)) folder += 1;
+  }
+  return { folder, box };
+}
+
+/** Resumo de uma operação em lote que terminou, para mostrar ao lado do botão. */
+export function operationSummary(op: BulkCorrection, documentName?: string): string {
+  const where = op.scope.kind === "document" ? `Pasta ${documentName ?? ""}`.trim() : "Caixa";
+  if (op.status === "failed") return `${where}: a operação falhou. ${op.error ?? ""}`.trim();
+  if (op.status === "undone") return `${where}: desfeito.`;
+  const n = op.result?.applied_total ?? 0;
+  if (op.action) {
+    const rule = op.rule ? ruleLabel(op.rule) : "";
+    return n ? `${where}: ${n} × ${rule} ${BULK_DECISION_DONE[op.action]}.` : `${where}: nenhuma ${rule} pendente.`;
+  }
+  const partial = op.partial ? " (só as pastas já prontas; rode de novo quando a análise terminar)" : "";
+  const skipped = op.result?.skipped_total ?? 0;
+  const rest = skipped ? `; ${skipped} pedem decisão humana ou redigitalização` : "";
+  return n ? `${where}: ${n} correção(ões) aplicada(s)${rest}${partial}.` : `${where}: nada automático pendente${rest}${partial}.`;
 }

@@ -65,7 +65,7 @@ const TOKEN = process.env.QA_TOKEN ?? 'demo-token';
   await page.waitForTimeout(1500);
   await page.screenshot({ path: `${S}/3-revisao.png` });
   const before = await page.locator('.queue-row').count();
-  // Decisão pelo teclado e Ctrl+Z (o "Corrigir tudo" vem depois, sobre o estado original).
+  // Decisão pelo teclado e Ctrl+Z (o "Corrigir pasta" vem depois, sobre o estado original).
   const t1 = Date.now();
   await page.keyboard.press('a');
   await page.waitForFunction((n) => document.querySelectorAll('.queue-row').length === n - 1, before, { timeout: 5000 });
@@ -91,7 +91,7 @@ const TOKEN = process.env.QA_TOKEN ?? 'demo-token';
   await page.waitForTimeout(300);
   const fixed = page.locator('.queue-row.decided', { hasText: 'Inclinação' }).first();
   if (await fixed.count()) { await fixed.click(); await page.waitForTimeout(1500); await page.screenshot({ path: `${S}/4-correcao-depois.png` }); }
-  // ---- Corrigir tudo (documento) --------------------------------------------------
+  // ---- Corrigir pasta (documento) -------------------------------------------------
   await page.getByRole('link', { name: 'Sequência', exact: true }).click();
   await page.locator('.doc-list a').first().waitFor();
   await page.locator('.doc-list .mark').first().waitFor({ timeout: 5000 }).catch(() => undefined);
@@ -101,15 +101,15 @@ const TOKEN = process.env.QA_TOKEN ?? 'demo-token';
   await docLink.click();
   await page.waitForTimeout(1200);
   await page.screenshot({ path: `${S}/5-sequencia-antes.png`, fullPage: true });
-  await page.getByRole('button', { name: 'Corrigir tudo' }).click();
-  console.log(`Corrigir tudo (${docName}):`, await progressTitles(page));
+  await page.getByRole('button', { name: 'Corrigir pasta' }).click();
+  console.log(`Corrigir pasta (${docName}):`, await progressTitles(page));
   await page.waitForTimeout(800);
-  console.log('resultado:', (await page.locator('p.small.muted', { hasText: 'Corrigir tudo' }).first().textContent()).trim());
+  console.log('resultado:', (await page.locator('p.small.muted', { hasText: 'Corrigir pasta' }).first().textContent()).trim());
 
-  // ---- Corrigir o lote inteiro (painel) ---------------------------------------------
+  // ---- Corrigir tudo (painel) -------------------------------------------------------
   await page.getByRole('link', { name: 'Painel', exact: true }).click();
-  await page.getByRole('button', { name: 'Corrigir o lote inteiro' }).click();
-  console.log('Corrigir o lote inteiro:', await progressTitles(page));
+  await page.getByRole('button', { name: 'Corrigir tudo', exact: true }).click();
+  console.log('Corrigir tudo:', await progressTitles(page));
   await page.waitForTimeout(1500);
   const docs = page.locator('.doc-list a');
   const summary = { endireitadas: 0, removidas: 0, movidas: 0, redigitalizar: 0, depois: 0 };

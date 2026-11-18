@@ -1,8 +1,9 @@
 // Telas 4 e 5: fila de revisão e detalhe da página, operadas pelo teclado.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useDecide, usePageImage, useReport, useRotate, useSetNumbering, useUndo } from "../api/hooks";
+import { isRunning, useBatch, useDecide, usePageImage, useReport, useRotate, useSetNumbering, useUndo } from "../api/hooks";
 import type { Analysis, DecisionAction, Severity } from "../api/types";
-import { BulkBatchButton } from "../components/BulkButton";
+import { BulkButtons } from "../components/BulkButton";
+import { SimilarDecisions } from "../components/SimilarDecisions";
 import { Viewer, type ViewerHandle } from "../components/Viewer";
 import { ErrorBox, Loading, SeverityBadge, Thumb } from "../components/ui";
 import {
@@ -36,6 +37,8 @@ function ReviewQueue({ report }: { report: Analysis }) {
   const [toast, setToast] = useState<{ text: string; n: number } | null>(null);
   const setMessage = (text: string) => setToast((t) => ({ text, n: (t?.n ?? 0) + 1 }));
   const viewer = useRef<ViewerHandle>(null);
+  const batch = useBatch(batchId);
+  const analyzing = batch.data ? isRunning(batch.data) : false;
   const decide = useDecide(batchId);
   const undo = useUndo(batchId);
   const rotateMutation = useRotate(batchId);
@@ -153,7 +156,7 @@ function ReviewQueue({ report }: { report: Analysis }) {
             <strong>{done}</strong> de {report.findings.length} decididas
             <div className="progress small"><div style={{ width: pct(report.findings.length ? done / report.findings.length : 0) }} /></div>
           </div>
-          <BulkBatchButton batchId={batchId} className="full" />
+          <BulkButtons batchId={batchId} document={current?.document} analyzing={analyzing} />
           <div className="filters">
             {SEVERITIES.map((sev, i) => (
               <button
@@ -216,6 +219,14 @@ function ReviewQueue({ report }: { report: Analysis }) {
             onRotate={rotate}
             rotation={current.page ? currentRotation(report.findings, current.page.id) : 0}
             pageCorrected={Boolean(current.imagePage && correctedPages.has(current.imagePage.id))}
+            extra={
+              <SimilarDecisions
+                batchId={batchId}
+                report={report}
+                rule={current.finding.rule}
+                document={current.document}
+              />
+            }
           />
         ) : (
           <div className="empty">
@@ -270,6 +281,7 @@ function Detail({
   onRotate,
   rotation,
   pageCorrected,
+  extra,
 }: {
   item: QueueItem;
   viewer: React.RefObject<ViewerHandle>;
@@ -279,6 +291,8 @@ function Detail({
   onRotate: (delta: 90 | 180 | 270) => void;
   rotation: number;
   pageCorrected: boolean;
+  /** Abaixo das ações: "Decidir semelhantes". */
+  extra?: React.ReactNode;
 }) {
   const f = item.finding;
   const corrected = pageCorrected && f.target.kind === "page";
@@ -334,6 +348,8 @@ function Detail({
             {DECISION_LABEL[f.decision.action]} por {f.decision.reviewer} em {new Date(f.decision.decided_at).toLocaleString("pt-BR")}
           </p>
         )}
+
+        {extra}
 
         {page && (
           <div className="rotation">
