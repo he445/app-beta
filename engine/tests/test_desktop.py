@@ -9,7 +9,7 @@ import subprocess
 import sys
 import time
 import urllib.request
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
@@ -19,7 +19,13 @@ from fastapi.testclient import TestClient
 from qa_engine.adapters.instance import InstanceLock
 from qa_engine.adapters.logs import mask_paths, write_crash
 from qa_engine.application.admin import hash_token
-from qa_engine.entrypoints.desktop.main import Bridge, desktop_settings, error_page, free_port
+from qa_engine.entrypoints.desktop.main import (
+    Bridge,
+    RollbackBridge,
+    desktop_settings,
+    error_page,
+    free_port,
+)
 from qa_engine.entrypoints.http.app import create_app
 from qa_engine.entrypoints.http.settings import Settings
 
@@ -111,6 +117,27 @@ def test_bridge_gives_the_token_and_no_folder_without_window() -> None:
     bridge = Bridge("abc")
     assert bridge.get_session() == {"token": "abc"}
     assert bridge.pick_folder() is None
+
+
+@pytest.mark.parametrize(
+    ("make", "expected"),
+    [
+        (lambda tmp: Bridge("abc"), {"get_session", "pick_folder"}),
+        (lambda tmp: RollbackBridge(tmp / "qa.db"), {"restore"}),
+    ],
+)
+def test_bridges_expose_only_their_methods(
+    tmp_path: Path, make: Callable[[Path], object], expected: set[str]
+) -> None:
+    # A pywebview monta window.pywebview.api percorrendo todo atributo público do js_api e
+    # descendo nos objetos. Com a janela num atributo público, ela descia pelo WebView2 e a
+    # ponte chegava tarde: a interface desistia e pedia token. Só métodos podem ser públicos.
+    bridge = make(tmp_path)
+    if isinstance(bridge, Bridge):
+        bridge._window = object()  # como open_window faz
+    public = {name for name in dir(bridge) if not name.startswith("_")}
+    assert public == expected
+    assert all(callable(getattr(bridge, name)) for name in public)
 
 
 def test_instance_lock_is_exclusive(tmp_path: Path) -> None:

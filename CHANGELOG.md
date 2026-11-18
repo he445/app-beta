@@ -6,6 +6,8 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ## [Não lançado]
 
+## [1.0.1] — 2026-11-18
+
 ### Adicionado
 
 - Bench de orientação (`tools/bench_orientation.py`): roda o mesmo caminho da análise
@@ -54,6 +56,14 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
   da imagem; o `sos-piloto` usa 0,98 (erro de 0,7% acima disso). Uma leitura errada com
   0,94 deixa de confirmar lacuna ("Faltam fls. 1996 a 1998", com ação física) e vai para
   o revisor. O bench de numeração ganha `--reliability`.
+- Programa desktop: em computador mais lento o `QA.exe` pedia token de acesso, que no
+  desktop não existe. A ponte da janela guardava a janela num atributo público, e a
+  pywebview descia por ele nos objetos nativos do WebView2 (cada um falhando fora da
+  thread da interface, os erros `CoreWebView2 can only be accessed from the UI thread`
+  no `qa.log`) ao montar `window.pywebview.api`; a ponte passava dos 3 s que a interface
+  esperava e ela caía na tela de token. As pontes agora só expõem métodos, e a interface
+  espera a pywebview terminar quando ela já está na página (até 30 s), sem tomar o
+  `api: {}` vazio do começo por ponte pronta. Contorno na 1.0.0: `QA.exe --browser`.
 
 ## [1.0.0] — 2026-11-12
 

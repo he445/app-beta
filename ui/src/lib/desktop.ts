@@ -15,18 +15,45 @@ declare global {
 
 const READY_EVENT = "pywebviewready";
 
-/** A ponte da janela, se houver. A pywebview injeta a API pouco depois de carregar a página. */
-export function desktopApi(timeoutMs = 3000): Promise<Partial<DesktopApi> | null> {
+/**
+ * A API já foi preenchida. A pywebview cria ``window.pywebview`` com ``api: {}`` vazio e só
+ * depois acrescenta as funções e dispara ``pywebviewready``: objeto vazio ainda não é ponte.
+ */
+function readyApi(): Partial<DesktopApi> | null {
+  const api = window.pywebview?.api;
+  return api && Object.keys(api).length > 0 ? api : null;
+}
+
+/**
+ * A ponte da janela, se houver. A pywebview injeta a API pouco depois de carregar a página.
+ *
+ * Fora da janela, desiste em ``timeoutMs``. Se a pywebview já apareceu na página (é a
+ * janela, só que a API ainda está sendo montada), espera mais ``injectedTimeoutMs``: em
+ * computador lento a montagem passa de 3 s, e desistir cedo fazia a interface pedir token.
+ */
+export function desktopApi(timeoutMs = 3000, injectedTimeoutMs = 30000): Promise<Partial<DesktopApi> | null> {
   if (typeof window === "undefined") return Promise.resolve(null);
-  if (window.pywebview?.api) return Promise.resolve(window.pywebview.api);
+  const ready = readyApi();
+  if (ready) return Promise.resolve(ready);
   return new Promise((resolve) => {
+    let extended = false;
+    let timer: ReturnType<typeof setTimeout>;
     const done = () => {
-      window.removeEventListener(READY_EVENT, done);
+      window.removeEventListener(READY_EVENT, onReady);
       clearTimeout(timer);
-      resolve(window.pywebview?.api ?? null);
+      resolve(readyApi());
     };
-    const timer = setTimeout(done, timeoutMs);
-    window.addEventListener(READY_EVENT, done);
+    const onReady = () => done();
+    const onTimeout = () => {
+      if (!extended && window.pywebview && !readyApi()) {
+        extended = true;
+        timer = setTimeout(done, injectedTimeoutMs);
+        return;
+      }
+      done();
+    };
+    timer = setTimeout(onTimeout, timeoutMs);
+    window.addEventListener(READY_EVENT, onReady);
   });
 }
 

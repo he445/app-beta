@@ -106,11 +106,16 @@ class Bridge:
     """O que a janela expõe à interface em ``window.pywebview.api``.
 
     O token vai pela ponte, nunca pela URL: assim não aparece em histórico nem em log.
+
+    Só os métodos podem ser públicos: a pywebview percorre cada atributo público do
+    ``js_api`` para montar ``window.pywebview.api``. Com a janela num atributo público,
+    ela descia pelos objetos nativos do WebView2 (cada um falhando fora da thread da
+    interface) e a ponte chegava depois da espera da interface, que então pedia token.
     """
 
     def __init__(self, token: str) -> None:
         self._token = token
-        self.window: Any = None
+        self._window: Any = None  # ligada por ``open_window`` (diálogo de pasta)
 
     def get_session(self) -> dict[str, str]:
         """Token desta abertura."""
@@ -118,11 +123,11 @@ class Bridge:
 
     def pick_folder(self) -> str | None:
         """Diálogo nativo de escolher pasta; ``None`` se a pessoa cancelar."""
-        if self.window is None:
+        if self._window is None:
             return None
         import webview
 
-        chosen = self.window.create_file_dialog(webview.FileDialog.FOLDER)
+        chosen = self._window.create_file_dialog(webview.FileDialog.FOLDER)
         return str(chosen[0]) if chosen else None
 
 
@@ -177,7 +182,7 @@ class RollbackBridge:
     """Botão da tela de volta de versão (``window.pywebview.api.restore``)."""
 
     def __init__(self, db: Path) -> None:
-        self.db = db
+        self._db = db  # privado: a pywebview expõe todo atributo público (ver ``Bridge``)
 
     def restore(self) -> dict[str, str]:
         """Restaura a cópia de antes da atualização; diz o que fazer em seguida."""
@@ -186,7 +191,7 @@ class RollbackBridge:
         from qa_engine.adapters.database_backup import BackupError, restore_before_update
 
         try:
-            copy, kept = restore_before_update(self.db, datetime.now(tz=UTC))
+            copy, kept = restore_before_update(self._db, datetime.now(tz=UTC))
         except (BackupError, OSError) as exc:
             return {"ok": "", "message": str(exc)}
         message = f"Banco restaurado de {copy.name}. Feche esta janela e abra o programa de novo."
@@ -368,7 +373,7 @@ def open_window(server: EngineServer, bridge: Bridge, on_closed: Callable[[], No
         )
         if window is None:
             return False
-        bridge.window = window
+        bridge._window = window  # privado de propósito: ver ``Bridge``
 
         def focus() -> None:
             window.restore()
