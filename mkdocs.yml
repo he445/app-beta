@@ -83,6 +83,9 @@ nav:
           - "0018 Liberação por processo": adr/0018-liberacao-por-processo.md
           - "0019 Trava por caixa": adr/0019-trava-por-caixa-na-pasta-compartilhada.md
           - "0020 Metadados do Decreto no lote corrigido": adr/0020-metadados-do-decreto-no-lote-corrigido.md
+          - "0021 Tabela de trocas de dígito": adr/0021-tabela-de-trocas-de-digito.md
+          - "0022 Checagem de documento na sequência": adr/0022-checagem-de-documento-na-sequencia.md
+          - "0023 Limiar de confiança por origem": adr/0023-limiar-de-confianca-por-origem-da-numeracao.md
           - Modelo: adr/0000-template.md
   - Especificações:
       - especificacoes/index.md

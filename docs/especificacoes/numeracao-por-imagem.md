@@ -30,12 +30,20 @@ mesma em que a inclinação é medida, já girada quando a página veio de lado)
 4. **Leituras.** O reconhecedor do perfil (`numbering.recognizer`, padrão
    `ppocrv5-mobile-rec`) devolve até três leituras por caixa, com busca restrita ao
    vocabulário de número de folha (dígitos, `-`, letras de intercalação, `v`). Ficam só as
-   leituras com formato de folha (`parse_folio`) e confiança de pelo menos 0,3. Caixa
-   sem leitura válida é palavra ou rabisco: não vira marca, mas conta como **escrito**.
-   Para cada leitura com 1 ou 7, entra também a alternativa com o dígito trocado (um de
-   cada vez), com metade da confiança, se ainda não estiver entre as leituras: a letra de
-   mão troca 1 e 7 e o reconhecedor às vezes tem certeza do errado ("72-A" no lugar de
-   "12-A"). Ficam as três mais confiáveis; quem escolhe é o resolvedor, pela sequência.
+   leituras com formato de folha (`parse_folio`), e a caixa só vira marca se a melhor tiver
+   confiança de pelo menos 0,3; as outras leituras do reconhecedor ficam mesmo abaixo
+   disso (são a segunda opção dele). Caixa sem leitura válida é palavra ou rabisco: não
+   vira marca, mas conta como **escrito**. Depois, para cada dígito da leitura mais
+   confiável que está na tabela de trocas (`numbering.confusions`), entra a alternativa
+   com o dígito trocado, um de cada vez, com a confiança multiplicada pelo peso do par, se
+   ainda não estiver entre as leituras: a letra de mão troca dígitos e o reconhecedor às
+   vezes tem certeza do errado ("72-A" no lugar de "12-A", "1990" no lugar de "1920").
+   Tabela padrão: 1↔7, 2↔9, 0↔9, 3↔5, 7↔9 e 0↔6, peso 0,5. Ficam até **cinco** leituras:
+   as do reconhecedor primeiro; as alternativas completam, as de maior confiança primeiro
+   e, no empate, as do dígito mais à direita (o que muda de uma folha para a seguinte).
+   Quem escolhe é o resolvedor, pela sequência; alternativa escolhida deixa a página
+   inferida, para o revisor. Trocar dois dígitos de uma vez foi medido e não acrescentou
+   nenhum acerto.
 5. **Riscado.** Nota de 0 a 1 por caixa (com margem de 0,3 do tamanho, porque o risco
    costuma passar da caixa): traço quase reto que atravessa pelo menos 85% da largura da
    tinta na faixa do meio, ou dois traços cruzando no centro (X). A marca é riscada com

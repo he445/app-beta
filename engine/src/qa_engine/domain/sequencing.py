@@ -21,6 +21,23 @@ _FOLIO_RE = re.compile(
 )
 
 
+DIGIT_CONFUSIONS: tuple[tuple[str, str], ...] = (
+    ("1", "7"),
+    ("7", "1"),
+    ("2", "9"),
+    ("9", "2"),
+    ("0", "9"),
+    ("9", "0"),
+    ("3", "5"),
+    ("5", "3"),
+    ("7", "9"),
+    ("9", "7"),
+    ("6", "0"),
+    ("0", "6"),
+)
+"""Trocas de dígito da letra de mão (dígito lido, dígito que pode ser o certo)."""
+
+
 class NumberingMode(StrEnum):
     """Padrão esperado de numeração no perfil."""
 
@@ -59,6 +76,22 @@ class Folio:
         return text
 
 
+@dataclass(frozen=True, slots=True)
+class DocumentDoubt:
+    """Dúvida sobre a numeração do documento inteiro, que nenhuma página isolada mostra."""
+
+    first: Folio
+    last: Folio
+    page_id: str
+    """Primeira página com valor, onde a sinalização fica."""
+    read: str | None = None
+    """Dígito comum a todas as folhas que a letra de mão troca (troca sistemática)."""
+    alternative: str | None = None
+    """Dígito que pode ser o certo."""
+    alternative_first: Folio | None = None
+    alternative_last: Folio | None = None
+
+
 def parse_folio(text: str) -> Folio | None:
     """Interpreta uma leitura (``"fls. 12"``, ``"12-v"``, ``"12-A"``) ou retorna ``None``."""
     match = _FOLIO_RE.match(text)
@@ -91,6 +124,17 @@ def missing_between(prev: Folio, cur: Folio, mode: NumberingMode) -> list[Folio]
         missing.append(nxt)
         nxt = successor(nxt, mode)
     return missing
+
+
+def gap_size(prev: Folio, cur: Folio, mode: NumberingMode) -> int:
+    """Quantas folhas faltam entre ``prev`` e ``cur``: ``len(missing_between(...))`` sem a lista.
+
+    O sucessor de qualquer folha fica uma posição adiante na ordem (``_ordinal``), então a
+    lacuna é a distância menos um, com o mesmo teto de 1000 de :func:`missing_between`.
+    """
+    if cur <= prev or cur == successor(prev, mode) or _is_intercalation(prev, cur, mode):
+        return 0
+    return min(max(_ordinal(cur, mode) - _ordinal(prev, mode) - 1, 0), 1000)
 
 
 def _is_intercalation(prev: Folio, cur: Folio, mode: NumberingMode) -> bool:
@@ -149,6 +193,10 @@ class SequenceParams:
     w_repeat: float = 1.0
     """Numeração repetida é penalizada menos que retrocesso: duplicata ou defeito de origem."""
     w_infer: float = 1.0
+    confusions: tuple[tuple[str, str], ...] = DIGIT_CONFUSIONS
+    """Trocas de dígito do leitor: a checagem de documento procura a troca sistemática."""
+    max_first_folio: int | None = None
+    """Documento cuja numeração começa depois disto vai para revisão (``None``: desligado)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -228,7 +276,7 @@ def _transition(prev: Folio | None, cur: Folio, p: SequenceParams) -> float:
     if _is_intercalation(prev, cur, p.mode):
         return p.w_intercalation
     if cur > prev:
-        return -min(p.w_gap * len(missing_between(prev, cur, p.mode)), p.w_gap_max)
+        return -min(p.w_gap * gap_size(prev, cur, p.mode), p.w_gap_max)
     if cur == prev:
         return -p.w_repeat
     return -p.w_back
@@ -336,6 +384,57 @@ def _classify(page: PageCandidates, option: _Option | None, p: SequenceParams) -
         )
     state = PageNumberingState.RENUMBERED if struck else PageNumberingState.READ
     return PageNumbering(page.page_id, state, value, option.confidence, previous)
+
+
+def document_doubt(result: SequenceResult, params: SequenceParams) -> DocumentDoubt | None:
+    """Checagem de documento: a numeração inteira pode estar errada do mesmo jeito.
+
+    Um reconhecedor que erra sempre o mesmo dígito (o 2 com laço lido como 9) produz uma
+    sequência coerente, e o resolvedor a aceita. Isso só passa calado quando o dígito
+    trocado é igual em todas as folhas: trocar um dígito comum a todas soma a mesma
+    constante a cada folha, e a sequência alternativa fecha tão bem quanto a lida. Há
+    dúvida quando todas as folhas com valor têm o mesmo dígito numa posição e a tabela de
+    trocas diz que ele pode ser um dígito **menor** (folha baixa é mais comum que alta:
+    todo documento tem fls. 1, poucos têm fls. 1990). Opcionalmente, também quando a
+    numeração começa depois de ``max_first_folio``.
+
+    Args:
+        result: resolução do documento.
+        params: parâmetros do resolvedor (``confusions`` e ``max_first_folio``).
+
+    Returns:
+        A dúvida, com a troca e a numeração alternativa quando houver, ou ``None``.
+    """
+    by_id = {p.page_id: p for p in result.pages}
+    valued = [by_id[pid] for pid in result.order if by_id[pid].value is not None]
+    if not valued:
+        return None
+    folios = [p.value for p in valued if p.value is not None]
+    first, last = min(folios), max(folios)
+    page_id = valued[0].page_id
+    numbers = [str(f.number) for f in folios]
+    for k in range(min(len(n) for n in numbers)):  # da direita para a esquerda
+        digits = {n[-1 - k] for n in numbers}
+        if len(digits) != 1:
+            continue
+        digit = digits.pop()
+        leading = any(len(n) == k + 1 for n in numbers)
+        for read, alternative in params.confusions:
+            if read != digit or alternative >= digit or (leading and alternative == "0"):
+                continue
+            delta = (int(alternative) - int(digit)) * 10**k
+            return DocumentDoubt(
+                first,
+                last,
+                page_id,
+                digit,
+                alternative,
+                Folio(first.number + delta, first.letter, first.verso),
+                Folio(last.number + delta, last.letter, last.verso),
+            )
+    if params.max_first_folio is not None and first.number > params.max_first_folio:
+        return DocumentDoubt(first, last, page_id)
+    return None
 
 
 def resolve(pages: Sequence[PageCandidates], params: SequenceParams) -> SequenceResult:

@@ -18,10 +18,24 @@ numbering:
   mode: simple                 # recto_verso quando o verso não é numerado
   min_confidence: 0.5
   high_confidence: 0.85
+  image_high_confidence: 0.98  # PP-OCRv5 no ARDIS: erro 0,7% acima disso (docs/modelos/reconhecedores.md)
   regions:                     # frações da página já orientada: [x0, y0, x1, y1]
     - [0.60, 0.00, 1.00, 0.18] # canto superior direito
   struck_threshold: 0.6
   recognizer: ppocrv5-mobile-rec
+  confusions:                  # trocas de dígito da letra de mão: lido → alternativa (peso)
+    - { read: "1", alternative: "7", weight: 0.5 }
+    - { read: "7", alternative: "1", weight: 0.5 }
+    - { read: "2", alternative: "9", weight: 0.5 }
+    - { read: "9", alternative: "2", weight: 0.5 }
+    - { read: "0", alternative: "9", weight: 0.5 }
+    - { read: "9", alternative: "0", weight: 0.5 }
+    - { read: "3", alternative: "5", weight: 0.5 }
+    - { read: "5", alternative: "3", weight: 0.5 }
+    - { read: "7", alternative: "9", weight: 0.5 }
+    - { read: "9", alternative: "7", weight: 0.5 }
+    - { read: "6", alternative: "0", weight: 0.5 }
+    - { read: "0", alternative: "6", weight: 0.5 }
 feedback:                      # coleta do beta, só nesta máquina (aval de LGPD antes do piloto)
   enabled: true
   retention_days: 180
@@ -44,7 +58,7 @@ stations:
     overrides:
       duplicate_page: { enabled: false }
 detectors:
-  orientation: { params: { auto_threshold: 0.90, review_threshold: 0.60 } }
+  orientation: { params: { auto_threshold: 0.90, review_threshold: 0.60, upright_min_probability: 0.5 } }
   black_borders: { enabled: true }
   exposure: { enabled: true }
   low_resolution: { enabled: true, params: { min_dpi: 300 } }

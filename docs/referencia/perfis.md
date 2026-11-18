@@ -23,10 +23,16 @@ limiares, e como a numeração e as estações são tratadas.
 | `numbering.mode` | `simple` ou `recto_verso` |  |  | `simple`: cada imagem tem um número. `recto_verso`: frente e verso (12, 12v), com o verso normalmente sem marca. |
 | `numbering.min_confidence` | número |  |  | Abaixo disso a leitura não conta. mín. 0, máx. 1 |
 | `numbering.high_confidence` | número |  |  | A partir disso a leitura é confiável: ancora lacunas e a ordem proposta. mín. 0, máx. 1 |
+| `numbering.image_high_confidence` | número |  |  | Confiança alta das leituras do leitor de imagem; substitui high_confidence quando a numeração vem da imagem (a escala de cada leitor é diferente). Ausente: vale high_confidence. mín. 0, máx. 1 |
+| `numbering.max_first_folio` | inteiro ou vazio |  |  | Documento cuja numeração começa depois desta folha vai para revisão (continuação de outro volume ou leitura errada). Ausente ou nulo: desligado; ligue quando todo documento da operação começa perto de fls. 1. mín. 1 |
 | `numbering.regions` | lista de lista de número |  |  | Onde procurar o número na página já orientada, em frações [x0, y0, x1, y1], testadas em ordem. Padrão: canto superior direito [0.60, 0.00, 1.00, 0.18]. |
 | `numbering.struck_threshold` | número |  |  | Nota de riscado a partir da qual o escrito é tratado como numeração anterior. Padrão 0,6. mín. 0, máx. 1 |
 | `numbering.recognizer` | `ppocrv5-mobile-rec` ou `trocr-small-handwritten` |  |  | Reconhecedor do número escrito. Padrão: ppocrv5-mobile-rec (escolhido pelo bench). |
 | `numbering.min_height_mm` | número |  |  | Altura mínima de um escrito, em milímetros (texto impresso menor que isso não é lido). Padrão 3. mín. 0.5, máx. 30 |
+| `numbering.confusions` | lista de objeto |  |  | Trocas de dígito que a letra de mão provoca. Para cada dígito da leitura mais confiável que está na tabela, entra a alternativa trocada (um dígito por vez), com a confiança multiplicada pelo peso; o resolvedor decide pela sequência e a alternativa escolhida vai para o revisor. Padrão: 1↔7, 2↔9, 0↔9, 3↔5, 7↔9 e 0↔6, peso 0,5. |
+| `numbering.confusions[].read` | texto | sim |  | Dígito lido pelo reconhecedor. padrão `^[0-9]$` |
+| `numbering.confusions[].alternative` | texto | sim |  | Dígito que pode ser o certo. padrão `^[0-9]$` |
+| `numbering.confusions[].weight` | número | sim |  | Confiança da alternativa relativa à leitura de onde ela saiu. máx. 1 |
 | `numbering.read_from_image` | sim/não |  |  | Ler a numeração da imagem quando o lote não tem numbering.json. Padrão: sim (exige os modelos). |
 | `identifier_pattern` | texto |  |  | Campos: {batch}, {document}, {seq}. |
 | `stations` | lista de objeto |  |  | Estações de digitalização. Uma página é ligada à estação pelo equipamento gravado no arquivo ou pela pasta. |
@@ -80,15 +86,17 @@ Especificação: [blank_page.md](../especificacoes/detectors/blank_page.md).
 
 ### `orientation`
 
-Página de lado ou de cabeça para baixo. Versão 1.0.0, severidade `medium`.
+Página de lado ou de cabeça para baixo. Versão 1.2.0, severidade `medium`.
 Especificação: [orientation.md](../especificacoes/detectors/orientation.md).
 
 | Parâmetro | Tipo | Padrão | Faixa | Descrição |
 | --- | --- | --- | --- | --- |
 | `auto_threshold` | número | `0.9` | mín. 0, máx. 1 | Probabilidade a partir da qual a rotação entra no Corrigir tudo |
 | `review_threshold` | número | `0.6` | mín. 0, máx. 1 | Probabilidade a partir da qual a rotação é sugerida para revisão |
-| `skip_blank` | sim/não | `true` |  | Não classificar página quase sem tinta |
-| `min_ink_coverage` | número | `0.01` | mín. 0, máx. 1 | Cobertura de tinta abaixo da qual a página é quase branca e não é classificada |
+| `upright_min_probability` | número | `0.5` | mín. 0, máx. 1 | Probabilidade de 0° abaixo da qual a página sem rotação convincente vai para revisão como orientação incerta |
+| `skip_blank` | sim/não | `true` |  | Não classificar página branca e exigir confiança alta na página com pouca tinta |
+| `blank_ink_coverage` | número | `0.003` | mín. 0, máx. 1 | Cobertura de tinta abaixo da qual a página é branca e não é classificada |
+| `min_ink_coverage` | número | `0.01` | mín. 0, máx. 1 | Cobertura de tinta abaixo da qual a página tem pouca tinta: só sinaliza a partir de auto_threshold, sempre para revisão |
 
 ### `black_borders`
 
@@ -153,28 +161,28 @@ Especificação: [duplicate_page.md](../especificacoes/detectors/duplicate_page.
 
 ### `missing_page`
 
-Página faltando. Versão 1.1.0, severidade `critical`.
+Página faltando. Versão 1.2.0, severidade `critical`.
 Especificação: [sequencing.md](../especificacoes/sequencing.md).
 
 Sem parâmetros.
 
 ### `out_of_order`
 
-Página fora de ordem. Versão 1.1.0, severidade `medium`.
+Página fora de ordem. Versão 1.2.0, severidade `medium`.
 Especificação: [sequencing.md](../especificacoes/sequencing.md).
 
 Sem parâmetros.
 
 ### `numbering_review`
 
-Revisar numeração. Versão 1.1.0, severidade `high`.
+Revisar numeração. Versão 1.2.0, severidade `high`.
 Especificação: [sequencing.md](../especificacoes/sequencing.md).
 
 Sem parâmetros.
 
 ### `completeness_unverifiable`
 
-Completude não verificável. Versão 1.1.0, severidade `low`.
+Completude não verificável. Versão 1.2.0, severidade `low`.
 Especificação: [sequencing.md](../especificacoes/sequencing.md).
 
 Sem parâmetros.

@@ -19,7 +19,7 @@ from numpy.typing import NDArray
 from PIL import Image
 
 from qa_engine.detectors.strike import strike_score
-from qa_engine.domain.sequencing import Mark, Reading, parse_folio
+from qa_engine.domain.sequencing import DIGIT_CONFUSIONS, Mark, Reading, parse_folio
 from qa_engine.ports import TextBox, TextRecognizer, TextRegionDetector
 
 Region = tuple[float, float, float, float]
@@ -39,11 +39,13 @@ LONE_STRUCK = 0.99
 """Nota de riscado exigida quando a página tem um número só."""
 EDGE_MARGIN = 0.01
 """Faixa junto à borda da página (fração do lado menor) ignorada na busca nos cantos."""
-CONFUSABLE = {"1": "7", "7": "1"}
-"""Dígitos que a letra de mão troca: o 1 com serifa parece um 7 e vice-versa."""
-CONFUSION_FACTOR = 0.5
-"""Confiança da alternativa trocada, relativa à leitura de onde ela saiu."""
-MAX_READINGS = 3
+Confusion = tuple[str, str, float]
+"""Dígito lido, alternativa e peso (confiança da alternativa relativa à leitura)."""
+DEFAULT_CONFUSIONS: tuple[Confusion, ...] = tuple((a, b, 0.5) for a, b in DIGIT_CONFUSIONS)
+"""Trocas que a letra de mão provoca: o 1 com serifa e o 7; o 2 com laço e o 9; o 9 com
+rabo longo e o 0; 3 e 5; 7 e 9; 6 e 0 (relatório de testes de 18/11/2026)."""
+MAX_READINGS = 5
+"""Leituras por marca: as do reconhecedor primeiro, depois as alternativas."""
 MAX_ASPECT = 5.0
 """Caixa mais larga que isso (em alturas) é linha de texto impresso, não número de folha."""
 
@@ -109,8 +111,10 @@ class ImageNumberingReader:
         struck_threshold: float = 0.6,
         min_height_mm: float = 3.0,
         fallback: TextRegionDetector | None = None,
+        confusions: Sequence[Confusion] = DEFAULT_CONFUSIONS,
     ) -> None:
         self.detector = detector
+        self.confusions = tuple(confusions)
         self.fallback = fallback
         self.recognizer = recognizer
         self.struck_threshold = struck_threshold
@@ -147,12 +151,9 @@ class ImageNumberingReader:
             scores: list[float] = []
             for box in boxes:
                 patch = crop[box.y : box.y + box.h, box.x : box.x + box.w]
-                readings = with_confusions(
-                    [
-                        Reading(r.text, r.confidence)
-                        for r in self.recognizer.read(patch)
-                        if parse_folio(r.text) is not None and r.confidence >= MIN_READING
-                    ]
+                readings = candidate_readings(
+                    [(r.text, r.confidence) for r in self.recognizer.read(patch)],
+                    self.confusions,
                 )
                 if not readings:
                     continue  # palavra impressa ou rabisco: não é número de folha
@@ -195,28 +196,60 @@ class ImageNumberingReader:
         return False
 
 
-def with_confusions(readings: Sequence[Reading]) -> tuple[Reading, ...]:
-    """Acrescenta a alternativa com 1 e 7 trocados, com confiança menor.
+def candidate_readings(
+    raw: Sequence[tuple[str, float]],
+    confusions: Sequence[Confusion] = DEFAULT_CONFUSIONS,
+    limit: int = MAX_READINGS,
+) -> tuple[Reading, ...]:
+    """Leituras de um escrito que viram marca (etapa 4 da especificação).
 
-    O reconhecedor às vezes tem certeza do dígito errado ("72-A" no lugar de "12-A") e
-    a leitura certa nem aparece. Com a alternativa, o resolvedor decide pela sequência
-    do documento, como faz com qualquer leitura duvidosa; ele nunca aceita a alternativa
-    sozinha. Ficam as ``MAX_READINGS`` mais confiáveis.
+    Ficam as leituras com formato de folha; o escrito só vira marca se a melhor tiver
+    confiança de pelo menos ``MIN_READING``. As outras leituras do reconhecedor ficam
+    mesmo com confiança baixa (são a segunda opção dele), e as alternativas de
+    :func:`with_confusions` completam até ``limit``.
+    """
+    readings = sorted(
+        (Reading(text, conf) for text, conf in raw if parse_folio(text) is not None),
+        key=lambda r: -r.confidence,
+    )
+    if not readings or readings[0].confidence < MIN_READING:
+        return ()
+    return with_confusions(readings, confusions, limit)
+
+
+def with_confusions(
+    readings: Sequence[Reading],
+    confusions: Sequence[Confusion] = DEFAULT_CONFUSIONS,
+    limit: int = MAX_READINGS,
+) -> tuple[Reading, ...]:
+    """Acrescenta alternativas com um dígito trocado, com confiança menor.
+
+    O reconhecedor às vezes tem certeza do dígito errado ("72-A" no lugar de "12-A",
+    "1990" no lugar de "1920") e a leitura certa nem aparece. Cada dígito da leitura mais
+    confiável que está na tabela gera a alternativa trocada, com a confiança multiplicada
+    pelo peso do par; um dígito por vez. As leituras do reconhecedor têm prioridade; as
+    alternativas completam até ``limit``, as de maior confiança primeiro e, no empate, as
+    mais à direita (o dígito que muda de uma folha para a seguinte). O resolvedor decide
+    pela sequência do documento e nunca aceita uma alternativa sozinha: escolhida, a
+    página vai para o revisor como inferida.
     """
     if not readings:
         return ()
-    seen = {r.text for r in readings}
-    extra: list[Reading] = []
-    for r in readings:
-        for i, ch in enumerate(r.text):
-            if ch not in CONFUSABLE:
+    own = sorted(readings, key=lambda r: -r.confidence)[:limit]
+    seen = {r.text for r in own}
+    source = own[0]
+    options: list[tuple[float, int, int, str]] = []
+    for i, ch in enumerate(source.text):
+        for order, (read, alternative, weight) in enumerate(confusions):
+            if ch != read:
                 continue
-            text = r.text[:i] + CONFUSABLE[ch] + r.text[i + 1 :]
+            text = source.text[:i] + alternative + source.text[i + 1 :]
             if text not in seen and parse_folio(text) is not None:
                 seen.add(text)
-                extra.append(Reading(text, r.confidence * CONFUSION_FACTOR))
-    ranked = sorted([*readings, *extra], key=lambda r: -r.confidence)
-    return tuple(ranked[:MAX_READINGS])
+                options.append((source.confidence * weight, i, order, text))
+    options.sort(key=lambda o: (-o[0], -o[1], o[2]))
+    extra = [Reading(text, conf) for conf, _, _, text in options[: limit - len(own)]]
+    return tuple(sorted([*own, *extra], key=lambda r: -r.confidence))
 
 
 def _overlaps(a: TextBox, b: TextBox) -> bool:

@@ -133,3 +133,107 @@ def test_isolated_misread_is_corrected_by_context(n: int, wrong: int, offset: in
 def test_resolver_is_deterministic() -> None:
     pages = pages_from(["1", "3", None, "2", "9", "5"], conf=0.7)
     assert resolve(pages, SequenceParams()) == resolve(pages, SequenceParams())
+
+
+# Checagem de documento: troca sistemática de dígito (P4 do relatório de testes) ------
+
+
+@settings(max_examples=60, deadline=None)
+@given(n=st.integers(min_value=2, max_value=60))
+def test_document_starting_at_one_is_never_doubted(n: int) -> None:
+    """Começando em fls. 1, nenhum dígito é comum a todas as folhas: sem dúvida."""
+    from qa_engine.domain.sequencing import document_doubt
+
+    result = resolve(pages_from([str(i + 1) for i in range(n)]), SequenceParams())
+    assert document_doubt(result, SequenceParams()) is None
+
+
+@settings(max_examples=60, deadline=None)
+@given(decade=st.integers(min_value=1, max_value=99), n=st.integers(min_value=2, max_value=10))
+def test_shared_digit_with_a_lower_swap_is_doubted(decade: int, n: int) -> None:
+    """Todas as folhas na mesma dezena: dúvida se a tabela troca a dezena por um dígito menor."""
+    from qa_engine.domain.sequencing import DIGIT_CONFUSIONS, document_doubt
+
+    folios = [decade * 10 + i for i in range(n)]
+    result = resolve(pages_from([str(f) for f in folios]), SequenceParams())
+    doubt = document_doubt(result, SequenceParams())
+    tens = str(decade)[-1]
+    leading = decade < 10  # a dezena é a primeira casa: trocar por 0 daria "0x"
+    lower = any(r == tens and a < tens and not (leading and a == "0") for r, a in DIGIT_CONFUSIONS)
+    if lower:
+        assert doubt is not None and doubt.alternative_first is not None
+        assert doubt.alternative_last is not None
+        shift = doubt.alternative_first.number - folios[0]
+        assert shift < 0 and doubt.alternative_last.number - folios[-1] == shift
+    elif leading:
+        assert doubt is None
+
+
+def test_consistent_misread_document_goes_to_review() -> None:
+    """1920–1925 lido como 1990–1995 com confiança alta: o documento vai para revisão."""
+    from qa_engine.detectors.sequence import analyze_document
+    from qa_engine.domain.sequencing import document_doubt
+
+    pages = pages_from(["1990", "1991", "1992", "1993", "1994", "1995"], conf=0.98)
+    result, flags = analyze_document("doc", pages, SequenceParams())
+    assert all(p.state is PageNumberingState.READ for p in result.pages)
+    doubt = document_doubt(result, SequenceParams())
+    assert doubt is not None and (doubt.read, doubt.alternative) == ("9", "2")
+    assert str(doubt.alternative_first) == "1920" and str(doubt.alternative_last) == "1925"
+    assert [f.rule for f in flags] == ["numbering_review"]
+    assert flags[0].target.id == result.order[0]
+    assert "também fecha como fls. 1920 a 1925" in flags[0].flag.message
+    # Sem tabela de trocas, nada; com início máximo, a dúvida volta pelo salto.
+    off = SequenceParams(confusions=())
+    assert document_doubt(result, off) is None
+    start = document_doubt(result, SequenceParams(confusions=(), max_first_folio=10))
+    assert start is not None and start.alternative is None
+    _, flags = analyze_document("doc", pages, SequenceParams(confusions=(), max_first_folio=10))
+    assert "começa em fls. 1990" in flags[0].flag.message
+
+
+def test_swap_to_a_leading_zero_is_not_an_alternative() -> None:
+    """9 → 0 na primeira casa daria "0x": ninguém escreve folha com zero à esquerda."""
+    from qa_engine.domain.sequencing import document_doubt
+
+    result = resolve(pages_from(["91", "92", "93"]), SequenceParams())
+    doubt = document_doubt(result, SequenceParams(confusions=(("9", "0"),)))
+    assert doubt is None
+
+
+def test_image_readings_use_their_own_high_confidence(repo) -> None:  # type: ignore[no-untyped-def]
+    """T6: a confiança do PP-OCR erra 1,8% acima de 0,85; acima de 0,98, 0,7%."""
+    from qa_engine.application.profile import load_profile
+    from qa_engine.detectors.sequence import analyze_document
+
+    profile = load_profile(repo / "profiles" / "sos-piloto.yaml")
+    assert profile.sequence_for("image").high_confidence == 0.98
+    assert profile.sequence_for("sidecar").high_confidence == 0.85
+    # 1922 lida como 1999 com 0,94: com 0,85 vira "faltam 1996 a 1998" (ação física);
+    # com o limiar da imagem, a lacuna fica sem confirmação e vai para o revisor.
+    reads = [("1990", 0.98), ("1991", 1.0), ("1999", 0.94), ("1993", 0.99), ("1994", 0.99)]
+    pages = [PageCandidates(f"p{i}", (Mark((Reading(t, c),)),)) for i, (t, c) in enumerate(reads)]
+    _, loose = analyze_document("d", pages, profile.sequence_for("sidecar"))
+    _, strict = analyze_document("d", pages, profile.sequence_for("image"))
+    assert any(f.rule == "missing_page" for f in loose)
+    assert not any(f.rule == "missing_page" for f in strict)
+    assert any(f.rule == "numbering_review" for f in strict)
+
+
+folios = st.builds(
+    Folio,
+    st.integers(min_value=1, max_value=1500),
+    st.sampled_from(["", "", "", "A", "B"]),
+    st.booleans(),
+)
+
+
+@settings(max_examples=400, deadline=None)
+@given(prev=folios, cur=folios, mode=st.sampled_from(list(NumberingMode)))
+def test_gap_size_counts_missing_between_without_the_list(
+    prev: Folio, cur: Folio, mode: NumberingMode
+) -> None:
+    """A conta direta dá o mesmo que contar a lista (o resolvedor chama isto a cada par)."""
+    from qa_engine.domain.sequencing import gap_size, missing_between
+
+    assert gap_size(prev, cur, mode) == len(missing_between(prev, cur, mode))

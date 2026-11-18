@@ -83,8 +83,56 @@ def test_bands_automatic_review_and_nothing() -> None:
     assert automatic.correction.params == {"angle_deg": 270, "detected_deg": 90}
     review = flag_for(180, 0.75)
     assert review is not None and review.correction.params["review"] is True
-    assert flag_for(270, 0.55) is None  # abaixo de review_threshold
+    assert flag_for(0, 0.55) is None  # abaixo de review_threshold e 0° acima do piso
     assert flag_for(0, 0.99) is None  # de pé
+    uncertain = flag_for(270, 0.55)  # P(0°) ≤ 0,45: não dá para dizer que está de pé
+    assert uncertain is not None and uncertain.correction.params["uncertain"] is True
+
+
+def spread_flag(probabilities: dict[int, float], **changes: object) -> object:
+    angle = max(probabilities, key=lambda a: probabilities[a])
+    prediction = OrientationPrediction(angle, probabilities[angle], probabilities)
+    gray = page_150(3, 3)
+    raster = PageRaster(gray, 1.0, 150, orientation=prediction)
+    obs = orientation.DETECTOR.measure(raster, compute_features(gray), params(**changes))
+    return orientation.DETECTOR.evaluate(obs, {}, params(**changes))
+
+
+def test_spread_probabilities_are_uncertain_not_upright() -> None:
+    """P2 do relatório de testes: "não sei" vai para revisão, não vira "está certa"."""
+    flag = spread_flag({0: 0.28, 90: 0.26, 180: 0.24, 270: 0.22})
+    assert flag is not None
+    assert flag.correction.params == {
+        "angle_deg": 270,
+        "detected_deg": 90,
+        "review": True,
+        "uncertain": True,
+    }
+    assert flag.measure == 0.28 and flag.threshold == 0.5
+    assert flag.message.startswith("Orientação incerta")
+    # 0° mais provável, mas abaixo do piso: sugere a rotação mais provável.
+    top_upright = spread_flag({0: 0.46, 90: 0.05, 180: 0.04, 270: 0.45})
+    assert top_upright is not None and top_upright.correction.params["detected_deg"] == 270
+    # 0° acima do piso: nada.
+    assert spread_flag({0: 0.55, 90: 0.15, 180: 0.15, 270: 0.15}) is None
+    # Rotação acima de review_threshold: sugestão normal, não incerta.
+    normal = spread_flag({0: 0.10, 90: 0.70, 180: 0.10, 270: 0.10})
+    assert normal is not None and "uncertain" not in normal.correction.params
+    # Piso zero desliga a orientação incerta.
+    assert spread_flag({0: 0.28, 90: 0.26, 180: 0.24, 270: 0.22}, upright_min_probability=0) is None
+
+
+def test_uncertain_never_enters_fix_all_nor_applies_to_low_ink() -> None:
+    from qa_engine.detectors.base import Observation
+
+    flag = spread_flag({0: 0.10, 90: 0.40, 180: 0.30, 270: 0.20})
+    assert flag is not None and flag.correction.params["review"] is True
+    # Pouca tinta (carimbo, rubrica): o modelo espalha sem haver texto; nada.
+    obs = Observation(
+        {"angle": 180.0, "probability": 0.87, "upright_probability": 0.06},
+        extra={"low_ink": True, "runner_up": (180, 0.87)},
+    )
+    assert orientation.DETECTOR.evaluate(obs, {}, params()) is None
 
 
 def test_review_band_stays_out_of_fix_all() -> None:
@@ -118,6 +166,62 @@ def test_blank_page_is_never_classified(tmp_path: Path, test_profile: Profile) -
     result = analyze_page(task, classifier=classifier)
     assert classifier.calls == 0
     assert not result.observations["orientation"].eligible
+
+
+def sparse_150() -> np.ndarray:
+    """Bilhete curto: tinta entre página branca e o limite de pouca tinta."""
+    gray = blank_150(9).copy()
+    cv2.putText(gray, "manuscrito curto", (300, 600), cv2.FONT_HERSHEY_SCRIPT_SIMPLEX, 1.6, 20, 3)
+    return gray
+
+
+def test_low_ink_page_is_classified_but_only_flags_high_confidence_for_review(
+    tmp_path: Path,
+) -> None:
+    """P1 do relatório de testes: bilhete curto girado não pode passar calado."""
+    gray = sparse_150()
+    coverage = compute_features(gray).ink_coverage
+    assert params()["blank_ink_coverage"] <= coverage < params()["min_ink_coverage"]
+    path = save(tmp_path / "bilhete.tif", gray)
+
+    def flag(angle: int, probability: float) -> object:
+        classifier = Fixed(angle, probability)
+        result = analyze_page(
+            PageTask(path, 0, (("orientation", params()),), 0.05), classifier=classifier
+        )
+        assert classifier.calls == 1
+        obs = result.observations["orientation"]
+        assert obs.eligible and obs.extra["low_ink"] is True
+        return orientation.DETECTOR.evaluate(obs, {}, params())
+
+    high = flag(180, 0.93)
+    assert high is not None
+    assert high.correction.params == {
+        "angle_deg": 180,
+        "detected_deg": 180,
+        "review": True,
+        "low_ink": True,
+    }
+    assert high.threshold == params()["auto_threshold"]
+    assert flag(180, 0.87) is None  # abaixo de auto_threshold: carimbo (CX001/DOC0007)
+    assert flag(0, 0.99) is None
+
+
+def test_low_ink_rotation_never_enters_fix_all() -> None:
+    from qa_engine.detectors.base import Observation
+
+    obs = Observation({"angle": 90.0, "probability": 0.99}, extra={"low_ink": True})
+    flag = orientation.DETECTOR.evaluate(obs, {}, params())
+    assert flag is not None and flag.correction.params["review"] is True
+
+
+def test_skip_blank_off_classifies_low_ink_like_any_page() -> None:
+    gray = sparse_150()
+    raster = PageRaster(gray, 1.0, 150, orientation=OrientationPrediction(90, 0.70))
+    changed = params(skip_blank=False)
+    obs = orientation.DETECTOR.measure(raster, compute_features(gray), changed)
+    flag = orientation.DETECTOR.evaluate(obs, {}, changed)
+    assert flag is not None and "low_ink" not in flag.correction.params
 
 
 def test_skew_is_measured_on_the_upright_view(tmp_path: Path) -> None:
@@ -257,3 +361,34 @@ def test_manual_rotation_is_an_audited_decision_and_goes_to_the_corrected_batch(
             ).status_code
             == 409
         )
+
+
+# Bench de orientação (tools/bench_orientation.py) ------------------------------------
+
+
+def test_bench_outcomes_follow_the_report(tmp_path: Path) -> None:
+    """Desfechos do bench: correta, automática certa, silenciosa e ângulo errado."""
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
+    import bench_orientation as bench
+
+    assert bench.classify_outcome(0, 0, False, False) == "upright_ok"
+    assert bench.classify_outcome(90, 90, False, False) == "rotated_auto_ok"
+    assert bench.classify_outcome(90, 0, False, False) == "rotated_silent"
+    assert bench.classify_outcome(180, 90, True, False) == "rotated_review_wrong"
+    assert bench.classify_outcome(0, 180, True, False) == "upright_review"
+    assert bench.classify_outcome(270, 0, True, True) == "rotated_uncertain"
+
+    save(tmp_path / "a.tif", page_150(1, 1))
+    save(tmp_path / "b.tif", page_150(2, 2))
+    labels = tmp_path / "gabarito.csv"
+    labels.write_text("arquivo,angulo_real\na.tif,90\nb.tif,180\n", "utf-8")
+    outcomes = bench.bench(
+        tmp_path, bench.load_labels(labels), params(), None, classifier=Fixed(90, 0.95)
+    )
+    assert [o.outcome for o in outcomes] == ["rotated_auto_ok", "rotated_auto_wrong"]
+    data = bench.summary(outcomes)
+    assert data["automatic_wrong"] == 1 and data["silent"] == 0
+    assert data["per_angle"]["90"] == {"hits": 1, "n": 1}
+    assert "| Girada, corrigida automaticamente | 1 |" in bench.table(data)

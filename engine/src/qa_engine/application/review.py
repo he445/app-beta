@@ -272,8 +272,9 @@ def renumber(
             doc.pop("manual_order", None)
         sequence_ids = list(manual.page_ids) if manual else list(doc["page_ids"])
         cands = [PageCandidates(pid, tuple(by_page.get(pid, ()))) for pid in sequence_ids]
+        origin = "image" if any(sources.get(pid) == "image" for pid in sequence_ids) else "sidecar"
         result, flags = sequence.analyze_document(
-            doc["id"], cands, profile.sequence, declared.get(doc["name"]), duplicates
+            doc["id"], cands, profile.sequence_for(origin), declared.get(doc["name"]), duplicates
         )
         doc["proposed_order"] = list(result.order) if result.reordered else []
         for numbering in result.pages:

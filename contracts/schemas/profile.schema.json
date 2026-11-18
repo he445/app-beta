@@ -82,6 +82,20 @@
           "maximum": 1,
           "description": "A partir disso a leitura é confiável: ancora lacunas e a ordem proposta."
         },
+        "image_high_confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confiança alta das leituras do leitor de imagem; substitui high_confidence quando a numeração vem da imagem (a escala de cada leitor é diferente). Ausente: vale high_confidence."
+        },
+        "max_first_folio": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "description": "Documento cuja numeração começa depois desta folha vai para revisão (continuação de outro volume ou leitura errada). Ausente ou nulo: desligado; ligue quando todo documento da operação começa perto de fls. 1."
+        },
         "regions": {
           "type": "array",
           "minItems": 1,
@@ -115,6 +129,37 @@
           "minimum": 0.5,
           "maximum": 30,
           "description": "Altura mínima de um escrito, em milímetros (texto impresso menor que isso não é lido). Padrão 3."
+        },
+        "confusions": {
+          "type": "array",
+          "description": "Trocas de dígito que a letra de mão provoca. Para cada dígito da leitura mais confiável que está na tabela, entra a alternativa trocada (um dígito por vez), com a confiança multiplicada pelo peso; o resolvedor decide pela sequência e a alternativa escolhida vai para o revisor. Padrão: 1↔7, 2↔9, 0↔9, 3↔5, 7↔9 e 0↔6, peso 0,5.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "read",
+              "alternative",
+              "weight"
+            ],
+            "properties": {
+              "read": {
+                "type": "string",
+                "pattern": "^[0-9]$",
+                "description": "Dígito lido pelo reconhecedor."
+              },
+              "alternative": {
+                "type": "string",
+                "pattern": "^[0-9]$",
+                "description": "Dígito que pode ser o certo."
+              },
+              "weight": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 1,
+                "description": "Confiança da alternativa relativa à leitura de onde ela saiu."
+              }
+            }
+          }
         },
         "read_from_image": {
           "type": "boolean",

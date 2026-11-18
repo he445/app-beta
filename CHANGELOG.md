@@ -6,6 +6,55 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ## [Não lançado]
 
+### Adicionado
+
+- Bench de orientação (`tools/bench_orientation.py`): roda o mesmo caminho da análise
+  (raster de análise, página quase branca, classificador e decisão da regra) numa pasta
+  de páginas com gabarito (`arquivo`, `angulo_real`) e conta cada desfecho: correção
+  automática certa ou errada, sugestão para revisão, página certa girada por engano e
+  página girada sem sinalização (erro silencioso). `--set` testa outro valor de
+  parâmetro sem mudar o perfil.
+
+### Corrigido
+
+- Orientação (regra 1.1.0): página manuscrita com pouca tinta (abaixo de
+  `min_ink_coverage`, 1%) deixava de ser classificada e passava girada sem aviso. Agora
+  ela é classificada e a rotação é proposta para revisão quando a confiança chega a
+  `auto_threshold`, nunca no "Corrigir tudo". Só a página branca (novo
+  `blank_ink_coverage`, 0,3%) fica sem classificar; o verso só com carimbo continua sem
+  sinalização. No kit público, as silenciosas caem de 13 para 11.
+- Orientação (regra 1.2.0): confiança baixa virava "página certa". Quando nenhuma
+  rotação passa de `review_threshold` e a probabilidade de 0° fica abaixo do novo
+  `upright_min_probability` (0,5), a página vai para revisão como **orientação
+  incerta**, com a rotação mais provável sugerida e nunca no "Corrigir tudo". No kit
+  público, as giradas sem sinalização caem de 11 para 3, sem nenhuma correção automática
+  errada; 5,7% das páginas de pé passam a ir para revisão. A conformidade aceita a
+  orientação incerta na página muito inclinada (`skew` → `orientation` em
+  `co_occurrence`).
+- Numeração por imagem: o reconhecedor errava dígitos com confiança alta ("1990" no
+  lugar de "1920") sem o valor certo entre as leituras, e o filtro de confiança 0,3
+  descartava a segunda leitura dele. A troca 1↔7 virou uma tabela configurável no perfil
+  (`numbering.confusions`: 1↔7, 2↔9, 0↔9, 3↔5, 7↔9 e 0↔6, peso 0,5); a confiança mínima
+  vale só para a melhor leitura; ficam até cinco leituras, as do reconhecedor primeiro.
+  No ARDIS, dos 20 erros reais com confiança alta, o valor certo passa a chegar ao
+  resolvedor em 16 (antes, nenhum). O bench de numeração ganha `--reader` (mede o que o
+  resolvedor recebe) e `--top`. O resolvedor passa a contar a lacuna entre duas folhas
+  sem montar a lista das que faltam (`gap_size`): com cinco leituras por marca, a lista
+  custava cerca de 45 ms por página.
+- Sequência (regras 1.2.0): um erro consistente do reconhecedor virava sequência
+  plausível (1920 a 1925 lidas como 1990 a 1995, todas com confiança alta, aceitas sem
+  sinalização). A checagem de documento manda o documento para revisão
+  (`numbering_review` na primeira página) quando todas as folhas têm um dígito em comum
+  que a tabela de trocas diz poder ser um dígito menor, com a numeração alternativa na
+  mensagem; opcionalmente, quando a numeração começa depois de
+  `numbering.max_first_folio`. Documento que começa em fls. 1 nunca cai nela.
+- Numeração por imagem: acima de `high_confidence` (0,85), o PP-OCRv5 erra 1,8% no
+  ARDIS; a confiança já é calibrada, então o limiar é que estava baixo. Novo
+  `numbering.image_high_confidence`, que substitui `high_confidence` nas marcas lidas
+  da imagem; o `sos-piloto` usa 0,98 (erro de 0,7% acima disso). Uma leitura errada com
+  0,94 deixa de confirmar lacuna ("Faltam fls. 1996 a 1998", com ação física) e vai para
+  o revisor. O bench de numeração ganha `--reliability`.
+
 ## [1.0.0] — 2026-11-12
 
 Primeira versão do piloto: programa desktop portátil para Windows 10 e 11 (64 bits), sem

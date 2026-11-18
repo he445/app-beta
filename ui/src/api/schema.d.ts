@@ -2096,6 +2096,10 @@ export interface components {
                 min_confidence?: number;
                 /** @description A partir disso a leitura é confiável: ancora lacunas e a ordem proposta. */
                 high_confidence?: number;
+                /** @description Confiança alta das leituras do leitor de imagem; substitui high_confidence quando a numeração vem da imagem (a escala de cada leitor é diferente). Ausente: vale high_confidence. */
+                image_high_confidence?: number;
+                /** @description Documento cuja numeração começa depois desta folha vai para revisão (continuação de outro volume ou leitura errada). Ausente ou nulo: desligado; ligue quando todo documento da operação começa perto de fls. 1. */
+                max_first_folio?: number | null;
                 /** @description Onde procurar o número na página já orientada, em frações [x0, y0, x1, y1], testadas em ordem. Padrão: canto superior direito [0.60, 0.00, 1.00, 0.18]. */
                 regions?: number[][];
                 /** @description Nota de riscado a partir da qual o escrito é tratado como numeração anterior. Padrão 0,6. */
@@ -2107,6 +2111,15 @@ export interface components {
                 recognizer?: "ppocrv5-mobile-rec" | "trocr-small-handwritten";
                 /** @description Altura mínima de um escrito, em milímetros (texto impresso menor que isso não é lido). Padrão 3. */
                 min_height_mm?: number;
+                /** @description Trocas de dígito que a letra de mão provoca. Para cada dígito da leitura mais confiável que está na tabela, entra a alternativa trocada (um dígito por vez), com a confiança multiplicada pelo peso; o resolvedor decide pela sequência e a alternativa escolhida vai para o revisor. Padrão: 1↔7, 2↔9, 0↔9, 3↔5, 7↔9 e 0↔6, peso 0,5. */
+                confusions?: {
+                    /** @description Dígito lido pelo reconhecedor. */
+                    read: string;
+                    /** @description Dígito que pode ser o certo. */
+                    alternative: string;
+                    /** @description Confiança da alternativa relativa à leitura de onde ela saiu. */
+                    weight: number;
+                }[];
                 /** @description Ler a numeração da imagem quando o lote não tem numbering.json. Padrão: sim (exige os modelos). */
                 read_from_image?: boolean;
             };

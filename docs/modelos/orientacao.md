@@ -25,7 +25,42 @@ para 256, recorte central de 224 × 224, RGB normalizado (média 0,485 0,456 0,4
 Base sintética (páginas A5 a 300 dpi com texto, `tools/synth`): em 12 páginas (3 de pé e
 3 em cada ângulo), 12 acertos, todos com probabilidade entre 0,92 e 0,93. Página com
 pouco texto (cobertura 0,013): sem sinalização. Página só com carimbo: o modelo dizia
-180° com 0,87; por isso página quase branca não é classificada.
+180° com 0,87; por isso a página com pouca tinta só é sinalizada a partir de 0,90 e
+sempre para revisão.
+
+Dados públicos (RVL-CDIP, subset `vaclavpechtor/rvl_cdip-small-200`: 160 páginas
+manuscritas e 40 formulários a cerca de 100 dpi, mais as mesmas 200 giradas ao acaso com
+seed 42; 398 páginas avaliadas), perfil `sos-piloto`, medido com
+`tools/bench_orientation.py` na versão 1.0.0:
+
+| Desfecho | Páginas |
+| --- | --- |
+| Página certa, não sinalizada | 242 |
+| Girada, corrigida automaticamente (todas certas) | 93 |
+| Girada, corrigida com sugestão para revisão | 44 |
+| Girada, não sinalizada (erro silencioso) | 13 |
+| Girada, ângulo errado, enviada para revisão | 3 |
+| Página certa, girada por engano, enviada para revisão | 3 |
+
+Com as regras 1.1.0 (pouca tinta) e 1.2.0 (orientação incerta), no mesmo kit:
+
+| Desfecho | 1.0.0 | 1.2.0 |
+| --- | --- | --- |
+| Página certa, não sinalizada | 242 | 231 |
+| Girada, corrigida automaticamente (todas certas) | 93 | 93 |
+| Girada, corrigida com sugestão para revisão | 44 | 46 |
+| Girada, orientação incerta (para revisão) | — | 8 |
+| Girada, não sinalizada (erro silencioso) | 13 | 3 |
+| Girada, ângulo errado, enviada para revisão | 3 | 3 |
+| Página certa, girada por engano, enviada para revisão | 3 | 3 |
+| Página certa, orientação incerta (para revisão) | — | 11 |
+
+Na orientação incerta, a rotação sugerida acerta 6 das 8 giradas. Nas 3 que ainda passam
+caladas, o modelo dá 0° com mais de 0,5 (0,81, 0,52 e 0,59): erro com confiança, que
+só a amostra real e o beta vão dizer se é comum.
+
+Entre 0,85 e 0,90 de probabilidade aparece 1 erro em 28 correções; entre 0,80 e 0,90,
+3 em 41: o `auto_threshold` de 0,90 se mantém.
 
 No beta, as rotações confirmadas e desfeitas pelos garantidores medem o acerto na letra
 e no papel reais.
@@ -36,4 +71,8 @@ acima disso desligaria a rotação automática.
 ## Limitações conhecidas
 
 - Página com pouco texto ou só com carimbo: confiança baixa; a regra manda para revisão.
+- A confiança espalha entre os quatro ângulos em várias páginas manuscritas (máximo
+  abaixo de 0,60): por isso existe a orientação incerta. Votar entre a página girada nos
+  quatro ângulos ou entre recortes (topo, centro, base) não ajudou no kit público.
 - Página em branco: não é classificada (pulada).
+- Página com pouca tinta: classificada; só sinalizada com 0,90 ou mais, para revisão.
