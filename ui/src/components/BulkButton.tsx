@@ -1,9 +1,8 @@
 // "Corrigir pasta" e "Corrigir tudo" (ADR-0024): o mesmo caso de uso, com escopo da pasta
 // ou da caixa. Com a caixa em análise, valem para as pastas já prontas.
-import { useState } from "react";
 import { useBulkOperations, useStartBulk, useUndoBulk, type BulkStart } from "../api/hooks";
 import type { BulkCorrection, QaDocument } from "../api/types";
-import { activeOperation, isActive, operationSummary, progressView } from "../lib/corrections";
+import { activeOperation, isActive, lastShown, operationSummary, progressView } from "../lib/corrections";
 import { navigate } from "../router";
 
 /** Progresso de uma operação em andamento e, quando termina, o resumo com "Desfazer". */
@@ -41,20 +40,14 @@ export function OperationStatus({
   );
 }
 
-/** Dispara uma operação em lote e acompanha só a que este componente iniciou. */
+/** Dispara uma operação em lote; ``latest`` é a última da caixa (de qualquer tela). */
 export function useOwnBulk(batchId: string) {
   const ops = useBulkOperations(batchId);
   const start = useStartBulk(batchId);
-  const [mine, setMine] = useState<string>();
   const busy = Boolean(activeOperation(ops.data)) || start.isPending;
   const run = (req: BulkStart, onStarted?: (op: BulkCorrection) => void) =>
-    start.mutate(req, {
-      onSuccess: (op) => {
-        setMine(op.id);
-        onStarted?.(op);
-      },
-    });
-  return { busy, run, error: start.error, op: ops.data?.find((o) => o.id === mine) };
+    start.mutate(req, { onSuccess: (op) => onStarted?.(op) });
+  return { busy, run, error: start.error, latest: lastShown(ops.data) };
 }
 
 export function BulkButtons({
@@ -102,7 +95,12 @@ export function BulkButtons({
           {analyzing ? "Corrigir tudo (pastas prontas)" : "Corrigir tudo"}
         </button>
       </div>
-      <OperationStatus batchId={batchId} op={bulk.op} documentName={document?.name} />
+      {/* Fica aqui, e não no painel da sinalização: a fila pode esvaziar e levar o Desfazer junto. */}
+      <OperationStatus
+        batchId={batchId}
+        op={bulk.latest}
+        documentName={bulk.latest?.scope.id === document?.id ? document?.name : undefined}
+      />
       {bulk.error && <span className="small error-inline">{bulk.error.message}</span>}
     </div>
   );

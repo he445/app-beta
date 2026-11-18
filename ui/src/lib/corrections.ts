@@ -196,3 +196,10 @@ export function operationSummary(op: BulkCorrection, documentName?: string): str
   const rest = skipped ? `; ${skipped} pedem decisão humana ou redigitalização` : "";
   return n ? `${where}: ${n} correção(ões) aplicada(s)${rest}${partial}.` : `${where}: nada automático pendente${rest}${partial}.`;
 }
+
+/** Última operação em lote da caixa para mostrar com "Desfazer": em andamento, aplicada ou falha. */
+export function lastShown(ops: BulkCorrection[] | undefined): BulkCorrection | undefined {
+  const latest = ops?.[0];
+  if (!latest) return undefined;
+  return isActive(latest) || latest.status === "applied" || latest.status === "failed" ? latest : undefined;
+}

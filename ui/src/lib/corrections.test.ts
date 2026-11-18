@@ -10,6 +10,7 @@ import {
   saveState,
   skippedText,
   mergeApplied,
+  lastShown,
   operationSummary,
   similarCounts,
   unsavedOperation,
@@ -243,5 +244,15 @@ describe("Decidir semelhantes e Corrigir pasta (ADR-0024)", () => {
       operationSummary(op("applied", 1, 1, { scope: { kind: "document", id: "d1" }, result: result(3, 2) }), "CX1/DOC1"),
     ).toBe("Pasta CX1/DOC1: 3 correção(ões) aplicada(s); 2 pedem decisão humana ou redigitalização.");
     expect(operationSummary(op("applied", 0, 0, { partial: true, result: result(0) }))).toContain("só as pastas já prontas");
+  });
+});
+
+describe("lastShown", () => {
+  it("mostra a última operação só enquanto há o que acompanhar ou desfazer", () => {
+    expect(lastShown(undefined)).toBeUndefined();
+    expect(lastShown([op("running", 1, 3)])?.status).toBe("running");
+    expect(lastShown([op("applied", 3, 3), op("undone")])?.status).toBe("applied");
+    expect(lastShown([op("undone"), op("applied", 3, 3)])).toBeUndefined();
+    expect(lastShown([op("saved", 3, 3)])).toBeUndefined();
   });
 });

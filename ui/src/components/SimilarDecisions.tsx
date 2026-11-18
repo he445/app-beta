@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { Analysis, BulkDecision, QaDocument } from "../api/types";
 import { BULK_DECISION_LABEL, NO_SIMILAR_RULES, similarCounts } from "../lib/corrections";
 import { ruleLabel } from "../lib/format";
-import { OperationStatus, useOwnBulk } from "./BulkButton";
+import { useOwnBulk } from "./BulkButton";
 
 export function SimilarDecisions({
   batchId,
@@ -63,7 +63,7 @@ export function SimilarDecisions({
           Na caixa ({counts.box})
         </button>
       </div>
-      <OperationStatus batchId={batchId} op={bulk.op} documentName={document?.name} />
+      <p className="small muted">O andamento e o Desfazer aparecem no topo da fila.</p>
       {bulk.error && <span className="small error-inline">{bulk.error.message}</span>}
     </div>
   );
