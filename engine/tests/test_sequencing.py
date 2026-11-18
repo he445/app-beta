@@ -199,3 +199,22 @@ def test_swap_to_a_leading_zero_is_not_an_alternative() -> None:
     result = resolve(pages_from(["91", "92", "93"]), SequenceParams())
     doubt = document_doubt(result, SequenceParams(confusions=(("9", "0"),)))
     assert doubt is None
+
+
+def test_image_readings_use_their_own_high_confidence(repo) -> None:  # type: ignore[no-untyped-def]
+    """T6: a confiança do PP-OCR erra 1,8% acima de 0,85; acima de 0,98, 0,7%."""
+    from qa_engine.application.profile import load_profile
+    from qa_engine.detectors.sequence import analyze_document
+
+    profile = load_profile(repo / "profiles" / "sos-piloto.yaml")
+    assert profile.sequence_for("image").high_confidence == 0.98
+    assert profile.sequence_for("sidecar").high_confidence == 0.85
+    # 1922 lida como 1999 com 0,94: com 0,85 vira "faltam 1996 a 1998" (ação física);
+    # com o limiar da imagem, a lacuna fica sem confirmação e vai para o revisor.
+    reads = [("1990", 0.98), ("1991", 1.0), ("1999", 0.94), ("1993", 0.99), ("1994", 0.99)]
+    pages = [PageCandidates(f"p{i}", (Mark((Reading(t, c),)),)) for i, (t, c) in enumerate(reads)]
+    _, loose = analyze_document("d", pages, profile.sequence_for("sidecar"))
+    _, strict = analyze_document("d", pages, profile.sequence_for("image"))
+    assert any(f.rule == "missing_page" for f in loose)
+    assert not any(f.rule == "missing_page" for f in strict)
+    assert any(f.rule == "numbering_review" for f in strict)

@@ -2096,6 +2096,8 @@ export interface components {
                 min_confidence?: number;
                 /** @description A partir disso a leitura é confiável: ancora lacunas e a ordem proposta. */
                 high_confidence?: number;
+                /** @description Confiança alta das leituras do leitor de imagem; substitui high_confidence quando a numeração vem da imagem (a escala de cada leitor é diferente). Ausente: vale high_confidence. */
+                image_high_confidence?: number;
                 /** @description Documento cuja numeração começa depois desta folha vai para revisão (continuação de outro volume ou leitura errada). Ausente ou nulo: desligado; ligue quando todo documento da operação começa perto de fls. 1. */
                 max_first_folio?: number | null;
                 /** @description Onde procurar o número na página já orientada, em frações [x0, y0, x1, y1], testadas em ordem. Padrão: canto superior direito [0.60, 0.00, 1.00, 0.18]. */

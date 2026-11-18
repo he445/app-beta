@@ -18,6 +18,7 @@ numbering:
   mode: simple                 # recto_verso quando o verso não é numerado
   min_confidence: 0.5
   high_confidence: 0.85
+  image_high_confidence: 0.98  # PP-OCRv5 no ARDIS: erro 0,7% acima disso (docs/modelos/reconhecedores.md)
   regions:                     # frações da página já orientada: [x0, y0, x1, y1]
     - [0.60, 0.00, 1.00, 0.18] # canto superior direito
   struck_threshold: 0.6

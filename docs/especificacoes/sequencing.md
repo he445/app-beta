@@ -144,7 +144,11 @@ Uma dúvida nunca vira "página faltando": vira `numbering_review`.
 | `w_read` | 4,0 | | `w_back` | 4,0 |
 | `w_infer` | 1,0 | | `w_repeat` | 1,0 |
 | `confusions` | tabela padrão | | `w_gap_max` | 1,5 |
-| `max_first_folio` | desligado | | | |
+| `max_first_folio` | desligado | | `image_high_confidence` | igual a `high_confidence` |
+
+`image_high_confidence` substitui `high_confidence` quando as marcas vêm do leitor de
+imagem (a escala de confiança de cada leitor é diferente; o `numbering.json` continua com
+`high_confidence`). Ele decide o que ancora lacunas confirmadas e a ordem proposta.
 
 Os pesos fazem uma leitura confiável (≥ 0,5) vencer a inferência numa lacuna de uma folha
 (`4c − 1 > 2 − 1`) e uma leitura errada isolada perder para o contexto. O teto

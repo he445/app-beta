@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -66,6 +66,8 @@ class Profile:
     """Configuração por regra: ``enabled``, ``severity`` e ``params``."""
     numbering_reader: NumberingImageConfig = field(default_factory=lambda: NumberingImageConfig())
     """Como ler a numeração da imagem (região, riscado, reconhecedor)."""
+    image_high_confidence: float | None = None
+    """Confiança alta das leituras do leitor de imagem (substitui a do resolvedor)."""
     feedback_enabled: bool = False
     """Coleta do beta: guardar as confirmações do garantidor como exemplos rotulados."""
     feedback_retention_days: int = 180
@@ -74,6 +76,16 @@ class Profile:
     delivery_document_file: bool = True
     """Arquivo ``metadados/<processo>.json`` no lote corrigido."""
     raw: Mapping[str, Any] = field(default_factory=dict)
+
+    def sequence_for(self, source: str) -> SequenceParams:
+        """Parâmetros do resolvedor para a origem das marcas (``image`` ou ``sidecar``).
+
+        A confiança de cada leitor tem a sua escala: com ``image_high_confidence``, as
+        marcas lidas da imagem usam esse limiar para ancorar lacunas e a ordem proposta.
+        """
+        if source == "image" and self.image_high_confidence is not None:
+            return replace(self.sequence, high_confidence=self.image_high_confidence)
+        return self.sequence
 
     def station(self, station_id: str | None) -> Station | None:
         """Estação pelo identificador (``None`` se não existir no perfil)."""
@@ -204,6 +216,11 @@ def profile_from_dict(data: Mapping[str, Any]) -> Profile:
                 if numbering.get("max_first_folio") is not None
                 else None
             ),
+        ),
+        image_high_confidence=(
+            float(numbering["image_high_confidence"])
+            if numbering.get("image_high_confidence") is not None
+            else None
         ),
         identifier_pattern=str(data.get("identifier_pattern", "{batch}-{document}")),
         feedback_enabled=bool(data.get("feedback", {}).get("enabled", False)),

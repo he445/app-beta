@@ -46,6 +46,12 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
   que a tabela de trocas diz poder ser um dígito menor, com a numeração alternativa na
   mensagem; opcionalmente, quando a numeração começa depois de
   `numbering.max_first_folio`. Documento que começa em fls. 1 nunca cai nela.
+- Numeração por imagem: acima de `high_confidence` (0,85), o PP-OCRv5 erra 1,8% no
+  ARDIS; a confiança já é calibrada, então o limiar é que estava baixo. Novo
+  `numbering.image_high_confidence`, que substitui `high_confidence` nas marcas lidas
+  da imagem; o `sos-piloto` usa 0,98 (erro de 0,7% acima disso). Uma leitura errada com
+  0,94 deixa de confirmar lacuna ("Faltam fls. 1996 a 1998", com ação física) e vai para
+  o revisor. O bench de numeração ganha `--reliability`.
 
 ## [1.0.0] — 2026-11-12
 

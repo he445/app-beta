@@ -82,6 +82,12 @@
           "maximum": 1,
           "description": "A partir disso a leitura é confiável: ancora lacunas e a ordem proposta."
         },
+        "image_high_confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confiança alta das leituras do leitor de imagem; substitui high_confidence quando a numeração vem da imagem (a escala de cada leitor é diferente). Ausente: vale high_confidence."
+        },
         "max_first_folio": {
           "type": [
             "integer",

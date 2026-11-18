@@ -23,6 +23,7 @@ limiares, e como a numeração e as estações são tratadas.
 | `numbering.mode` | `simple` ou `recto_verso` |  |  | `simple`: cada imagem tem um número. `recto_verso`: frente e verso (12, 12v), com o verso normalmente sem marca. |
 | `numbering.min_confidence` | número |  |  | Abaixo disso a leitura não conta. mín. 0, máx. 1 |
 | `numbering.high_confidence` | número |  |  | A partir disso a leitura é confiável: ancora lacunas e a ordem proposta. mín. 0, máx. 1 |
+| `numbering.image_high_confidence` | número |  |  | Confiança alta das leituras do leitor de imagem; substitui high_confidence quando a numeração vem da imagem (a escala de cada leitor é diferente). Ausente: vale high_confidence. mín. 0, máx. 1 |
 | `numbering.max_first_folio` | inteiro ou vazio |  |  | Documento cuja numeração começa depois desta folha vai para revisão (continuação de outro volume ou leitura errada). Ausente ou nulo: desligado; ligue quando todo documento da operação começa perto de fls. 1. mín. 1 |
 | `numbering.regions` | lista de lista de número |  |  | Onde procurar o número na página já orientada, em frações [x0, y0, x1, y1], testadas em ordem. Padrão: canto superior direito [0.60, 0.00, 1.00, 0.18]. |
 | `numbering.struck_threshold` | número |  |  | Nota de riscado a partir da qual o escrito é tratado como numeração anterior. Padrão 0,6. mín. 0, máx. 1 |

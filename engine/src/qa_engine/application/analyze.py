@@ -599,7 +599,7 @@ def analyze_batch(
             seq, flags = sequence.analyze_document(
                 doc_id,
                 cands,
-                profile.sequence,
+                profile.sequence_for(source),
                 declared.get(layout.name),
                 duplicate_copies,
             )

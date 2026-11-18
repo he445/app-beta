@@ -83,3 +83,18 @@ def test_bench_reports_exact_top3_ambiguous_and_time(tmp_path: Path) -> None:
     assert (
         bench_numbering.canonical("fls. 12") == "12" and bench_numbering.canonical("12-a") == "12-A"
     )
+
+
+def test_reliability_table_counts_bands_and_thresholds() -> None:
+    import numpy as np
+
+    crops = [(np.zeros((4, 4), np.uint8), {"text": str(i)}) for i in range(1, 5)]
+    answers = iter([("1", 0.99), ("2", 0.99), ("9", 0.98), ("4", 0.40)])
+
+    def recognize(_: object) -> list[tuple[str, float]]:
+        return [next(answers)]
+
+    text = bench_numbering.reliability(recognize, crops)
+    assert "| 0.95–1.00 | 3 | 66.7% |" in text
+    assert "| 0.98 | 3 (75.0%) | 33.33% (1) |" in text
+    assert "ECE:" in text

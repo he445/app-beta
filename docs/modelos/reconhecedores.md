@@ -76,8 +76,49 @@ A meta de 97% entre as três leituras não foi alcançada: com três vagas, cada
 toma o lugar de uma leitura do reconhecedor, e os pares que faltariam (9→3, 1→5, 7→8, 4→7
 e outros, um ou dois casos cada) só se justificariam ajustando a tabela às datas do ARDIS.
 
+### Confiabilidade da confiança
+
+Medida no ARDIS com o gabarito corrigido (`tools/bench_numbering.py --reliability`),
+acerto da primeira leitura com formato de folha por faixa de confiança:
+
+| Faixa | n | Acerto | Confiança média |
+| --- | --- | --- | --- |
+| 0,50–0,55 | 34 | 50,0% | 0,524 |
+| 0,55–0,60 | 35 | 65,7% | 0,574 |
+| 0,60–0,65 | 44 | 56,8% | 0,626 |
+| 0,65–0,70 | 38 | 60,5% | 0,674 |
+| 0,70–0,75 | 44 | 81,8% | 0,723 |
+| 0,75–0,80 | 43 | 74,4% | 0,775 |
+| 0,80–0,85 | 58 | 93,1% | 0,825 |
+| 0,85–0,90 | 91 | 92,3% | 0,876 |
+| 0,90–0,95 | 159 | 98,1% | 0,928 |
+| 0,95–1,00 | 854 | 98,8% | 0,984 |
+
+| Limiar | Leituras acima | Erro acima |
+| --- | --- | --- |
+| 0,85 | 72,8% | 1,81% (20) |
+| 0,90 | 66,8% | 1,28% (13) |
+| 0,95 | 56,3% | 1,17% (10) |
+| 0,97 | 47,6% | 0,97% (7) |
+| 0,98 | 38,4% | 0,69% (4; intervalo de 95% de 0,27% a 1,75%) |
+| 0,99 | 25,0% | 0,53% (2) |
+
+No ARDIS, a confiança já é razoavelmente calibrada (erro de calibração esperado de
+0,035): a faixa de cima acerta o que promete, e as faixas de 0,70 a 0,95 acertam mais
+do que dizem. Errar
+com 1,00 é o 1,2% de erro que a faixa 0,95–1,00 anuncia, não descalibração. Por isso
+nenhuma calibração foi aplicada: uma calibração monotônica (temperatura ou isotônica)
+subiria as faixas de 0,70 a 0,95 e aumentaria o erro acima de 0,85. O que deixa a faixa
+confiável com erro de até 1% é o limiar: o perfil `sos-piloto` usa
+`numbering.image_high_confidence` = 0,98 nas marcas lidas da imagem. Em validação cruzada
+de cinco partes, mirando 0,8% no treino, o limiar escolhido ficou entre 0,96 e 0,985 e o
+erro medido fora da amostra foi 0,91%. No CVL (125 recortes, fora do domínio) a confiança
+é pior (erro de calibração de 0,18), com 0 erros em 15 leituras acima de 0,98.
+
 ## Limitações conhecidas
 
-Nenhum dos dois foi ajustado com a letra dos documentos da operação. Leitura com
+Nenhum dos dois foi ajustado com a letra dos documentos da operação. O limiar de 0,98
+foi medido em datas suecas do século XIX: refazer a medida com as cerca de 200 páginas
+reais anotadas pelos garantidores antes de confiar nele no acervo. Leitura com
 confiança baixa vira "ambígua" e vai para o garantidor; o resolvedor de sequência nunca
 aceita uma leitura isolada.
