@@ -218,3 +218,22 @@ def test_image_readings_use_their_own_high_confidence(repo) -> None:  # type: ig
     assert any(f.rule == "missing_page" for f in loose)
     assert not any(f.rule == "missing_page" for f in strict)
     assert any(f.rule == "numbering_review" for f in strict)
+
+
+folios = st.builds(
+    Folio,
+    st.integers(min_value=1, max_value=1500),
+    st.sampled_from(["", "", "", "A", "B"]),
+    st.booleans(),
+)
+
+
+@settings(max_examples=400, deadline=None)
+@given(prev=folios, cur=folios, mode=st.sampled_from(list(NumberingMode)))
+def test_gap_size_counts_missing_between_without_the_list(
+    prev: Folio, cur: Folio, mode: NumberingMode
+) -> None:
+    """A conta direta dá o mesmo que contar a lista (o resolvedor chama isto a cada par)."""
+    from qa_engine.domain.sequencing import gap_size, missing_between
+
+    assert gap_size(prev, cur, mode) == len(missing_between(prev, cur, mode))

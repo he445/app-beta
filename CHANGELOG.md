@@ -38,7 +38,9 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
   vale só para a melhor leitura; ficam até cinco leituras, as do reconhecedor primeiro.
   No ARDIS, dos 20 erros reais com confiança alta, o valor certo passa a chegar ao
   resolvedor em 16 (antes, nenhum). O bench de numeração ganha `--reader` (mede o que o
-  resolvedor recebe) e `--top`.
+  resolvedor recebe) e `--top`. O resolvedor passa a contar a lacuna entre duas folhas
+  sem montar a lista das que faltam (`gap_size`): com cinco leituras por marca, a lista
+  custava cerca de 45 ms por página.
 - Sequência (regras 1.2.0): um erro consistente do reconhecedor virava sequência
   plausível (1920 a 1925 lidas como 1990 a 1995, todas com confiança alta, aceitas sem
   sinalização). A checagem de documento manda o documento para revisão

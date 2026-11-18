@@ -126,6 +126,17 @@ def missing_between(prev: Folio, cur: Folio, mode: NumberingMode) -> list[Folio]
     return missing
 
 
+def gap_size(prev: Folio, cur: Folio, mode: NumberingMode) -> int:
+    """Quantas folhas faltam entre ``prev`` e ``cur``: ``len(missing_between(...))`` sem a lista.
+
+    O sucessor de qualquer folha fica uma posição adiante na ordem (``_ordinal``), então a
+    lacuna é a distância menos um, com o mesmo teto de 1000 de :func:`missing_between`.
+    """
+    if cur <= prev or cur == successor(prev, mode) or _is_intercalation(prev, cur, mode):
+        return 0
+    return min(max(_ordinal(cur, mode) - _ordinal(prev, mode) - 1, 0), 1000)
+
+
 def _is_intercalation(prev: Folio, cur: Folio, mode: NumberingMode) -> bool:
     """``12`` → ``12-A`` ou ``12-A`` → ``12-B`` (folhas intercaladas são legítimas)."""
     if cur.number != prev.number or cur.verso or not cur.letter:
@@ -265,7 +276,7 @@ def _transition(prev: Folio | None, cur: Folio, p: SequenceParams) -> float:
     if _is_intercalation(prev, cur, p.mode):
         return p.w_intercalation
     if cur > prev:
-        return -min(p.w_gap * len(missing_between(prev, cur, p.mode)), p.w_gap_max)
+        return -min(p.w_gap * gap_size(prev, cur, p.mode), p.w_gap_max)
     if cur == prev:
         return -p.w_repeat
     return -p.w_back
