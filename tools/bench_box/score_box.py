@@ -219,6 +219,64 @@ def score(
     return result
 
 
+def duplicate_calibration(box: Path, truth: list[dict[str, str]], top: int = 10) -> dict[str, Any]:
+    """Semelhança alinhada e diferença de tinta dos pares verdadeiros e dos falsos mais parecidos.
+
+    Usa as mesmas funções do motor (``duplicate_page``); precisa rodar com o ambiente do
+    motor (``uv run --project engine``). Serve para escolher ``min_similarity`` e
+    ``max_ink_difference``: o limite fica no vão entre os dois grupos.
+    """
+    from qa_engine.adapters.images import FileImageSource
+    from qa_engine.application.analyze import ANALYSIS_DPI
+    from qa_engine.detectors import duplicate_page as dp
+    from qa_engine.detectors.features import compute_features
+    from qa_engine.detectors.registry import params_for
+
+    params = params_for(dp.ID, None)
+    prints: dict[str, Any] = {}
+    for r in truth:
+        if r["tipo_folha"] == "corrompido":
+            continue
+        try:
+            gray = FileImageSource().load(box / key(r), 0, ANALYSIS_DPI).gray
+        except Exception:
+            continue
+        feat = compute_features(gray)
+        view, ink = dp.views(gray, feat.ink)
+        prints[key(r)] = (
+            dp.dhash(gray),
+            dp._unit(dp.thumbnail(gray)),
+            dp._decode(view),
+            dp._decode(ink) > 0,
+        )
+    true_pairs = set()
+    for r in truth:
+        m = re.search(r"duplicata_de=(\S+?\.png)", r["detalhes"])
+        if r["tipo_folha"] == "duplicata" and m:
+            true_pairs.add(tuple(sorted((key(r), f"processo {r['processo']}/{m.group(1)}"))))
+    keys = list(prints)
+    rows = []
+    for i, a in enumerate(keys):
+        for b in keys[i + 1 :]:
+            pa, pb = prints[a], prints[b]
+            if (pa[0] ^ pb[0]).bit_count() > int(params["max_hash_distance"]):
+                continue
+            if float(pa[1] @ pb[1]) < float(params["candidate_min_similarity"]):
+                continue
+            sim, ink = dp.aligned_comparison(pa[2], pa[3], pb[2], pb[3])
+            rows.append(
+                {
+                    "pair": [a, b],
+                    "true": (a, b) in true_pairs,
+                    "similarity": round(sim, 4),
+                    "ink_difference": round(ink, 4),
+                }
+            )
+    true_rows = sorted((r for r in rows if r["true"]), key=lambda r: r["similarity"])
+    false_rows = sorted((r for r in rows if not r["true"]), key=lambda r: -r["similarity"])
+    return {"true": true_rows, "closest_false": false_rows[:top], "candidates": len(rows)}
+
+
 def compare(result: dict[str, Any], base: dict[str, Any], skew_tol: float = 0.05) -> list[str]:
     """Motivos de reprovação contra a base (vazio = aprovado)."""
     fails: list[str] = []
@@ -309,6 +367,12 @@ def main() -> None:
     ap.add_argument("--json", type=Path)
     ap.add_argument("--md", type=Path)
     ap.add_argument(
+        "--calibrar-duplicata",
+        type=Path,
+        metavar="CAIXA",
+        help="pasta da caixa: imprime a semelhança alinhada dos pares (precisa do motor)",
+    )
+    ap.add_argument(
         "--check-skew",
         action="store_true",
         help="reprova se o ângulo de inclinação mudar mais de 0,05° em alguma página",
@@ -326,6 +390,15 @@ def main() -> None:
         result["skew_drift"] = drift
         if args.check_skew and drift:
             fails.append(f"inclinação mudou em {len(drift)} páginas: {drift[:5]}")
+    if args.calibrar_duplicata:
+        cal = duplicate_calibration(args.calibrar_duplicata, truth)
+        result["duplicate_calibration"] = cal
+        sims = [(r["similarity"], r["ink_difference"]) for r in cal["true"]]
+        print(f"Duplicata, {cal['candidates']} candidatos. Verdadeiros (semelhança, tinta): {sims}")
+        print(
+            "Falsos mais parecidos:",
+            [(r["similarity"], r["ink_difference"]) for r in cal["closest_false"]],
+        )
     if args.json:
         args.json.write_text(json.dumps(result, ensure_ascii=False, indent=1) + "\n", "utf-8")
     text = markdown(result, fails)

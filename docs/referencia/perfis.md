@@ -153,14 +153,18 @@ Especificação: [exposure.md](../especificacoes/detectors/exposure.md).
 
 ### `duplicate_page`
 
-Página duplicada. Versão 1.0.0, severidade `medium`.
+Página duplicada. Versão 1.1.0, severidade `medium`.
 Especificação: [duplicate_page.md](../especificacoes/detectors/duplicate_page.md).
 
 | Parâmetro | Tipo | Padrão | Faixa | Descrição |
 | --- | --- | --- | --- | --- |
-| `max_hash_distance` | inteiro | `48` | mín. 0, máx. 256 | Distância de Hamming máxima entre dHash de 256 bits para virar candidato |
-| `min_similarity` | número | `0.95` | mín. 0, máx. 1 | Correlação mínima das miniaturas para confirmar a duplicata |
-| `min_ink_coverage` | número | `0.005` | mín. 0, máx. 1 | Páginas com menos tinta (brancas) não são comparadas |
+| `max_hash_distance` | inteiro | `80` | mín. 0, máx. 256 | Distância de Hamming máxima entre dHash de 256 bits para virar candidato (a redigitalização girada até 3° chega a 72) |
+| `min_similarity` | número | `0.96` | mín. 0, máx. 1 | Semelhança mínima depois do alinhamento (giro e deslocamento) para confirmar a duplicata |
+| `candidate_min_similarity` | número | `0.6` | mín. 0, máx. 1 | Correlação mínima das miniaturas sem alinhar para o par ir à comparação alinhada |
+| `max_ink_difference` | número | `0.01` | mín. 0, máx. 1 | Fração máxima do traço de uma página sem traço da outra, depois de alinhar (formulário repetido com preenchimento diferente não é duplicata) |
+| `sharpness_margin` | número | `0.8` | mín. 0, máx. 1 | Razão de nitidez acima da qual sai a segunda ocorrência; abaixo, sai a menos nítida |
+| `numbering_veto_confidence` | número | `0.85` | mín. 0, máx. 1 | Confiança mínima das leituras de número de folha das duas páginas para números diferentes vetarem o par |
+| `min_ink_coverage` | número | `0.002` | mín. 0, máx. 1 | Páginas com menos tinta não vão à comparação alinhada (cópia exata é achada pelo hash do raster) |
 
 ### `missing_page`
 

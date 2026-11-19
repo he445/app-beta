@@ -23,6 +23,16 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
   Caixa sem tinta com contraste acima da transparência é "traço fraco" (possível número a
   lápis claro) e deixa a branca para revisão, nunca para remoção. `blank_page` 1.2.0,
   parâmetros `writing_min_ink`, `writing_min_pixels` e `faint_min_delta`.
+- **Duplicata redigitalizada** (ADR-0026): a comparação alinha as duas páginas (giro de
+  ±3° e deslocamento) antes de medir a semelhança e confere a tinta numa máscara de 512 px
+  (formulário repetido com preenchimento diferente não é duplicata); números de folha
+  diferentes lidos com confiança vetam o par; a cópia exata é achada pelo hash do raster,
+  mesmo com pouca tinta. Com nitidez parecida sai a segunda ocorrência; se a primeira for
+  claramente pior, sai ela e a outra ocupa a posição dela no lote corrigido
+  (`params.keep_position`). `duplicate_page` 1.1.0, parâmetros novos
+  `candidate_min_similarity`, `max_ink_difference`, `sharpness_margin` e
+  `numbering_veto_confidence`; `min_similarity` 0,96, `max_hash_distance` 80,
+  `min_ink_coverage` 0,002.
 - **Plano B do detector de escritos** não devolve mais o fundo: caixa que cobre mais da
   metade do recorte ou encosta em 3 bordas dele é gradiente de luz, não escrito. A leitura
   da região da numeração também descarta caixa encostada na borda da página, como a busca

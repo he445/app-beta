@@ -47,7 +47,7 @@ from qa_engine.domain.scoring import (
     green_sample,
     pages_needing_review,
 )
-from qa_engine.domain.sequencing import Mark, PageCandidates, PageNumbering
+from qa_engine.domain.sequencing import Mark, PageCandidates, PageNumbering, parse_folio
 from qa_engine.ports import (
     Clock,
     Executor,
@@ -88,7 +88,7 @@ class PageResult:
     color_mode: Any = None
     scale: float = 1.0
     observations: Mapping[str, Observation] = field(default_factory=dict)
-    fingerprint: tuple[int, Any, float, bool] | None = None
+    fingerprint: tuple[int, Any, float, bool, bytes, bytes, str | None] | None = None
     error: str | None = None
     marks: tuple[Mark, ...] = ()
     """Marcas de numeração lidas da imagem."""
@@ -219,11 +219,16 @@ def analyze_page(
         faint = faint or corner_faint
     blur_obs = observations.get("blur")
     sharpness = blur_obs.values["energy"] if blur_obs is not None else 0.0
+    view_png, ink_png = duplicate_page.views(raster.gray, features.ink)
+    blank_at = float(blank_params["blank_threshold"]) if blank_params is not None else 0.003
     fingerprint = (
         duplicate_page.dhash(raster.gray),
         duplicate_page.thumbnail(raster.gray),
         0.0 if math.isnan(sharpness) else sharpness,
         features.ink_coverage >= task.duplicate_min_ink,
+        view_png,
+        ink_png,
+        duplicate_page.raster_hash(raster.gray) if features.ink_coverage >= blank_at else None,
     )
     return PageResult(
         loaded.width_px,
@@ -588,15 +593,28 @@ def analyze_batch(
             def dup_params_of(page_id: str) -> Mapping[str, Any]:
                 return profile.params(duplicate_page.ID, station_ids[page_id])
 
+            veto_at = float(profile.params(duplicate_page.ID)["numbering_veto_confidence"])
+
+            def folio_of(page_id: str) -> str | None:
+                live = [m for m in marks_of(page_id) if not m.struck and m.top is not None]
+                if len(live) != 1 or live[0].top is None or live[0].top.confidence < veto_at:
+                    return None
+                folio = parse_folio(live[0].top.text)
+                return None if folio is None else str(folio)
+
+            doc_of = {pid: name for name, pids in doc_pages.items() for pid in pids}
             pairs = duplicate_page.find_duplicates(
-                chosen, profile.params(duplicate_page.ID), dup_params_of
+                chosen, profile.params(duplicate_page.ID), dup_params_of, folio_of
             )
             for pair in pairs:
                 duplicate_copies[pair.copy] = pair.original
+                same_doc = doc_of.get(pair.copy) == doc_of.get(pair.original)
                 factory.add(
                     duplicate_page.ID,
                     Target(TargetKind.PAGE, pair.copy),
-                    _duplicate_flag(pair, dup_params_of(pair.copy)),
+                    _duplicate_flag(
+                        pair, dup_params_of(pair.copy), keep_position=pair.copy_first and same_doc
+                    ),
                 )
 
         # Sequência e completude por documento.
@@ -739,8 +757,12 @@ def analyze_batch(
             if result.fingerprint is not None and profile.enabled(
                 duplicate_page.ID, station_ids[pid]
             ):
-                dh, thumb, sharp, eligible = result.fingerprint
-                prints.append(duplicate_page.Fingerprint(pid, dh, thumb, sharp, eligible))
+                dh, thumb, sharp, eligible, view_png, ink_png, rhash = result.fingerprint
+                prints.append(
+                    duplicate_page.Fingerprint(
+                        pid, dh, thumb, sharp, eligible, view_png, ink_png, rhash
+                    )
+                )
         last_of_doc = position + 1 == len(plan) or plan[position + 1][0] != doc_name
         if last_of_doc:
             ready.append(doc_name)
@@ -802,9 +824,18 @@ def evaluate_page(
     return factory.findings
 
 
-def _duplicate_flag(pair: duplicate_page.DuplicatePair, params: Mapping[str, Any]) -> Flag:
+def _duplicate_flag(
+    pair: duplicate_page.DuplicatePair, params: Mapping[str, Any], keep_position: bool = False
+) -> Flag:
     from qa_engine.domain.model import Correction, CorrectionAction, CorrectionClass
 
+    correction_params: dict[str, Any] = {"duplicate_of": pair.original}
+    if keep_position:
+        # A cópia (claramente pior) vem antes: a página que fica ocupa a posição dela.
+        correction_params["keep_position"] = True
+        text = "Remover esta via (a menos nítida do par); a outra fica na posição desta."
+    else:
+        text = "Remover esta cópia (a segunda via do par)."
     return Flag(
         severity=Severity.MEDIUM,
         measure=round(pair.similarity, 4),
@@ -813,8 +844,8 @@ def _duplicate_flag(pair: duplicate_page.DuplicatePair, params: Mapping[str, Any
         correction=Correction(
             CorrectionClass.AUTOMATIC,
             CorrectionAction.REMOVE_PAGE,
-            "Remover esta cópia (a menos nítida do par). Duas vias legítimas: aprovar (A).",
-            {"duplicate_of": pair.original},
+            text + " Duas vias legítimas: aprovar (A).",
+            correction_params,
         ),
-        message=f"Página quase idêntica a outra do lote (correlação {pair.similarity:.3f}).",
+        message=f"Página quase idêntica a outra do lote (semelhança {pair.similarity:.3f}).",
     )

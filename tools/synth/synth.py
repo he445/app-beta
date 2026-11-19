@@ -227,6 +227,21 @@ def verso_page(rng: random.Random, size: tuple[int, int]) -> NDArray[np.uint8]:
     return np.clip(paper, 0, 255).astype(np.uint8)
 
 
+def filled_form(
+    rng: random.Random, size: tuple[int, int], base_seed: int, fill: str
+) -> NDArray[np.uint8]:
+    """O mesmo formulário (mesma semente) preenchido à mão com outro conteúdo."""
+    base = text_page(random.Random(base_seed), size, 1, 1, 1, density=0.6, print_folio=False)
+    img = Image.fromarray(base)
+    draw = ImageDraw.Draw(img)
+    w, h = size
+    font = _font(int(h * 0.022), oblique=True)
+    for line in range(4):
+        text = f"{fill} {rng.randint(1000, 9999)} {rng.choice(WORDS)} {rng.choice(WORDS)}"
+        draw.text((int(0.12 * w), int((0.62 + 0.05 * line) * h)), text, font=font, fill=35)
+    return np.asarray(img)
+
+
 def numbered_blank_page(
     rng: random.Random, size: tuple[int, int], contrast: int | None = None, struck: bool = False
 ) -> NDArray[np.uint8]:
@@ -396,6 +411,7 @@ def build(out: Path, plan: list[list[dict[str, Any]]], seed: int, size: tuple[in
         name = f"{box}/DOC{d:04d}"
         station = STATIONS[(d - 1) // 10 % len(STATIONS)]
         pages: list[tuple[Page, dict[str, Any]]] = []
+        form_seed: int | None = None
         for i, spec in enumerate(doc, start=1):
             folio = spec.get("folio", i)
             if spec.get("kind") == "blank":
@@ -406,6 +422,10 @@ def build(out: Path, plan: list[list[dict[str, Any]]], seed: int, size: tuple[in
                 page = Page(verso_page(rng, size), folio=None)
             elif spec.get("kind") == "pencil":
                 page = Page(numbered_blank_page(rng, size, contrast=30), folio=None)
+            elif spec.get("kind") == "form":
+                if form_seed is None:
+                    form_seed = rng.randint(0, 2**31)
+                page = Page(filled_form(rng, size, form_seed, spec["fill"]), folio=None)
             elif spec.get("kind") in {"numbered_blank", "struck_blank"}:
                 struck = spec["kind"] == "struck_blank"
                 page = Page(numbered_blank_page(rng, size, struck=struck), folio=None)
@@ -575,6 +595,8 @@ def conformance_plan() -> list[list[dict[str, Any]]]:
             {"kind": "numbered_blank"},
             {"kind": "struck_blank"},
         ],
+        # Formulário repetido com preenchimento diferente: não é duplicata (ADR-0026).
+        [dict(clean), {"kind": "form", "fill": "JOAO"}, {"kind": "form", "fill": "MARIA"}],
     ]
 
 

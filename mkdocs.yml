@@ -88,6 +88,7 @@ nav:
           - "0023 Limiar de confiança por origem": adr/0023-limiar-de-confianca-por-origem-da-numeracao.md
           - "0024 Corrigir pasta e decidir semelhantes": adr/0024-corrigir-pasta-e-decidir-semelhantes.md
           - "0025 Escrito precisa ter tinta": adr/0025-escrito-precisa-ter-tinta.md
+          - "0026 Duplicata com alinhamento": adr/0026-duplicata-com-alinhamento.md
           - Modelo: adr/0000-template.md
   - Especificações:
       - especificacoes/index.md
