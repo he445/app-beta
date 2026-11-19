@@ -132,5 +132,6 @@ nav:
       - testes/index.md
       - Suíte de conformidade: testes/conformidade.md
       - Base sintética: testes/base-sintetica.md
+      - Caixa de regressão: testes/caixa-de-regressao.md
   - Glossário: glossario.md
   - Questões em aberto: questoes-em-aberto.md

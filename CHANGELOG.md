@@ -6,6 +6,16 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ## [Não lançado]
 
+### Adicionado
+
+- **Caixa de regressão** (`tools/bench_box/`, [documentação](docs/testes/caixa-de-regressao.md)):
+  1.000 páginas reais do RVL-CDIP com problemas inseridos, geradas byte a byte com semente
+  fixa; `score_box.py` confere o relatório contra o gabarito (par de duplicata e cópia
+  certa separados, correções automáticas em página limpa, lacunas maiores que o documento,
+  "fora de ordem" falsos, folhas perdidas pelo `manifest.csv`, tempo e ângulo de
+  inclinação por página) e reprova contra a base; `time_pages.py` cronometra cada página
+  em série. Base da 1.1.0 em `baseline-1.1.0.json`: 296 de 318 problemas achados.
+
 ## [1.1.0] — 2026-11-18
 
 ### Adicionado
