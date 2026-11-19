@@ -95,7 +95,9 @@ class PageResult:
     numbering_crop: bytes | None = None
     """Recorte da região da numeração (PNG), para a tela de Sequência."""
     written: bool = False
-    """Algum escrito na região da numeração (mesmo ilegível)."""
+    """Algum escrito com tinta na região da numeração (mesmo ilegível)."""
+    faint: bool = False
+    """Só traço fraco, sem tinta, na numeração ou nos cantos: branca vai para revisão."""
 
 
 def _classifier(models_dir: Path) -> OrientationClassifier:
@@ -192,13 +194,17 @@ def analyze_page(
         else detectors[rule].measure(raster, features, params)
         for rule, params in task.rules
     }
+    blank_params = rules.get(blank_page.ID)
     numbering_read = None
     if task.numbering is not None and task.models_dir is not None:
         numbering_read = _reader(task.models_dir, task.numbering).read(
-            upright_raster.gray, ANALYSIS_DPI, task.numbering.regions
+            upright_raster.gray,
+            ANALYSIS_DPI,
+            task.numbering.regions,
+            ink=blank_page.ink_check(upright_features.paper_level, blank_params),
         )
     written = numbering_read.written if numbering_read else False
-    blank_params = rules.get(blank_page.ID)
+    faint = numbering_read.faint if numbering_read else False
     if (
         not written
         and blank_params is not None
@@ -207,9 +213,10 @@ def analyze_page(
         and features.ink_coverage < float(blank_params["near_blank_threshold"])
     ):
         # Página quase vazia: a orientação não é confiável, então procura nos quatro cantos.
-        written = _reader(task.models_dir, task.blank_corners).has_writing(
-            raster.gray, ANALYSIS_DPI
+        written, corner_faint = _reader(task.models_dir, task.blank_corners).corner_writing(
+            raster.gray, ANALYSIS_DPI, blank_page.ink_check(features.paper_level, blank_params)
         )
+        faint = faint or corner_faint
     blur_obs = observations.get("blur")
     sharpness = blur_obs.values["energy"] if blur_obs is not None else 0.0
     fingerprint = (
@@ -229,6 +236,7 @@ def analyze_page(
         marks=numbering_read.marks if numbering_read else (),
         numbering_crop=numbering_read.crop_png if numbering_read else None,
         written=written,
+        faint=faint and not written,
     )
 
 
@@ -504,6 +512,7 @@ def analyze_batch(
     image_marks: dict[str, tuple[Mark, ...]] = {}
     crops: dict[str, bytes] = {}
     written: dict[str, bool] = {}
+    faint: dict[str, bool] = {}
 
     # Numeração do numbering.json: lida antes, para liberar cada processo já com ela.
     if not profile.numbering_enabled:
@@ -548,7 +557,12 @@ def analyze_batch(
                 current[pid] = {
                     **page_obs,
                     blank_page.ID: replace(
-                        blank_obs, extra={**blank_obs.extra, "numbering_written": has_numbering}
+                        blank_obs,
+                        extra={
+                            **blank_obs.extra,
+                            "numbering_written": has_numbering,
+                            "numbering_faint": faint.get(pid, False) and not has_numbering,
+                        },
                     ),
                 }
 
@@ -716,6 +730,7 @@ def analyze_batch(
         else:
             observations[pid] = dict(result.observations)
             written[pid] = result.written
+            faint[pid] = result.faint
             if image_numbering is not None:
                 image_marks[f"{rel}#{page_in_file}"] = result.marks
                 if result.numbering_crop:
@@ -771,7 +786,14 @@ def evaluate_page(
             continue
         if rule == blank_page.ID:
             numbered = has_numbering or result.written
-            obs = replace(obs, extra={**obs.extra, "numbering_written": numbered})
+            obs = replace(
+                obs,
+                extra={
+                    **obs.extra,
+                    "numbering_written": numbered,
+                    "numbering_faint": result.faint and not numbered,
+                },
+            )
         flag = detectors[rule].evaluate(
             obs, baselines.get(rule, {}), profile.params(rule, station_id)
         )

@@ -219,6 +219,42 @@ def blank_page(rng: random.Random, size: tuple[int, int]) -> NDArray[np.uint8]:
     return np.clip(arr, 0, 255).astype(np.uint8)
 
 
+def verso_page(rng: random.Random, size: tuple[int, int]) -> NDArray[np.uint8]:
+    """Folha em branco com a transparência do verso: texto espelhado, 10 a 16 níveis."""
+    text = text_page(rng, size, 1, 1, 1)
+    paper = blank_page(rng, size).astype(np.float32)
+    paper -= (255.0 - text[:, ::-1].astype(np.float32)) / 255.0 * rng.uniform(10, 16)
+    return np.clip(paper, 0, 255).astype(np.uint8)
+
+
+def numbered_blank_page(
+    rng: random.Random, size: tuple[int, int], contrast: int | None = None, struck: bool = False
+) -> NDArray[np.uint8]:
+    """Folha em branco só com o número de folha no canto superior direito.
+
+    Args:
+        rng: gerador aleatório.
+        size: tamanho da página.
+        contrast: níveis do traço abaixo do papel; sem ele, caneta escura.
+        struck: risca o número com um traço pelo meio.
+    """
+    gray = blank_page(rng, size)
+    paper = int(np.median(gray))
+    ink = paper - contrast if contrast is not None else rng.randint(25, 70)
+    w, h = size
+    img = Image.fromarray(gray)
+    draw = ImageDraw.Draw(img)
+    font = _font(int(h * 0.03), oblique=True)
+    x, y = int(0.76 * w), int(0.04 * h)
+    text = str(rng.randint(2, 99))
+    draw.text((x, y), text, font=font, fill=ink)
+    if struck:
+        left, top, right, bottom = draw.textbbox((x, y), text, font=font)
+        mid = (top + bottom) // 2
+        draw.line((left - 6, mid, right + 6, mid + 3), fill=ink, width=max(3, (bottom - top) // 9))
+    return np.asarray(img)
+
+
 # Defeitos -----------------------------------------------------------------
 
 
@@ -366,6 +402,13 @@ def build(out: Path, plan: list[list[dict[str, Any]]], seed: int, size: tuple[in
                 page = Page(blank_page(rng, size), folio=None)
             elif spec.get("kind") == "stamp":
                 page = Page(stamp_page(rng, size), folio=None)
+            elif spec.get("kind") == "verso":
+                page = Page(verso_page(rng, size), folio=None)
+            elif spec.get("kind") == "pencil":
+                page = Page(numbered_blank_page(rng, size, contrast=30), folio=None)
+            elif spec.get("kind") in {"numbered_blank", "struck_blank"}:
+                struck = spec["kind"] == "struck_blank"
+                page = Page(numbered_blank_page(rng, size, struck=struck), folio=None)
             else:
                 page = Page(
                     text_page(rng, size, folio, len(doc), i, spec.get("density", 1.0)), folio=folio
@@ -391,8 +434,9 @@ def build(out: Path, plan: list[list[dict[str, Any]]], seed: int, size: tuple[in
                 fn = PAGE_DEFECTS[defect]
                 params = fn(page, rng, **spec.get("defect_args", {}))
                 truth.add(defect.split("_faded")[0], file=rel, page_in_file=0, params=params)
-            if spec.get("kind") in {"blank", "stamp"}:
-                # Só carimbo: "quase branca", nunca removida (blank_page.md).
+            if spec.get("kind") in {"blank", "stamp", "verso", "pencil"}:
+                # Só carimbo: "quase branca"; lápis claro: branca para revisão. Nenhuma das
+                # duas é removida (blank_page.md). Verso transparente é branca.
                 truth.add("blank_page", file=rel, page_in_file=0)
             if "duplicate_of" in spec:
                 src_rel = f"{name}/{spec['duplicate_of'] + 1:04d}.tif"
@@ -522,6 +566,14 @@ def conformance_plan() -> list[list[dict[str, Any]]]:
             {"defect": "orientation", "defect_args": {"angle": 270}},
             {"density": 0.12},
             {"kind": "stamp"},
+        ],
+        # Folha em branco (ADR-0025): só conta como escrito o traço com tinta.
+        [
+            dict(clean),
+            {"kind": "verso"},
+            {"kind": "pencil"},
+            {"kind": "numbered_blank"},
+            {"kind": "struck_blank"},
         ],
     ]
 

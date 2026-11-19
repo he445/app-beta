@@ -16,6 +16,14 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
   inclinação por página) e reprova contra a base; `time_pages.py` cronometra cada página
   em série. Base da 1.1.0 em `baseline-1.1.0.json`: 296 de 318 problemas achados.
 
+### Corrigido
+
+- **Folha em branco com transparência do verso ou gradiente de luz** deixa de ser lida
+  como "verso numerado" (ADR-0025): só conta como escrito a caixa com tinta de verdade.
+  Caixa sem tinta com contraste acima da transparência é "traço fraco" (possível número a
+  lápis claro) e deixa a branca para revisão, nunca para remoção. `blank_page` 1.2.0,
+  parâmetros `writing_min_ink`, `writing_min_pixels` e `faint_min_delta`.
+
 ## [1.1.0] — 2026-11-18
 
 ### Adicionado

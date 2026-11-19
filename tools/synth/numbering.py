@@ -59,9 +59,22 @@ class Sheet:
 
 
 def draw_number(
-    page: Image.Image, text: str, at: tuple[int, int], rng: random.Random, font_path: Path
+    page: Image.Image,
+    text: str,
+    at: tuple[int, int],
+    rng: random.Random,
+    font_path: Path,
+    ink: int | None = None,
 ) -> tuple[int, int, int, int]:
     """Escreve ``text`` com tinta de caneta, leve inclinação e tamanho variado.
+
+    Args:
+        page: folha em que escrever.
+        text: o número.
+        at: canto superior esquerdo do escrito.
+        rng: gerador aleatório.
+        font_path: fonte manuscrita.
+        ink: cinza do traço; sem ele, caneta escura sorteada (25 a 80).
 
     Returns:
         A caixa ``(x, y, w, h)`` do escrito na página.
@@ -76,7 +89,8 @@ def draw_number(
     tile = Image.new("L", (right - left + 24, bottom - top + 24), 0)
     ImageDraw.Draw(tile).text((12 - left, 12 - top), text, font=font, fill=255)
     tile = tile.rotate(rng.uniform(-8, 8), resample=Image.BICUBIC, expand=True, fillcolor=0)
-    ink = rng.randint(25, 80)
+    if ink is None:
+        ink = rng.randint(25, 80)
     x, y = at
     page.paste(Image.new("L", tile.size, ink), (x, y), tile)
     mask = np.asarray(tile) > 40
@@ -205,8 +219,21 @@ def build_sequence_batch(out: Path, seed: int = 20261114) -> None:
         synth.save_tiff(out / f"SEM-NUMERO/{i:04d}.tif", synth.Page(gray), synth.STATIONS[0], 1)
 
 
-BLANK_CASES = ("so-numero", "so-riscado", "so-numero-de-cabeca-para-baixo", "so-carimbo", "vazia")
-"""Os cinco casos da folha em branco: só a última é branca."""
+BLANK_CASES = (
+    "so-numero",
+    "so-riscado",
+    "so-numero-de-cabeca-para-baixo",
+    "so-carimbo",
+    "vazia",
+    "verso-transparente",
+    "lapis-claro",
+)
+"""Os sete casos da folha em branco: vazia e verso transparente são brancas; lápis claro é
+branca para revisão; carimbo é quase branca; as com número não são sinalizadas."""
+VERSO_CONTRAST = (10, 16)
+"""Transparência do verso, em níveis de cinza abaixo do papel (blank_page.md)."""
+PENCIL_CONTRAST = 30
+"""Número a lápis claro: traço fraco, sem tinta pela máscara (ADR-0025)."""
 
 
 def build_blank_cases(out: Path, seed: int = 20261115) -> None:
@@ -218,6 +245,17 @@ def build_blank_cases(out: Path, seed: int = 20261115) -> None:
     for i, name in enumerate(BLANK_CASES):
         if name == "so-carimbo":
             gray = synth.stamp_page(rng, PAGE)
+        elif name == "verso-transparente":
+            gray = verso_page(rng)
+        elif name == "lapis-claro":
+            paper = synth.blank_page(rng, PAGE)
+            page = Image.fromarray(paper)
+            at = (int(PAGE[0] * 0.74), int(PAGE[1] * 0.04))
+            level = int(np.median(paper)) - PENCIL_CONTRAST
+            draw_number(
+                page, str(rng.randint(2, 99)), at, rng, available[i % len(available)], level
+            )
+            gray = np.asarray(page)
         else:
             page = Image.fromarray(synth.blank_page(rng, PAGE))
             if name != "vazia":
@@ -231,6 +269,15 @@ def build_blank_cases(out: Path, seed: int = 20261115) -> None:
                 page = page.rotate(180)
             gray = np.asarray(page)
         synth.save_tiff(out / f"{name}/0001.tif", synth.Page(gray), synth.STATIONS[0], 1)
+
+
+def verso_page(rng: random.Random) -> NDArray[np.uint8]:
+    """Folha em branco com a transparência do verso: texto espelhado, contraste baixo."""
+    text = synth.text_page(rng, PAGE, 1, 1, 1)
+    paper = synth.blank_page(rng, PAGE).astype(np.float32)
+    darkness = (255.0 - text[:, ::-1].astype(np.float32)) / 255.0
+    paper -= darkness * rng.uniform(*VERSO_CONTRAST)
+    return np.clip(paper, 0, 255).astype(np.uint8)
 
 
 # Recortes para o bench ---------------------------------------------------------------

@@ -18,6 +18,7 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
 
+from qa_engine.detectors.features import BoxKind, InkCheck
 from qa_engine.detectors.strike import strike_score
 from qa_engine.domain.sequencing import DIGIT_CONFUSIONS, Mark, Reading, parse_folio
 from qa_engine.ports import TextBox, TextRecognizer, TextRegionDetector
@@ -56,10 +57,12 @@ class PageNumberingRead:
 
     marks: tuple[Mark, ...] = ()
     written: bool = False
-    """Algum escrito na região (mesmo ilegível ou riscado): a página não é branca."""
+    """Algum escrito com tinta na região (mesmo ilegível ou riscado): a página não é branca."""
     crop_png: bytes | None = None
     """Recorte da região onde a numeração foi procurada, para a tela de Sequência."""
     boxes: tuple[TextBox, ...] = field(default_factory=tuple)
+    faint: bool = False
+    """Algum traço fraco sem tinta (possível número a lápis claro): branca só para revisão."""
 
 
 def crop_fraction(gray: NDArray[np.uint8], region: Region) -> tuple[NDArray[np.uint8], int, int]:
@@ -124,7 +127,11 @@ class ImageNumberingReader:
         return max(8, round(self.min_height_mm / 25.4 * dpi))
 
     def read(
-        self, gray: NDArray[np.uint8], dpi: float, regions: Sequence[Region] = DEFAULT_REGIONS
+        self,
+        gray: NDArray[np.uint8],
+        dpi: float,
+        regions: Sequence[Region] = DEFAULT_REGIONS,
+        ink: InkCheck | None = None,
     ) -> PageNumberingRead:
         """Procura nas regiões em ordem e para na primeira que tiver número de folha.
 
@@ -132,19 +139,29 @@ class ImageNumberingReader:
             gray: página em cinza, já de pé.
             dpi: resolução de ``gray`` (para a altura mínima de um escrito).
             regions: regiões em frações da página ``(x0, y0, x1, y1)``.
+            ink: confirmação de tinta de cada caixa. Sem ela, toda caixa é escrito.
         """
         written = False
+        faint = False
         first_crop: bytes | None = None
         for region in regions:
             crop, _, _ = crop_fraction(gray, region)
             if first_crop is None:
                 first_crop = _png(crop)
-            boxes = [
-                part
-                for box in self._detect(crop)
-                if box.h >= self._min_height(dpi) and box.w <= MAX_ASPECT * box.h
-                for part in split_box(crop, box)
-            ]
+            boxes = []
+            for box in self._detect(crop):
+                if box.h < self._min_height(dpi) or box.w > MAX_ASPECT * box.h:
+                    continue
+                for part in split_box(crop, box):
+                    kind = (
+                        ink.classify(crop[part.y : part.y + part.h, part.x : part.x + part.w])
+                        if ink is not None
+                        else BoxKind.WRITING
+                    )
+                    if kind is BoxKind.WRITING:
+                        boxes.append(part)
+                    elif kind is BoxKind.FAINT:
+                        faint = True
             if boxes:
                 written = True
             marks: list[Mark] = []
@@ -164,8 +181,8 @@ class ImageNumberingReader:
                 # lado): exige nota máxima para não confundir o traço do meio de um 4 ou 7.
                 limit = self.struck_threshold if len(marks) > 1 else LONE_STRUCK
                 marks = [Mark(m.readings, sc >= limit) for m, sc in zip(marks, scores, strict=True)]
-                return PageNumberingRead(tuple(marks), True, _png(crop), tuple(boxes))
-        return PageNumberingRead((), written, first_crop)
+                return PageNumberingRead(tuple(marks), True, _png(crop), tuple(boxes), faint)
+        return PageNumberingRead((), written, first_crop, faint=faint and not written)
 
     def _detect(self, crop: NDArray[np.uint8]) -> list[TextBox]:
         """Caixas do modelo e, do plano B, as que não se sobrepõem a nenhuma (traço fino)."""
@@ -177,23 +194,39 @@ class ImageNumberingReader:
             boxes += extra
         return sorted(boxes, key=lambda b: (b.y, b.x))
 
-    def has_writing(self, gray: NDArray[np.uint8], dpi: float) -> bool:
-        """Algum escrito em qualquer um dos quatro cantos (página quase vazia).
+    def has_writing(self, gray: NDArray[np.uint8], dpi: float, ink: InkCheck | None = None) -> bool:
+        """Algum escrito com tinta em qualquer um dos quatro cantos (página quase vazia)."""
+        return self.corner_writing(gray, dpi, ink)[0]
+
+    def corner_writing(
+        self, gray: NDArray[np.uint8], dpi: float, ink: InkCheck | None = None
+    ) -> tuple[bool, bool]:
+        """Escrito e traço fraco nos quatro cantos (página quase vazia).
 
         Caixa encostada na borda da página é sombra ou borda do digitalizador, não escrito.
+
+        Returns:
+            ``(escrito, traço_fraco)``: o segundo só conta quando não há escrito.
         """
         h, w = gray.shape[:2]
         edge = max(2, round(EDGE_MARGIN * min(h, w)))
+        faint = False
         for region in CORNERS:
             crop, x0, y0 = crop_fraction(gray, region)
             for b in self._detect(crop):
                 if b.h < self._min_height(dpi) or b.w > MAX_ASPECT * b.h:
                     continue
-                x, y = x0 + b.x, y0 + b.y
-                if x <= edge or y <= edge or x + b.w >= w - edge or y + b.h >= h - edge:
+                if _touches_page_edge(b, x0, y0, w, h, edge):
                     continue
-                return True
-        return False
+                kind = (
+                    ink.classify(crop[b.y : b.y + b.h, b.x : b.x + b.w])
+                    if ink is not None
+                    else BoxKind.WRITING
+                )
+                if kind is BoxKind.WRITING:
+                    return True, False
+                faint = faint or kind is BoxKind.FAINT
+        return False, faint
 
 
 def candidate_readings(
@@ -250,6 +283,12 @@ def with_confusions(
     options.sort(key=lambda o: (-o[0], -o[1], o[2]))
     extra = [Reading(text, conf) for conf, _, _, text in options[: limit - len(own)]]
     return tuple(sorted([*own, *extra], key=lambda r: -r.confidence))
+
+
+def _touches_page_edge(box: TextBox, x0: int, y0: int, w: int, h: int, edge: int) -> bool:
+    """Caixa (em coordenadas do recorte que começa em ``x0, y0``) junto à borda da página."""
+    x, y = x0 + box.x, y0 + box.y
+    return x <= edge or y <= edge or x + box.w >= w - edge or y + box.h >= h - edge
 
 
 def _overlaps(a: TextBox, b: TextBox) -> bool:

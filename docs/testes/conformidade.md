@@ -7,7 +7,7 @@ Qualquer implementação do motor, em qualquer linguagem, só substitui outra qu
 | --- | --- | --- |
 | `expected/core.json` | Gabarito do lote `core`: cada defeito inserido, com parâmetros | sim |
 | `fixtures/sequencing/cases.json` | Entrada e saída esperada do resolvedor de numeração | sim |
-| `fixtures/core/` | Lote `core` (30 páginas TIFF A5, 300 dpi) | **não**: gerado |
+| `fixtures/core/` | Lote `core` (40 páginas TIFF A5, 300 dpi) | **não**: gerado |
 | `tolerances.yaml` | Tolerâncias de medida e coocorrências aceitas | sim |
 | `run.py` | Executor da implementação de referência | sim |
 

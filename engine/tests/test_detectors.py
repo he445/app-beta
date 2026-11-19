@@ -81,6 +81,19 @@ def test_blank_and_near_blank() -> None:
     assert near is not None and near.correction.action is CorrectionAction.HUMAN_REVIEW
 
 
+def test_blank_with_faint_trace_goes_to_review_never_removed() -> None:
+    """ADR-0025: traço fraco sem tinta num canto (possível lápis claro) não remove a folha."""
+    from dataclasses import replace
+
+    params = params_for("blank_page", None)
+    obs = observe(BLANK, blank_150())
+    faint = BLANK.evaluate(replace(obs, extra={**obs.extra, "numbering_faint": True}), {}, params)
+    assert faint is not None and faint.correction.action is CorrectionAction.HUMAN_REVIEW
+    assert faint.confidence == 0.5
+    written = replace(obs, extra={**obs.extra, "numbering_written": True, "numbering_faint": True})
+    assert BLANK.evaluate(written, {}, params) is None
+
+
 def test_black_borders_crop_fraction() -> None:
     gray = page_150(5).copy()
     gray[:, :35] = 10

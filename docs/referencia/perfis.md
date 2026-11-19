@@ -74,7 +74,7 @@ Especificação: [low_resolution.md](../especificacoes/detectors/low_resolution.
 
 ### `blank_page`
 
-Página em branco. Versão 1.1.0, severidade `low`.
+Página em branco. Versão 1.2.0, severidade `low`.
 Especificação: [blank_page.md](../especificacoes/detectors/blank_page.md).
 
 | Parâmetro | Tipo | Padrão | Faixa | Descrição |
@@ -82,6 +82,9 @@ Especificação: [blank_page.md](../especificacoes/detectors/blank_page.md).
 | `blank_threshold` | número | `0.003` | mín. 0, máx. 1 | Cobertura abaixo da qual a página é branca |
 | `near_blank_threshold` | número | `0.01` | mín. 0, máx. 1 | Cobertura abaixo da qual a página é quase branca |
 | `mark_min_area` | inteiro | `400` | mín. 0 | Área em pixels a 150 dpi de uma marca isolada (carimbo, rubrica) que impede classificar como branca |
+| `writing_min_ink` | número | `0.01` | mín. 0, máx. 1 | Fração mínima de pixels de tinta numa caixa de escrito para ela contar como escrito |
+| `writing_min_pixels` | inteiro | `30` | mín. 0 | Pixels de tinta mínimos, a 150 dpi, numa caixa de escrito para ela contar como escrito |
+| `faint_min_delta` | número | `26` | mín. 0, máx. 255 | Contraste (papel menos o percentil 5 da caixa) a partir do qual uma caixa sem tinta é traço fraco e deixa a branca para revisão |
 | `remove_blank_pages` | sim/não | `true` |  | Se a correção proposta para página branca é removê-la |
 
 ### `orientation`
