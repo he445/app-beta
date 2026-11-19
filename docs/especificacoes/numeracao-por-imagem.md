@@ -25,6 +25,10 @@ mesma em que a inclinação é medida, já girada quando a página veio de lado)
    sobrepõem a nenhuma do modelo (traço fino que o modelo perde). Descartadas: caixa com
    altura abaixo de `numbering.min_height_mm` (padrão 3 mm) e caixa mais larga que 5
    alturas (linha de texto impresso).
+   O plano B descarta a caixa que cobre mais da metade do recorte ou encosta em 3 ou mais
+   bordas dele: é o gradiente de luz do papel que o limiar do próprio recorte transformou
+   em "tinta". Também fica de fora a caixa afastada menos de 1% do lado menor da borda da
+   página (sombra e borda do digitalizador), como na busca nos quatro cantos.
    Cada caixa que sobra é conferida contra o papel da página
    ([escrito precisa ter tinta](detectors/blank_page.md#escrito-precisa-ter-tinta)): só a
    caixa com tinta segue e conta como escrito; a sem tinta é traço fraco (a página fica

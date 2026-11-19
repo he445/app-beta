@@ -144,14 +144,18 @@ class ImageNumberingReader:
         written = False
         faint = False
         first_crop: bytes | None = None
+        h, w = gray.shape[:2]
+        edge = max(2, round(EDGE_MARGIN * min(h, w)))
         for region in regions:
-            crop, _, _ = crop_fraction(gray, region)
+            crop, x0, y0 = crop_fraction(gray, region)
             if first_crop is None:
                 first_crop = _png(crop)
             boxes = []
             for box in self._detect(crop):
                 if box.h < self._min_height(dpi) or box.w > MAX_ASPECT * box.h:
                     continue
+                if _touches_page_edge(box, x0, y0, w, h, edge):
+                    continue  # sombra ou borda do digitalizador, não escrito
                 for part in split_box(crop, box):
                     kind = (
                         ink.classify(crop[part.y : part.y + part.h, part.x : part.x + part.w])

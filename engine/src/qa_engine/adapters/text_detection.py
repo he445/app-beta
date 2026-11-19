@@ -96,8 +96,16 @@ class PaddleTextDetector:
 class OpenCvTextDetector:
     """Plano B sem modelo: componentes de tinta agrupados por proximidade."""
 
-    def __init__(self, min_height: int = 12) -> None:
+    def __init__(self, min_height: int = 12, max_box_area: float = 0.5) -> None:
+        """Plano B.
+
+        Args:
+            min_height: altura mínima de um grupo de traços, em pixels.
+            max_box_area: fração do recorte acima da qual a caixa é fundo (gradiente de luz
+                que o limiar do próprio recorte transformou em "tinta"), não escrito.
+        """
         self.min_height = min_height
+        self.max_box_area = max_box_area
 
     def detect(self, gray: NDArray[np.uint8]) -> list[TextBox]:
         """Grupos de traços escuros, alargados na horizontal para juntar os dígitos."""
@@ -108,9 +116,24 @@ class OpenCvTextDetector:
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (max(3, h // 40), max(3, h // 60)))
         merged = cv2.dilate(ink, kernel)
         count, _, stats, _ = cv2.connectedComponentsWithStats(merged, connectivity=8)
+        crop_h, crop_w = gray.shape[:2]
         boxes = [
             TextBox(int(x), int(y), int(bw), int(bh))
             for x, y, bw, bh, area in stats[1:count]
-            if bh >= self.min_height and area >= self.min_height**2 // 2
+            if bh >= self.min_height
+            and area >= self.min_height**2 // 2
+            and not _is_background(
+                int(x), int(y), int(bw), int(bh), crop_w, crop_h, self.max_box_area
+            )
         ]
         return _sorted(boxes)
+
+
+def _is_background(
+    x: int, y: int, w: int, h: int, crop_w: int, crop_h: int, max_area: float
+) -> bool:
+    """Caixa que cobre boa parte do recorte ou encosta em 3 ou mais bordas dele é fundo."""
+    if w * h > max_area * crop_w * crop_h:
+        return True
+    edges = (x <= 0) + (y <= 0) + (x + w >= crop_w) + (y + h >= crop_h)
+    return edges >= 3

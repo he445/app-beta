@@ -169,6 +169,27 @@ def test_reader_ignores_boxes_without_ink() -> None:
     assert old.written  # sem a conferência, toda caixa é escrito, como antes
 
 
+def test_fallback_detector_does_not_return_the_background() -> None:
+    """Gradiente de luz no recorte não vira uma caixa do tamanho da região (R2)."""
+    from qa_engine.adapters.text_detection import OpenCvTextDetector
+
+    h, w = 297, 512
+    gradient = np.tile(np.linspace(200, 245, w, dtype=np.float32), (h, 1))
+    gray = gradient.astype(np.uint8)
+    assert OpenCvTextDetector().detect(gray) == []
+    cv2.putText(gray, "27", (300, 120), cv2.FONT_HERSHEY_SIMPLEX, 2.0, 30, 5)
+    boxes = OpenCvTextDetector().detect(gray)
+    assert boxes and all(b.w * b.h < 0.5 * w * h for b in boxes)
+
+
+def test_reader_ignores_boxes_on_the_page_edge() -> None:
+    """Caixa encostada na borda da página é sombra do digitalizador, também na região."""
+    gray, boxes = page_with(("12", False))
+    edge_box = TextBox(boxes[0].x, 0, boxes[0].w, boxes[0].h, 0.9)
+    read = ImageNumberingReader(Boxes([edge_box]), Texts()).read(gray, 150)
+    assert not read.written and read.marks == ()
+
+
 def test_profile_numbering_reader_settings(full_profile_path: Path) -> None:
     data = yaml.safe_load(full_profile_path.read_text("utf-8"))
     profile = profile_from_dict(

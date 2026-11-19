@@ -23,6 +23,10 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
   Caixa sem tinta com contraste acima da transparência é "traço fraco" (possível número a
   lápis claro) e deixa a branca para revisão, nunca para remoção. `blank_page` 1.2.0,
   parâmetros `writing_min_ink`, `writing_min_pixels` e `faint_min_delta`.
+- **Plano B do detector de escritos** não devolve mais o fundo: caixa que cobre mais da
+  metade do recorte ou encosta em 3 bordas dele é gradiente de luz, não escrito. A leitura
+  da região da numeração também descarta caixa encostada na borda da página, como a busca
+  nos quatro cantos já fazia.
 
 ## [1.1.0] — 2026-11-18
 
