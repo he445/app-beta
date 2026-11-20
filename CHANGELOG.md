@@ -6,6 +6,13 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ## [Não lançado]
 
+### Corrigido
+
+- **Checagem de quebra de contrato na CI** volta a funcionar: o oasdiff 1.10.25 não lia o
+  contrato OpenAPI 3.1 (`exclusiveMinimum` numérico) e reprovava todo pull request antes de
+  comparar. Passa para o 1.39.0, que lê o 3.1 e continua acusando quebra (rota removida sem
+  depreciação, por exemplo).
+
 ## [1.2.0] — 2026-11-20
 
 ### Adicionado

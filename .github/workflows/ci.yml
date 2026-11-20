@@ -182,7 +182,7 @@ jobs:
         run: |
           if git cat-file -e "origin/${{ github.base_ref }}:contracts/openapi.yaml" 2>/dev/null; then
             git worktree add /tmp/base "origin/${{ github.base_ref }}"
-            docker run --rm -v /tmp/base:/base -v "$PWD":/head tufin/oasdiff:v1.10.25 \
+            docker run --rm -v /tmp/base:/base -v "$PWD":/head tufin/oasdiff:v1.39.0 \
               breaking /base/contracts/openapi.yaml /head/contracts/openapi.yaml --fail-on ERR \
               || python3 contracts/check_major_bump.py /tmp/base/contracts/openapi.yaml contracts/openapi.yaml
           else
