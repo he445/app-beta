@@ -1,6 +1,6 @@
 # blur: Desfoque
 
-Versão: 1.1.0 · Severidade padrão: crítico
+Versão: 1.2.0 · Severidade padrão: crítico
 
 ## Objetivo
 
@@ -11,6 +11,15 @@ aceitável é redigitalizar.
 
 Raster de análise (cinza, 150 dpi), máscara de tinta e área útil (ver
 [`blank_page.md`](blank_page.md#máscara-de-tinta-e-área-útil)).
+
+A medida é feita na **vista de conteúdo**: a página sem as faixas pretas do digitalizador
+que [`black_borders`](black_borders.md) sinalizaria (acima de `min_fraction`), com folga de
+0,5% do lado (ADR-0027). Sem faixa, a vista é a própria página.
+
+Componentes de tinta grandes (área de pelo menos `solid_min_area` da página) e sólidos
+(área sobre a da envoltória convexa de pelo menos `solid_min_solidity`) saem da máscara e
+da mediana que calcula o contraste: são faixa preta estreita demais para `black_borders`,
+tarja ou bloco escuro, dentro dos quais o Laplaciano é zero e a mediana vai para o preto.
 
 ## Algoritmo
 
@@ -43,6 +52,8 @@ torna a medida independente da quantidade de texto.
 | `absolute_threshold` | número | 0,6 | ≥ 0 |
 | `min_batch_size` | inteiro | 5 | ≥ 1 |
 | `min_ink_coverage` | número | 0,01 | 0 a 1 |
+| `solid_min_area` | número | 0,02 | 0 a 1 |
+| `solid_min_solidity` | número | 0,9 | 0 a 1 |
 
 ## Saída
 
@@ -67,6 +78,9 @@ torna a medida independente da quantidade de texto.
 
 ## Histórico de versões
 
+- 1.2.0: mede a vista de conteúdo, sem as faixas pretas; componentes sólidos e grandes saem
+  da máscara e do contraste (ADR-0027). Na caixa de regressão, os 8 desfoques falsos em
+  página com borda preta caíram para zero.
 - 1.1.0: `min_ink_coverage` sobe para 0,01, o limite de página quase branca: verso só
   com carimbo ou rubrica não é avaliado por esta regra (a página já vai ao revisor como
   quase branca).

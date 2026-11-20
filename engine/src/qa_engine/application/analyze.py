@@ -18,17 +18,25 @@ from qa_engine.application.layout import DocumentLayout, discover, read_manifest
 from qa_engine.application.metadata import MetadataField, document_metadata, match_station
 from qa_engine.application.numbering_image import DEFAULT_CONFUSIONS, ImageNumberingReader
 from qa_engine.application.profile import NumberingImageConfig, Profile
-from qa_engine.detectors import blank_page, corrupted_file, duplicate_page, orientation, sequence
+from qa_engine.detectors import (
+    black_borders,
+    blank_page,
+    corrupted_file,
+    duplicate_page,
+    orientation,
+    sequence,
+)
 from qa_engine.detectors.base import (
     ANALYSIS_DPI,
     Flag,
     Observation,
+    PageFeatures,
     PageRaster,
     Stats,
     baseline_of,
 )
 from qa_engine.detectors.features import compute_features
-from qa_engine.detectors.registry import PAGE_DETECTORS, manifest
+from qa_engine.detectors.registry import PAGE_DETECTORS, manifest, params_for
 from qa_engine.domain import ids
 from qa_engine.domain.model import (
     Document,
@@ -141,7 +149,40 @@ def _reader(models_dir: Path, config: NumberingImageConfig) -> ImageNumberingRea
 
 
 ORIENTED_RULES = frozenset({"skew"})
-"""Regras que dependem do sentido do texto: medidas na vista já orientada."""
+"""Regras que dependem do sentido do texto: medidas na vista de conteúdo já orientada."""
+CONTENT_RULES = frozenset({"blur", "exposure"})
+"""Regras que medem o conteúdo: na vista sem as faixas pretas do digitalizador."""
+CONTENT_SLACK = 0.005
+"""Folga, em fração do lado, cortada além de cada faixa preta na vista de conteúdo."""
+
+
+def content_view(
+    raster: PageRaster, features: PageFeatures, params: Mapping[str, Any] | None
+) -> tuple[PageRaster, PageFeatures]:
+    """A página sem as faixas pretas que ``black_borders`` mede, com folga (ADR-0027).
+
+    A faixa preta derruba a nitidez medida, puxa a mediana da tinta e entra no recorte que o
+    classificador de orientação vê. Sem faixa, a vista é a própria página.
+    """
+    p = dict(params) if params is not None else params_for(black_borders.ID, None)
+    obs = black_borders.DETECTOR.measure(raster, features, p)
+    crop = dict(obs.extra.get("crop_fraction", {}))
+    # Só a faixa que a regra sinalizaria: cortar uma linha escura da borda do scanner muda o
+    # recorte central do classificador sem tirar nada que atrapalhe as medidas.
+    floor = float(p["min_fraction"])
+    if not any(float(v) > floor for v in crop.values()):
+        return raster, features
+    h, w = raster.gray.shape
+
+    def cut(side: str, size: int) -> int:
+        frac = float(crop.get(side, 0.0))
+        return math.ceil((frac + CONTENT_SLACK) * size) if frac > floor else 0
+
+    top, bottom, left, right = cut("top", h), cut("bottom", h), cut("left", w), cut("right", w)
+    if top + bottom >= h // 2 or left + right >= w // 2:
+        return raster, features
+    gray = np.ascontiguousarray(raster.gray[top : h - bottom, left : w - right])
+    return replace(raster, gray=gray), compute_features(gray)
 
 
 def oriented_view(gray: Any, angle: int) -> Any:
@@ -175,33 +216,40 @@ def analyze_page(
     )
     features = compute_features(raster.gray)
     rules = dict(task.rules)
-    upright_raster, upright_features = raster, features
+    content, content_features = content_view(raster, features, rules.get(black_borders.ID))
+    upright_raster, upright_features = content, content_features
+    page_upright = raster.gray  # numeração: a página inteira, de pé (regiões são frações dela)
     if orientation.ID in rules and not orientation.skips(features, rules[orientation.ID]):
         if classifier is None and task.models_dir is not None:
             classifier = _classifier(task.models_dir)
         if classifier is not None:
-            prediction = classifier.classify(raster.gray)
+            prediction = classifier.classify(content.gray)
             raster = replace(raster, orientation=prediction)
+            content = replace(content, orientation=prediction)
+            upright_raster = content
             review_at = orientation.suggest_at(features, rules[orientation.ID])
             if prediction.angle and prediction.probability >= review_at:
-                view = oriented_view(raster.gray, prediction.angle)
-                upright_raster = replace(raster, gray=view)
+                view = oriented_view(content.gray, prediction.angle)
+                upright_raster = replace(content, gray=view)
                 upright_features = compute_features(view)
+                page_upright = oriented_view(raster.gray, prediction.angle)
     detectors = {d.id: d for d in PAGE_DETECTORS}
-    observations = {
-        rule: detectors[rule].measure(upright_raster, upright_features, params)
-        if rule in ORIENTED_RULES
-        else detectors[rule].measure(raster, features, params)
-        for rule, params in task.rules
-    }
+    observations = {}
+    for rule, params in task.rules:
+        if rule in ORIENTED_RULES:
+            observations[rule] = detectors[rule].measure(upright_raster, upright_features, params)
+        elif rule in CONTENT_RULES:
+            observations[rule] = detectors[rule].measure(content, content_features, params)
+        else:
+            observations[rule] = detectors[rule].measure(raster, features, params)
     blank_params = rules.get(blank_page.ID)
     numbering_read = None
     if task.numbering is not None and task.models_dir is not None:
         numbering_read = _reader(task.models_dir, task.numbering).read(
-            upright_raster.gray,
+            page_upright,
             ANALYSIS_DPI,
             task.numbering.regions,
-            ink=blank_page.ink_check(upright_features.paper_level, blank_params),
+            ink=blank_page.ink_check(features.paper_level, blank_params),
         )
     written = numbering_read.written if numbering_read else False
     faint = numbering_read.faint if numbering_read else False

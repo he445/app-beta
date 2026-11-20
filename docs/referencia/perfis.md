@@ -89,7 +89,7 @@ Especificação: [blank_page.md](../especificacoes/detectors/blank_page.md).
 
 ### `orientation`
 
-Página de lado ou de cabeça para baixo. Versão 1.2.0, severidade `medium`.
+Página de lado ou de cabeça para baixo. Versão 1.3.0, severidade `medium`.
 Especificação: [orientation.md](../especificacoes/detectors/orientation.md).
 
 | Parâmetro | Tipo | Padrão | Faixa | Descrição |
@@ -114,7 +114,7 @@ Especificação: [black_borders.md](../especificacoes/detectors/black_borders.md
 
 ### `blur`
 
-Desfoque. Versão 1.1.0, severidade `critical`.
+Desfoque. Versão 1.2.0, severidade `critical`.
 Especificação: [blur.md](../especificacoes/detectors/blur.md).
 
 | Parâmetro | Tipo | Padrão | Faixa | Descrição |
@@ -123,6 +123,8 @@ Especificação: [blur.md](../especificacoes/detectors/blur.md).
 | `absolute_threshold` | número | `0.6` | mín. 0 | Limiar usado quando o lote tem menos de min_batch_size páginas elegíveis |
 | `min_batch_size` | inteiro | `5` | mín. 1 | Páginas elegíveis necessárias para usar a mediana do lote |
 | `min_ink_coverage` | número | `0.01` | mín. 0, máx. 1 | Cobertura de tinta mínima para a página ser avaliada |
+| `solid_min_area` | número | `0.02` | mín. 0, máx. 1 | Fração da página a partir da qual um componente de tinta sólido sai da medida (faixa preta estreita, tarja) |
+| `solid_min_solidity` | número | `0.9` | mín. 0, máx. 1 | Área do componente sobre a da envoltória convexa a partir da qual ele é sólido, não escrita |
 
 ### `skew`
 
@@ -138,7 +140,7 @@ Especificação: [skew.md](../especificacoes/detectors/skew.md).
 
 ### `exposure`
 
-Escura, clara ou sem contraste. Versão 1.0.0, severidade `high`.
+Escura, clara ou sem contraste. Versão 1.1.0, severidade `high`.
 Especificação: [exposure.md](../especificacoes/detectors/exposure.md).
 
 | Parâmetro | Tipo | Padrão | Faixa | Descrição |

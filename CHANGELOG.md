@@ -33,6 +33,13 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
   `candidate_min_similarity`, `max_ink_difference`, `sharpness_margin` e
   `numbering_veto_confidence`; `min_similarity` 0,96, `max_hash_distance` 80,
   `min_ink_coverage` 0,002.
+- **Página com borda preta** (ADR-0027): desfoque, exposição e o classificador de
+  orientação medem a vista de conteúdo, sem as faixas que `black_borders` sinalizaria; a
+  inclinação mede essa vista já de pé. O desfoque também tira da medida os componentes de
+  tinta grandes e sólidos (faixa estreita, tarja). Acaba o desfoque falso, com pedido de
+  redigitalização, em página com borda, e a página girada com borda deixa de passar como de
+  pé. `blur` 1.2.0 (parâmetros `solid_min_area` e `solid_min_solidity`), `exposure` 1.1.0,
+  `orientation` 1.3.0.
 - **Plano B do detector de escritos** não devolve mais o fundo: caixa que cobre mais da
   metade do recorte ou encosta em 3 bordas dele é gradiente de luz, não escrito. A leitura
   da região da numeração também descarta caixa encostada na borda da página, como a busca

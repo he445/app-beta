@@ -1,5 +1,5 @@
 id: exposure
-version: 1.0.0
+version: 1.1.0
 title: Escura, clara ou sem contraste
 spec: docs/especificacoes/detectors/exposure.md
 input: page_gray_150dpi

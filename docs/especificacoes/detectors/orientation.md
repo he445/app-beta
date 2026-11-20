@@ -1,6 +1,6 @@
 # orientation: Página de lado ou de cabeça para baixo
 
-Versão: 1.2.0 · Severidade padrão: médio
+Versão: 1.3.0 · Severidade padrão: médio
 
 ## Objetivo
 
@@ -14,6 +14,12 @@ Raster de análise (cinza, 150 dpi) e a orientação prevista pela porta
 `OrientationClassifier` ([ficha do modelo](../../modelos/orientacao.md)): o ângulo `a` em
 {0, 90, 180, 270}, que é o giro **horário** que a página sofreu, e a probabilidade `p` de
 cada ângulo. Sem modelos configurados, a regra não classifica nenhuma página.
+
+O classificador recebe a **vista de conteúdo**: a página sem as faixas pretas que
+[`black_borders`](black_borders.md) sinalizaria, com folga de 0,5% do lado (ADR-0027). O
+modelo olha um recorte central, e a faixa preta dentro dele fazia uma página girada passar
+como de pé. Só a faixa acima de `min_fraction` é cortada: uma ou duas linhas escuras da
+borda do scanner mudam o recorte central sem tirar nada que atrapalhe.
 
 ## Algoritmo
 
@@ -113,6 +119,7 @@ devolve o original pixel a pixel) está em `engine/tests/test_orientation.py`.
 
 ## Histórico de versões
 
+- 1.3.0: classifica a vista de conteúdo, sem as faixas pretas (ADR-0027).
 - 1.2.0: orientação incerta (`upright_min_probability`): sem rotação convincente e com
   0° abaixo de 0,5, a página vai para revisão em vez de passar como de pé. No kit público,
   as giradas sem sinalização caem de 11 para 3, as revisões sobem de 52 para 71 e 5,7% das

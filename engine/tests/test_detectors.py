@@ -94,6 +94,33 @@ def test_blank_with_faint_trace_goes_to_review_never_removed() -> None:
     assert BLANK.evaluate(written, {}, params) is None
 
 
+def test_blur_ignores_solid_blocks() -> None:
+    """Faixa preta estreita dentro da área útil não derruba a nitidez (ADR-0027)."""
+    clean = page_150(7)
+    barred = clean.copy()
+    w = barred.shape[1]
+    barred[:, int(0.02 * w) : int(0.075 * w)] = 15  # passa da margem de 4%, antes do texto
+    plain, with_bar = observe(BLUR, clean), observe(BLUR, barred)
+    assert with_bar.values["energy"] == pytest.approx(plain.values["energy"], rel=0.15)
+
+
+def test_content_view_crops_only_real_borders() -> None:
+    """A vista de conteúdo corta a faixa que a regra sinalizaria, nunca uma linha da borda."""
+    from qa_engine.application.analyze import content_view
+    from qa_engine.detectors.base import PageRaster
+
+    gray = page_150(8).copy()
+    h, w = gray.shape
+    gray[:, : int(0.06 * w)] = 10
+    view, _ = content_view(PageRaster(gray, 1.0, 150.0), compute_features(gray), None)
+    assert view.gray.shape[1] < w - int(0.06 * w) and view.gray.shape[0] == h
+    assert view.gray[:, :5].min() > 60  # sem a faixa
+    thin = page_150(8).copy()
+    thin[:2, :] = 10  # duas linhas escuras do scanner: abaixo de min_fraction
+    same, _ = content_view(PageRaster(thin, 1.0, 150.0), compute_features(thin), None)
+    assert same.gray.shape == thin.shape
+
+
 def test_black_borders_crop_fraction() -> None:
     gray = page_150(5).copy()
     gray[:, :35] = 10
