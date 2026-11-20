@@ -6,6 +6,8 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ## [Não lançado]
 
+## [1.3.0] — 2026-11-20
+
 ### Adicionado
 
 - **Salvar caixa no painel:** grava a versão corrigida da caixa sem passar pela Sequência
