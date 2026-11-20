@@ -9,14 +9,12 @@ decidida pela sequência do documento ou vai para o revisor.
 
 from __future__ import annotations
 
-import io
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 import cv2
 import numpy as np
 from numpy.typing import NDArray
-from PIL import Image
 
 from qa_engine.detectors.features import BoxKind, InkCheck
 from qa_engine.detectors.strike import strike_score
@@ -143,13 +141,13 @@ class ImageNumberingReader:
         """
         written = False
         faint = False
-        first_crop: bytes | None = None
+        first_crop: NDArray[np.uint8] | None = None
         h, w = gray.shape[:2]
         edge = max(2, round(EDGE_MARGIN * min(h, w)))
         for region in regions:
             crop, x0, y0 = crop_fraction(gray, region)
             if first_crop is None:
-                first_crop = _png(crop)
+                first_crop = crop
             boxes = []
             for box in self._detect(crop):
                 if box.h < self._min_height(dpi) or box.w > MAX_ASPECT * box.h:
@@ -186,7 +184,8 @@ class ImageNumberingReader:
                 limit = self.struck_threshold if len(marks) > 1 else LONE_STRUCK
                 marks = [Mark(m.readings, sc >= limit) for m, sc in zip(marks, scores, strict=True)]
                 return PageNumberingRead(tuple(marks), True, _png(crop), tuple(boxes), faint)
-        return PageNumberingRead((), written, first_crop, faint=faint and not written)
+        thumb = _png(first_crop) if first_crop is not None else None
+        return PageNumberingRead((), written, thumb, faint=faint and not written)
 
     def _detect(self, crop: NDArray[np.uint8]) -> list[TextBox]:
         """Caixas do modelo e, do plano B, as que não se sobrepõem a nenhuma (traço fino)."""
@@ -309,6 +308,6 @@ def _padded(gray: NDArray[np.uint8], box: TextBox, margin: float = 0.3) -> NDArr
 
 
 def _png(gray: NDArray[np.uint8]) -> bytes:
-    buffer = io.BytesIO()
-    Image.fromarray(gray).save(buffer, format="PNG", optimize=True)
-    return buffer.getvalue()
+    """Recorte do canto para a tela: PNG rápido (a compressão máxima custava 6 ms)."""
+    ok, data = cv2.imencode(".png", np.ascontiguousarray(gray), [cv2.IMWRITE_PNG_COMPRESSION, 6])
+    return data.tobytes() if ok else b""

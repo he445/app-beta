@@ -133,7 +133,7 @@ Especificação: [blur.md](../especificacoes/detectors/blur.md).
 
 ### `skew`
 
-Inclinação. Versão 1.3.0, severidade `medium`.
+Inclinação. Versão 1.4.0, severidade `medium`.
 Especificação: [skew.md](../especificacoes/detectors/skew.md).
 
 | Parâmetro | Tipo | Padrão | Faixa | Descrição |

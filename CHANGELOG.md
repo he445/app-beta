@@ -66,6 +66,20 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
   arquivo e vai para revisão. `out_of_order`, `missing_page` e `numbering_review` 1.3.0;
   parâmetros de perfil `max_gap_sheets` e `min_implausible_gap`.
 
+### Desempenho
+
+- **Inclinação em três passadas** (um quarto da resolução, metade e cheia) sobre `uint8`,
+  com a projeção por `cv2.reduce`: a medida cai de cerca de 0,13 s para 0,04 s por página,
+  sem mudança de detecção na caixa de regressão. O 0° é medido com um giro mínimo nas
+  passadas grossas (sem isso a busca reduzida voltava para 0°), e a passada final parte do
+  pico refinado da passada do meio. `skew` 1.4.0.
+- **Metadados do PNG sem segunda decodificação:** o EXIF é procurado pelos cabeçalhos dos
+  blocos do arquivo; antes o Pillow decodificava a imagem inteira só para isso (cerca de
+  20 ms por página). TIFF e JPEG não mudam.
+- **Recorte do canto da numeração** em PNG rápido e só quando vai ser usado (antes, em
+  compressão máxima e às vezes duas vezes). O detector de escritos calcula a nota de cada
+  contorno só no retângulo dele, com o mesmo resultado.
+
 ## [1.1.0] — 2026-11-18
 
 ### Adicionado

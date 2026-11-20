@@ -75,9 +75,12 @@ class PaddleTextDetector:
         for contour in contours:
             if cv2.contourArea(contour) < 4:
                 continue
-            filled = np.zeros_like(mask)
-            cv2.drawContours(filled, [contour], -1, 1, -1)
-            score = float(prob[filled.astype(bool)].mean())
+            # Média do mapa dentro do contorno, só no retângulo dele (o mesmo valor que
+            # preencher a página inteira, sem varrer a imagem a cada contorno).
+            rx, ry, rw_, rh_ = cv2.boundingRect(contour)
+            filled = np.zeros((rh_, rw_), np.uint8)
+            cv2.drawContours(filled, [contour - np.array([rx, ry])], -1, 1, -1)
+            score = float(prob[ry : ry + rh_, rx : rx + rw_][filled.astype(bool)].mean())
             if score < self.config["box_thresh"]:
                 continue
             (cx, cy), (rw, rh), angle = cv2.minAreaRect(contour)
