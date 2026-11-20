@@ -30,7 +30,7 @@ import type {
 } from "../api/types";
 import { CorrectionProgress } from "../components/CorrectionProgress";
 import { Card, ErrorBox, Loading, SeverityBadge, StateDot, Thumb } from "../components/ui";
-import { ZoomModal, type ZoomPage } from "../components/ZoomModal";
+import { ZoomModal, type ZoomDecisions, type ZoomPage } from "../components/ZoomModal";
 import { createClickController } from "../lib/clicks";
 import {
   activeOperation,
@@ -266,6 +266,22 @@ function DocumentSequence({
   });
   const [zoom, setZoom] = useState<{ pages: ZoomPage[]; index: number; preferCorrected: boolean } | null>(null);
 
+  // Decisão rápida na página ampliada: Aprovar (A) ou Defeito de origem com ressalva (O)
+  // em todas as sinalizações ainda sem decisão da página, uma a uma, na ordem do relatório.
+  const decideOne = decide.mutateAsync;
+  const zoomDecisions = useMemo<ZoomDecisions>(() => {
+    const pendingOf = (pageId: string) =>
+      report.findings.filter((f) => f.target.kind === "page" && f.target.id === pageId && !f.decision);
+    return {
+      pending: (pageId) => pendingOf(pageId).length,
+      decide: async (pageId, action, note) => {
+        const todo = pendingOf(pageId);
+        for (const f of todo) await decideOne({ findingId: f.id, action, note });
+        return todo.length;
+      },
+    };
+  }, [report.findings, decideOne]);
+
   const active = activeOperation(ops);
   const unsavedOps = unsavedOperations(ops, document.id);
   const unsaved = unsavedOps[0];
@@ -318,7 +334,8 @@ function DocumentSequence({
           <p className="muted">
             {docPages.length} página(s). Digite a numeração embaixo de cada página: Enter grava e vai
             para a próxima com dúvida, Tab passa sem gravar. Arraste a página ou use Alt + setas para
-            mudar a ordem; Ctrl+Z desfaz. “Ampliar”, duplo clique ou Z abre a página inteira.
+            mudar a ordem; Ctrl+Z desfaz. “Ampliar”, duplo clique ou Z abre a página inteira; lá,
+            A aprova a página e O marca defeito de origem (com ressalva), e passa para a seguinte.
           </p>
         </div>
         <div className="row wrap">
@@ -513,8 +530,8 @@ function DocumentSequence({
       )}
 
       {editing && <NumberingDialog batchId={batchId} pageId={editing.id} initial={editing.numbering?.value ?? ""} onClose={() => setEditing(null)} />}
-      {zoom && <ZoomModal {...zoom} onClose={() => setZoom(null)} />}
-      <p><button className="link" onClick={() => navigate({ name: "review", id: batchId })}>← Voltar à revisão</button></p>
+      {zoom && <ZoomModal {...zoom} decisions={zoomDecisions} onClose={() => setZoom(null)} />}
+      <p><button className="link" onClick={() => navigate({ name: "review", id: batchId, doc: document.id })}>← Voltar à revisão desta pasta</button></p>
     </>
   );
 }

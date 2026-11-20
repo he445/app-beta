@@ -183,8 +183,14 @@ label.check { display: flex; align-items: center; gap: 0.35rem; margin: 0; white
 .queue-text { min-width: 0; flex: 1; }
 .rule { font-weight: 600; font-size: 0.9rem; }
 .decided-label { color: var(--ok); }
-.detail { position: relative; min-width: 0; min-height: 0; }
+.detail { position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.detail > .detail-grid, .detail > .empty { flex: 1; min-height: 0; height: auto; }
 .detail-grid { display: grid; grid-template-columns: 1fr 360px; height: 100%; }
+.folder-bar { display: grid; grid-template-columns: 1fr auto; gap: 0.3rem 0.4rem; align-items: center; }
+.folder-bar label { grid-column: 1 / -1; }
+.folder-bar select { min-width: 0; font-weight: 600; }
+.folder-title { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; padding: 0.45rem 1rem; border-bottom: 1px solid var(--border); background: var(--surface); }
+.folder-title strong { font-size: 1.05rem; }
 .viewer-wrap { position: relative; background: #2a2e35; min-height: 0; height: 100%; }
 /* O OpenSeadragon redefine o position do elemento: a altura vem do pai, não de inset. */
 .viewer { width: 100%; height: 100%; }
@@ -296,6 +302,21 @@ button.full { width: 100%; justify-content: center; }
 .zoom-modal { width: min(1200px, 100%); height: min(92vh, 1000px); background: var(--surface); border-radius: var(--radius); display: flex; flex-direction: column; overflow: hidden; }
 .zoom-head { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .zoom-head .zoom-hint { margin-left: auto; }
+.zoom-head .zoom-approve kbd { margin-right: 0.3rem; }
+.zoom-note { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; padding: 0.45rem 0.75rem; border-bottom: 1px solid var(--border); background: var(--warn-bg); }
+.zoom-note input { flex: 1; min-width: 14rem; }
+.zoom-notice { padding: 0.35rem 0.75rem; border-bottom: 1px solid var(--border); color: var(--ok); }
+.zoom-notice.error-inline { color: var(--critical); }
+.save-box { margin-bottom: 1rem; }
+.source-defect-all { margin-bottom: 1rem; }
+.ressalva { color: var(--medium); }
+.missing-alert { border: 2px solid var(--critical); border-radius: var(--radius); padding: 0.75rem 0.9rem; background: color-mix(in srgb, var(--critical) 7%, var(--surface)); display: grid; gap: 0.5rem; }
+.missing-alert h3 { margin: 0; color: var(--critical); }
+.missing-list { max-height: 14rem; overflow-y: auto; margin: 0; }
+.missing-alert .danger { color: #fff; background: var(--critical); border-color: var(--critical); }
+.source-defect-all .grow { flex: 1; min-width: 16rem; }
+.save-box .row { align-items: center; }
+.warning-text { color: var(--medium); }
 .zoom-body { position: relative; flex: 1; min-height: 0; background: #2a2e35; }
 .overlay-loading { position: absolute; inset: 0; display: grid; place-items: center; color: #c9ced6; }
 .before-after.inline-toggle { position: static; transform: none; box-shadow: none; border: 1px solid var(--border); }

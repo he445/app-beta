@@ -5,6 +5,8 @@ import { useCapability } from "../api/engine";
 import { usePlan, useReport, useSaveCorrected } from "../api/hooks";
 import { BoxReportsCard } from "../components/BoxReportsCard";
 import { Card, ErrorBox, Loading, Stat } from "../components/ui";
+import type { Finding } from "../api/types";
+import { foliosText } from "../lib/corrections";
 import { csvObjects } from "../lib/csv";
 import { VERDICT_LABEL, friendlyParams, pct, ruleLabel } from "../lib/format";
 
@@ -48,6 +50,12 @@ export function Reports({ id }: { id: string }) {
   const decided = r.findings.filter((f) => f.decision);
   const sourceDefects = decided.filter((f) => f.decision?.action === "source_defect");
   const falsePositives = decided.filter((f) => f.decision?.action === "approve");
+  const missingDefects = sourceDefects.filter((f) => f.rule === "missing_page");
+  const otherDefects = sourceDefects.filter((f) => f.rule !== "missing_page");
+  const pageDoc = new Map(r.pages.map((p) => [p.id, p.document_id]));
+  const docName = new Map(r.documents.map((d) => [d.id, d.name]));
+  const folder = (f: Finding) =>
+    docName.get(f.target.kind === "document" ? f.target.id : (pageDoc.get(f.target.id) ?? "")) ?? "";
   const byStation = new Map<string, Record<string, string>[]>();
   for (const item of rework.data ?? []) byStation.set(item.station ?? "", [...(byStation.get(item.station ?? "") ?? []), item]);
 
@@ -133,9 +141,40 @@ export function Reports({ id }: { id: string }) {
 
       {sourceDefects.length > 0 && (
         <Card title="Defeitos de origem (para o cliente)">
-          <ul className="plain">
-            {sourceDefects.map((f) => <li key={f.id}>{ruleLabel(f.rule)}: {f.message}</li>)}
-          </ul>
+          <p className="small muted">
+            Aceitos como estão: o problema veio do papel. A ressalva do revisor aparece em cada item e sai no
+            report.json e no findings.csv (coluna note).
+          </p>
+          {missingDefects.length > 0 && (
+            <>
+              <h3>Páginas faltando</h3>
+              <ul className="plain">
+                {missingDefects.map((f) => {
+                  const folios = ((f.correction.params?.missing as unknown[] | undefined) ?? []).map(String);
+                  return (
+                    <li key={f.id}>
+                      <strong>{folder(f)}</strong>: {folios.length ? foliosText(folios) : f.message}
+                      {f.decision?.note && <span className="ressalva"> — Ressalva: {f.decision.note}</span>}
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+          {otherDefects.length > 0 && (
+            <>
+              {missingDefects.length > 0 && <h3>Outros defeitos de origem</h3>}
+              <ul className="plain">
+                {otherDefects.map((f) => (
+                  <li key={f.id}>
+                    <span className="muted">{folder(f)} · </span>
+                    <strong>{ruleLabel(f.rule)}</strong>: {f.message}
+                    {f.decision?.note && <span className="ressalva"> — Ressalva: {f.decision.note}</span>}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </Card>
       )}
 

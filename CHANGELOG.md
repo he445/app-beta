@@ -6,7 +6,39 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ## [Não lançado]
 
+### Adicionado
+
+- **Salvar caixa no painel:** grava a versão corrigida da caixa sem passar pela Sequência
+  ou pelo Relatório, com as mesmas travas de "Salvar correções", e gera o relatório das
+  caixas concluídas.
+- **Aprovar na página ampliada da Sequência:** botão **Aprovar** e atalho **A** aprovam as
+  sinalizações pendentes da página e passam para a seguinte, sem fechar o zoom.
+- **Defeito de origem com ressalva:** na página ampliada da Sequência, **Defeito de
+  origem** (atalho **O**) aceita a página como está com uma ressalva escrita; no painel,
+  **Aprovar tudo (defeito de origem)** faz o mesmo em todas as sinalizações sem decisão
+  da caixa, com uma ressalva para todas. Página faltando pede confirmação num alerta
+  próprio, com a lista de pastas e folhas; confirmada, o relatório da caixa lista a pasta
+  e as folhas que faltam. A ressalva aparece no Relatório ("Defeitos de origem, para o
+  cliente", com as páginas faltando à parte, por pasta) e na coluna nova `note` do
+  `findings.csv`.
+- **Revisão por pasta:** a fila abre na primeira pasta com pendência, com seletor de pasta
+  (pendências de cada uma), nome da pasta no alto, progresso da pasta e **Próxima pasta**;
+  "Todas as pastas" mantém a fila única da caixa.
+
+### Alterado
+
+- **Relatório da caixa tipifica os defeitos de imagem** ([ADR-0030](docs/adr/0030-defeitos-de-imagem-tipificados-no-relatorio-da-caixa.md)):
+  "Páginas ilegíveis" fica só para arquivo corrompido; desfoque, exposição ruim e
+  resolução abaixo do exigido saem cada um com o seu nome no PDF e em campos novos e
+  opcionais do contrato (`processes[].defects`, `totals.defects`). Relatórios antigos
+  continuam válidos; a Gestão não muda.
+
 ### Corrigido
+
+- **Relatório por caixa não saía com a caixa tratada:** sinalização baixa sem decisão
+  ("página quase branca", "completude não verificável") segurava a conclusão, embora a
+  regra de revisão já a trate em massa. Agora só médio ou acima sem decisão segura, e o
+  cartão diz o que falta decidir em cada caixa em vez de "Nada novo".
 
 - **Checagem de quebra de contrato na CI** volta a funcionar: o oasdiff 1.10.25 não lia o
   contrato OpenAPI 3.1 (`exclusiveMinimum` numérico) e reprovava todo pull request antes de

@@ -82,7 +82,7 @@ def fixture_report() -> dict[str, Any]:
             finding("m1", "missing_page", "d1", "reject", missing=["13", "14", "15"]),
             finding("f1", "blur", "a2", "reject"),
             finding("f2", "corrupted_file", "a3", "source_defect"),
-            finding("f3", "exposure", "a3", "reject"),  # mesma página: conta uma vez
+            finding("f3", "exposure", "a3", "reject"),  # mesma página, outro tipo
             finding("f4", "skew", "a1", "correct"),  # não é legibilidade
             finding("f5", "blur", "b1", "approve"),  # falso positivo: não é pendência
             finding("f6", "numbering_review", "c1", "approve"),  # número ilegível, página boa
@@ -114,20 +114,26 @@ def test_box_with_missing_and_illegible_lists_exactly_the_items() -> None:
     first, second = built["processes"]
     assert first["number"] == "PROC-001"
     assert first["missing"] == {"count": 3, "folios": ["13", "14", "15"]}
+    # Ilegível de fato é só o arquivo corrompido (ADR-0030).
     assert first["illegible"] == {
-        "count": 2,
-        "pages": [
-            {"folio": "16", "position": 2, "file": "0002.tif"},
-            {"folio": None, "position": 3, "file": "0003.tif"},
-        ],
+        "count": 1,
+        "pages": [{"folio": None, "position": 3, "file": "0003.tif"}],
     }
     assert process_lines(first) == [
         "Páginas faltando: 3 — fls. 13, 14 e 15",
-        "Páginas ilegíveis: 2 — fls. 16, posição 3 (0003.tif)",
+        "Páginas ilegíveis: 1 — posição 3 (0003.tif)",
+        "Páginas desfocadas: 1 — fls. 16",
+        "Páginas com exposição ruim (clara ou escura demais): 1 — posição 3 (0003.tif)",
     ]
     assert second["clean"] and process_lines(second) == ["Nenhuma pendência"]
     assert built["state"] == "pending"
-    assert built["totals"] == {"processes": 2, "pages": 4, "missing": 3, "illegible": 2}
+    assert built["totals"] == {
+        "processes": 2,
+        "pages": 4,
+        "missing": 3,
+        "illegible": 1,
+        "defects": 2,
+    }
     assert folios_text(["7"]) == "fls. 7"
 
 
@@ -145,6 +151,15 @@ def test_box_is_complete_only_without_pending_decisions() -> None:
     assert is_complete(report, boxes(report)["CX0412"])
     report["findings"].append(finding("p1", "skew", "b1", None))
     assert not is_complete(report, boxes(report)["CX0412"])
+
+
+def test_low_findings_without_decision_do_not_block_the_box() -> None:
+    """Baixas são tratadas em massa: 'página quase branca' pendente não segura o relatório."""
+    report = fixture_report()
+    low = finding("p2", "blank_page", "b1", None)
+    low["severity"] = "low"
+    report["findings"].append(low)
+    assert is_complete(report, boxes(report)["CX0412"])
 
 
 def test_resolved_pendency_changes_the_key_and_the_state() -> None:
@@ -219,7 +234,9 @@ def test_reports_are_written_and_reopening_keeps_v1(
     ).json()
     assert [m["report"]["version"] for m in made] == [1]
     v1 = made[0]["report"]
-    assert v1["box"] == "CX1" and v1["state"] == "pending" and v1["totals"]["illegible"] == 1
+    assert v1["box"] == "CX1" and v1["state"] == "pending"
+    # Desfoque confirmado sai tipificado, não como "ilegível" (ADR-0030).
+    assert v1["totals"]["illegible"] == 0 and v1["totals"]["defects"] == 1
     # Sem mudança, não sai versão nova.
     assert (
         client.post(
@@ -253,3 +270,27 @@ def test_reports_are_written_and_reopening_keeps_v1(
     }
     shared = list((tmp_path / "rede" / "relatorios").rglob("*.json"))
     assert len(shared) == 2 and all(p.name.startswith("CX1-") for p in shared)
+
+
+def test_image_defects_are_typed_not_called_illegible() -> None:
+    """Desfoque, exposição e resolução baixa saem com o tipo; uma página conta uma vez por tipo."""
+    report = fixture_report()
+    report["findings"].append(finding("f7", "blur", "a2", "source_defect"))  # mesma página e tipo
+    report["findings"].append(finding("f8", "low_resolution", "a1", "source_defect"))
+    first = build(report, "CX0412")["processes"][0]
+    assert [(d["rule"], d["count"]) for d in first["defects"]] == [
+        ("blur", 1),
+        ("exposure", 1),
+        ("low_resolution", 1),
+    ]
+    assert first["defects"][2]["pages"] == [{"folio": "12", "position": 1, "file": "0001.tif"}]
+
+
+def test_report_written_before_typing_still_validates_and_renders() -> None:
+    """Relatório antigo (sem ``defects``) continua válido no contrato e no PDF."""
+    old = build(fixture_report(), "CX0412")
+    for process in old["processes"]:
+        process.pop("defects")
+    old["totals"].pop("defects")
+    validate(old, "box-report.schema.json")
+    assert render_box_report_pdf(old).startswith(b"%PDF")

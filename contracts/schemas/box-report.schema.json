@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "box-report.schema.json",
   "title": "BoxReport",
-  "description": "Relatório por caixa: o que falta e o que está ilegível em cada processo. Gravado na pasta de saída e em reports_dir; alimenta a tela de Gestão.",
+  "description": "Relatório por caixa: o que falta, o que está ilegível e os defeitos de imagem tipificados de cada processo. Gravado na pasta de saída e em reports_dir; alimenta a tela de Gestão.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -147,7 +147,66 @@
                 }
               }
             },
-            "description": "Páginas confirmadas como ilegíveis numa regra de legibilidade."
+            "description": "Páginas ilegíveis de fato (arquivo corrompido), confirmadas como retrabalho ou defeito de origem. Relatórios gravados antes do ADR-0030 contavam aqui também desfoque, exposição e resolução baixa."
+          },
+          "defects": {
+            "type": "array",
+            "description": "Defeitos de imagem tipificados (ADR-0030), confirmados como retrabalho ou defeito de origem: a página se lê, mas tem o defeito. Ausente nos relatórios anteriores.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "rule",
+                "label",
+                "count",
+                "pages"
+              ],
+              "properties": {
+                "rule": {
+                  "enum": [
+                    "blur",
+                    "exposure",
+                    "low_resolution"
+                  ]
+                },
+                "label": {
+                  "type": "string",
+                  "description": "Como sai no PDF, por exemplo \"Páginas desfocadas\"."
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "pages": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "folio",
+                      "position",
+                      "file"
+                    ],
+                    "properties": {
+                      "folio": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "description": "Número da folha, quando foi lido ou digitado."
+                      },
+                      "position": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "file": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           "clean": {
             "type": "boolean",
@@ -181,6 +240,11 @@
         "illegible": {
           "type": "integer",
           "minimum": 0
+        },
+        "defects": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Soma dos defeitos tipificados (uma página conta uma vez em cada tipo). Ausente nos relatórios anteriores."
         }
       }
     }

@@ -15,7 +15,19 @@ uv run --project engine python tools/synth/synth.py demo --out lote-demo --pages
 uv run --project engine qa analyze lote-demo --profile profiles/completo.yaml --out saida
 ```
 
-Passo a passo, interface e Docker: [Instalar e rodar](docs/tutoriais/instalar.md).
+## Rodar em desenvolvimento
+
+Motor e interface, cada um num terminal; a interface recarrega sozinha a cada mudança:
+
+```bash
+cd engine && uv sync && uv run python -m qa_engine.entrypoints.http   # API: http://localhost:8000
+cd ui && npm ci && npm run dev                                          # interface: http://localhost:5173
+```
+
+Os dados ficam em `engine/data`. Modelos, Windows, porta do motor e banco limpo:
+[Desenvolvimento](docs/tutoriais/instalar.md#desenvolvimento-motor-e-interface-com-recarga-automatica).
+
+Passo a passo, interface na mesma origem e Docker: [Instalar e rodar](docs/tutoriais/instalar.md).
 
 ## Estrutura
 

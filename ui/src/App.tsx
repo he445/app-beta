@@ -114,7 +114,7 @@ function Screen({ route }: { route: Route }) {
     case "batch":
       return <Batch id={route.id} />;
     case "review":
-      return <Review id={route.id} />;
+      return <Review id={route.id} doc={route.doc} />;
     case "sequence":
       return <Sequence id={route.id} doc={route.doc} />;
     case "metadata":

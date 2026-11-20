@@ -92,6 +92,7 @@ nav:
           - "0027 Medir o conteúdo sem a moldura": adr/0027-medir-o-conteudo-sem-a-moldura.md
           - "0028 Evidência mínima na inclinação": adr/0028-evidencia-minima-na-inclinacao.md
           - "0029 Lacuna implausível na numeração": adr/0029-lacuna-implausivel-na-numeracao.md
+          - "0030 Defeitos de imagem tipificados no relatório da caixa": adr/0030-defeitos-de-imagem-tipificados-no-relatorio-da-caixa.md
           - Modelo: adr/0000-template.md
   - Especificações:
       - especificacoes/index.md

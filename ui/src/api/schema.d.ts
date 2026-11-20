@@ -1878,7 +1878,7 @@ export interface components {
         };
         /**
          * BoxReport
-         * @description Relatório por caixa: o que falta e o que está ilegível em cada processo. Gravado na pasta de saída e em reports_dir; alimenta a tela de Gestão.
+         * @description Relatório por caixa: o que falta, o que está ilegível e os defeitos de imagem tipificados de cada processo. Gravado na pasta de saída e em reports_dir; alimenta a tela de Gestão.
          */
         "box-report.schema": {
             /** @constant */
@@ -1910,7 +1910,7 @@ export interface components {
                     count: number;
                     folios: string[];
                 };
-                /** @description Páginas confirmadas como ilegíveis numa regra de legibilidade. */
+                /** @description Páginas ilegíveis de fato (arquivo corrompido), confirmadas como retrabalho ou defeito de origem. Relatórios gravados antes do ADR-0030 contavam aqui também desfoque, exposição e resolução baixa. */
                 illegible: {
                     count: number;
                     pages: {
@@ -1920,6 +1920,20 @@ export interface components {
                         file: string;
                     }[];
                 };
+                /** @description Defeitos de imagem tipificados (ADR-0030), confirmados como retrabalho ou defeito de origem: a página se lê, mas tem o defeito. Ausente nos relatórios anteriores. */
+                defects?: {
+                    /** @enum {unknown} */
+                    rule: "blur" | "exposure" | "low_resolution";
+                    /** @description Como sai no PDF, por exemplo "Páginas desfocadas". */
+                    label: string;
+                    count: number;
+                    pages: {
+                        /** @description Número da folha, quando foi lido ou digitado. */
+                        folio: string | null;
+                        position: number;
+                        file: string;
+                    }[];
+                }[];
                 /** @description Nenhuma pendência. */
                 clean: boolean;
             }[];
@@ -1928,6 +1942,8 @@ export interface components {
                 pages: number;
                 missing: number;
                 illegible: number;
+                /** @description Soma dos defeitos tipificados (uma página conta uma vez em cada tipo). Ausente nos relatórios anteriores. */
+                defects?: number;
             };
         };
         /**

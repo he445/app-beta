@@ -15,6 +15,44 @@ export interface QueueFilter {
   severity: Severity | null;
   rule: string | null;
   pendingOnly: boolean;
+  /** Só as sinalizações desta pasta (documento); ``null`` ou ausente = todas as pastas. */
+  document?: string | null;
+}
+
+/** A pasta (documento) de uma sinalização: a do alvo, ou o próprio documento. */
+export function findingDocument(report: Analysis, f: Finding, pages?: Map<string, Page>): string | undefined {
+  if (f.target.kind === "document") return f.target.id;
+  const page = (pages ?? new Map(report.pages.map((p) => [p.id, p]))).get(f.target.id);
+  return page?.document_id;
+}
+
+export interface FolderCount {
+  document: QaDocument;
+  pending: number;
+  total: number;
+}
+
+/** Sinalizações de cada pasta (sem decisão e no total), na ordem do lote. */
+export function folderCounts(report: Analysis): FolderCount[] {
+  const pages = new Map(report.pages.map((p) => [p.id, p]));
+  const counts = new Map(report.documents.map((d) => [d.id, { pending: 0, total: 0 }]));
+  for (const f of report.findings) {
+    const c = counts.get(findingDocument(report, f, pages) ?? "");
+    if (!c) continue;
+    c.total += 1;
+    if (!f.decision) c.pending += 1;
+  }
+  return report.documents.map((document) => ({ document, ...counts.get(document.id)! }));
+}
+
+/** A próxima pasta com pendência depois de ``current`` (dá a volta); a primeira sem ``current``. */
+export function nextPendingFolder(counts: FolderCount[], current?: string | null): string | undefined {
+  const start = current ? counts.findIndex((c) => c.document.id === current) : -1;
+  for (let step = 1; step <= counts.length; step++) {
+    const c = counts[(start + step + counts.length) % counts.length]!;
+    if (c.pending > 0 && c.document.id !== current) return c.document.id;
+  }
+  return undefined;
 }
 
 export function isPending(f: Finding): boolean {
@@ -26,6 +64,7 @@ export function buildQueue(report: Analysis, filter: QueueFilter): QueueItem[] {
   const docs = new Map(report.documents.map((d) => [d.id, d]));
   const docOrder = new Map(report.documents.map((d, i) => [d.id, i]));
   const items: QueueItem[] = report.findings
+    .filter((f) => !filter.document || findingDocument(report, f, pages) === filter.document)
     .filter((f) => !filter.severity || f.severity === filter.severity)
     .filter((f) => !filter.rule || f.rule === filter.rule)
     .filter((f) => !filter.pendingOnly || !f.decision)

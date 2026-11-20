@@ -1,4 +1,4 @@
-"""Relatório por caixa: o que falta e o que está ilegível em cada processo.
+"""Relatório por caixa: o que falta, o que está ilegível e os defeitos de imagem de cada processo.
 
 Substitui a folha de papel das pendências (``docs/especificacoes/relatorio-por-caixa.md``).
 A caixa é a primeira pasta do lote e o processo é o documento. O relatório sai quando
@@ -12,8 +12,19 @@ import json
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-LEGIBILITY_RULES = frozenset({"blur", "exposure", "low_resolution", "corrupted_file"})
-"""Regras de legibilidade: página que o conferente confirmou nelas é ilegível."""
+ILLEGIBLE_RULES = frozenset({"corrupted_file"})
+"""Página ilegível de fato: o arquivo não abre ou não se lê."""
+TYPED_DEFECTS: dict[str, str] = {
+    "blur": "Páginas desfocadas",
+    "exposure": "Páginas com exposição ruim (clara ou escura demais)",
+    "low_resolution": "Páginas com resolução abaixo do exigido",
+}
+"""Defeitos de imagem tipificados no relatório: a página existe e se lê, mas tem o defeito.
+
+Antes (ADR-0030) entravam todos como "ilegível"; agora cada um sai com o seu tipo.
+"""
+LEGIBILITY_RULES = ILLEGIBLE_RULES | frozenset(TYPED_DEFECTS)
+"""Regras de imagem que entram no relatório quando confirmadas."""
 CONFIRMED = frozenset({"reject", "source_defect"})
 """Decisões que confirmam a pendência (retrabalho ou defeito de origem)."""
 SCHEMA_VERSION = "1"
@@ -43,10 +54,32 @@ def _targets(docs: Sequence[Mapping[str, Any]]) -> set[str]:
     return {d["id"] for d in docs} | {pid for d in docs for pid in d["page_ids"]}
 
 
-def is_complete(report: Mapping[str, Any], docs: Sequence[Mapping[str, Any]]) -> bool:
-    """A caixa está concluída: toda sinalização dela tem decisão (retrabalho também conta)."""
+BLOCKING_SEVERITIES = frozenset({"medium", "high", "critical"})
+"""Severidades que exigem decisão para concluir a caixa.
+
+Sinalização baixa é tratada em massa e não exige revisão (``pages_needing_review``);
+o documento só com baixas pendentes já é verde. Nenhuma regra que entra no relatório
+(folha faltando, legibilidade) sai como baixa.
+"""
+
+
+def pending_findings(
+    report: Mapping[str, Any], docs: Sequence[Mapping[str, Any]]
+) -> list[Mapping[str, Any]]:
+    """Sinalizações da caixa que ainda impedem a conclusão: médio ou acima, sem decisão."""
     targets = _targets(docs)
-    return all(f.get("decision") for f in report["findings"] if f["target"]["id"] in targets)
+    return [
+        f
+        for f in report["findings"]
+        if f["target"]["id"] in targets
+        and f["severity"] in BLOCKING_SEVERITIES
+        and not f.get("decision")
+    ]
+
+
+def is_complete(report: Mapping[str, Any], docs: Sequence[Mapping[str, Any]]) -> bool:
+    """A caixa está concluída: toda sinalização médio ou acima tem decisão (retrabalho conta)."""
+    return not pending_findings(report, docs)
 
 
 def folios_text(folios: Sequence[str]) -> str:
@@ -75,6 +108,7 @@ def process_entry(report: Mapping[str, Any], doc: Mapping[str, Any]) -> dict[str
     missing: list[str] = []
     missing_count = 0
     illegible: dict[str, dict[str, Any]] = {}
+    typed: dict[str, dict[str, dict[str, Any]]] = {rule: {} for rule in TYPED_DEFECTS}
     for finding in report["findings"]:
         action = (finding.get("decision") or {}).get("action")
         if action not in CONFIRMED:
@@ -84,21 +118,37 @@ def process_entry(report: Mapping[str, Any], doc: Mapping[str, Any]) -> dict[str
             folios = [str(m) for m in finding["correction"].get("params", {}).get("missing", [])]
             missing += folios
             missing_count += len(folios) or 1
-        elif finding["rule"] in LEGIBILITY_RULES and target in position and target not in illegible:
-            page = pages[target]
-            illegible[target] = {
-                "folio": _page_folio(page),
-                "position": position[target],
-                "file": str(page["source_file"]).replace("\\", "/").split("/")[-1],
-            }
+        elif finding["rule"] in LEGIBILITY_RULES and target in position:
+            bucket = illegible if finding["rule"] in ILLEGIBLE_RULES else typed[finding["rule"]]
+            if target not in bucket:
+                bucket[target] = _page_entry(pages[target], position[target])
     listed = sorted(illegible.values(), key=lambda item: item["position"])
+    defects = [
+        {
+            "rule": rule,
+            "label": TYPED_DEFECTS[rule],
+            "count": len(found),
+            "pages": sorted(found.values(), key=lambda item: item["position"]),
+        }
+        for rule, found in typed.items()
+        if found
+    ]
     return {
         "document_id": doc["id"],
         "number": process_number(doc["name"]),
         "pages": len(doc["page_ids"]),
         "missing": {"count": missing_count, "folios": missing},
         "illegible": {"count": len(listed), "pages": listed},
-        "clean": missing_count == 0 and not listed,
+        "defects": defects,
+        "clean": missing_count == 0 and not listed and not defects,
+    }
+
+
+def _page_entry(page: Mapping[str, Any], position: int) -> dict[str, Any]:
+    return {
+        "folio": _page_folio(page),
+        "position": position,
+        "file": str(page["source_file"]).replace("\\", "/").split("/")[-1],
     }
 
 
@@ -135,6 +185,7 @@ def build_box_report(
             "pages": sum(p["pages"] for p in processes),
             "missing": sum(p["missing"]["count"] for p in processes),
             "illegible": sum(p["illegible"]["count"] for p in processes),
+            "defects": sum(d["count"] for p in processes for d in p.get("defects", [])),
         },
     }
 
@@ -142,7 +193,10 @@ def build_box_report(
 def pendencies_key(box_report: Mapping[str, Any]) -> str:
     """O que muda o relatório: as pendências de cada processo (não a data nem o conferente)."""
     return json.dumps(
-        [[p["number"], p["missing"], p["illegible"], p["pages"]] for p in box_report["processes"]],
+        [
+            [p["number"], p["missing"], p["illegible"], p["pages"], p.get("defects", [])]
+            for p in box_report["processes"]
+        ],
         sort_keys=True,
         ensure_ascii=False,
     )
@@ -159,9 +213,15 @@ def process_lines(process: Mapping[str, Any]) -> list[str]:
         lines.append(f"Páginas faltando: {missing['count']}" + (f" — {folios}" if folios else ""))
     illegible = process["illegible"]
     if illegible["count"]:
-        which = [
-            f"fls. {p['folio']}" if p["folio"] else f"posição {p['position']} ({p['file']})"
-            for p in illegible["pages"]
-        ]
-        lines.append(f"Páginas ilegíveis: {illegible['count']} — {', '.join(which)}")
+        lines.append(f"Páginas ilegíveis: {illegible['count']} — {_where(illegible['pages'])}")
+    for defect in process.get("defects", []):
+        lines.append(f"{defect['label']}: {defect['count']} — {_where(defect['pages'])}")
     return lines
+
+
+def _where(pages: Sequence[Mapping[str, Any]]) -> str:
+    """``fls. 7, posição 3 (p0003.tif)``: o número da folha, senão a posição e o arquivo."""
+    return ", ".join(
+        f"fls. {p['folio']}" if p["folio"] else f"posição {p['position']} ({p['file']})"
+        for p in pages
+    )

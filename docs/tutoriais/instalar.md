@@ -45,6 +45,41 @@ camadas e arquivos em [Configurar este computador](../guias/configurar-computado
 Perfis: `profiles/demo.yaml` (padrão da interface) tem foco em página faltando, em branco,
 torta e sem nitidez; `profiles/completo.yaml` liga todas as regras.
 
+## Desenvolvimento: motor e interface com recarga automática
+
+Dois terminais: o motor serve a API e a interface roda no Vite, que recarrega a cada
+mudança no código e encaminha `/api` para o motor (sem CORS).
+
+```bash
+# Terminal 1: motor, API em http://localhost:8000 (documentação em /docs)
+cd engine
+uv sync
+uv run python -m qa_engine.entrypoints.http
+
+# Terminal 2: interface em http://localhost:5173
+cd ui
+npm ci
+npm run dev
+```
+
+No Windows (PowerShell) os comandos são os mesmos, um por linha ou separados por `;`.
+
+- **Dados:** lotes e banco SQLite ficam em `engine/data` (o padrão `./data` vale a partir
+  da pasta onde o motor foi aberto). Para começar com o banco vazio, pare o motor e mova
+  ou apague essa pasta; ele cria outra ao abrir.
+- **Mudança no motor** pede reiniciar o motor (Ctrl+C e o mesmo comando). Mudança na
+  interface aparece sozinha.
+- **Motor noutra porta ou máquina:** `QA_ENGINE_URL=http://outra:8000 npm run dev`.
+- **Modelos de leitura da numeração e da orientação:** no modo servidor o motor abre sem
+  eles. Para usá-los, baixe uma vez (`uv run --project engine python tools/models/fetch.py
+  --out models`, na raiz do repositório) e abra o motor com `QA_MODELS_DIR=../models`.
+- **`uv` não encontrado no Windows:** instalado com `pip install --user uv`, ele fica em
+  `%APPDATA%\Python\Python3XX\Scripts`, fora do PATH. Acrescente essa pasta ao PATH ou
+  use `python -m uv` no lugar de `uv`.
+- **Fontes DejaVu no Windows** (base sintética e parte dos testes): baixe o pacote
+  `dejavu-fonts-ttf` e aponte `QA_SYNTH_FONT_DIR` para a pasta `ttf` dele.
+- **Tipos da interface:** depois de mudar `contracts/`, rode `npm run gen` em `ui/`.
+
 ## Interface na mesma origem, sem Docker
 
 ```bash

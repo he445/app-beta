@@ -191,22 +191,65 @@ export function useSaveCorrected(batchId: string, batchName: string, destination
   });
 }
 
+/** Uma decisão; ``note`` é a ressalva (vai para o relatório no defeito de origem). */
+function postDecision(findingId: string, action: DecisionAction, note?: string) {
+  const text = note?.trim();
+  return json<DecisionResponse>(`/findings/${findingId}/decision`, "POST", {
+    action,
+    reviewer: getSession().reviewer || "revisor",
+    ...(text ? { note: text } : {}),
+  });
+}
+
+function applyDecision(qc: ReturnType<typeof useQueryClient>, batchId: string, res: DecisionResponse) {
+  patchReport(qc, batchId, (r) => ({
+    ...r,
+    batch: { ...r.batch, summary: res.summary },
+    findings: r.findings.map((f) => (f.id === res.finding.id ? res.finding : f)),
+  }));
+}
+
 export function useDecide(batchId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ findingId, action }: { findingId: string; action: DecisionAction }) =>
-      json<DecisionResponse>(`/findings/${findingId}/decision`, "POST", {
-        action,
-        reviewer: getSession().reviewer || "revisor",
-      }),
+    mutationFn: ({ findingId, action, note }: { findingId: string; action: DecisionAction; note?: string }) =>
+      postDecision(findingId, action, note),
     onSuccess: (res) => {
-      patchReport(qc, batchId, (r) => ({
-        ...r,
-        batch: { ...r.batch, summary: res.summary },
-        findings: r.findings.map((f) => (f.id === res.finding.id ? res.finding : f)),
-      }));
+      applyDecision(qc, batchId, res);
       void qc.invalidateQueries({ queryKey: keys.plan(batchId) });
       void qc.invalidateQueries({ queryKey: ["image", res.finding.target.id, "corrected"] });
+    },
+  });
+}
+
+/**
+ * A mesma decisão, com a mesma ressalva, numa lista de sinalizações, uma a uma (cada uma
+ * fica no histórico com data, revisor e ressalva). ``onProgress`` recebe quantas já foram.
+ */
+export function useDecideMany(batchId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      findingIds,
+      action,
+      note,
+      onProgress,
+    }: {
+      findingIds: string[];
+      action: DecisionAction;
+      note?: string;
+      onProgress?: (done: number) => void;
+    }) => {
+      let done = 0;
+      for (const id of findingIds) {
+        applyDecision(qc, batchId, await postDecision(id, action, note));
+        onProgress?.(++done);
+      }
+      return done;
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: keys.report(batchId) });
+      void qc.invalidateQueries({ queryKey: keys.plan(batchId) });
     },
   });
 }

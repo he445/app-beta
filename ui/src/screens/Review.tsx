@@ -18,20 +18,33 @@ import {
   ruleLabel,
 } from "../lib/format";
 import { SHORTCUTS, currentRotation, isTyping, keyToAction, nextRotation } from "../lib/keys";
-import { buildQueue, clampIndex, type QueueFilter, type QueueItem } from "../lib/queue";
-import { href } from "../router";
+import { buildQueue, clampIndex, folderCounts, nextPendingFolder, type QueueFilter, type QueueItem } from "../lib/queue";
+import { href, navigate } from "../router";
 
-export function Review({ id }: { id: string }) {
+/** Na URL, "todas" mostra a fila de todas as pastas juntas. */
+const ALL_FOLDERS = "todas";
+
+export function Review({ id, doc }: { id: string; doc?: string }) {
   const report = useReport(id);
   if (report.isLoading) return <Loading />;
   if (report.error || !report.data) return <div className="page"><ErrorBox error={report.error} /></div>;
-  return <ReviewQueue report={report.data} />;
+  return <ReviewQueue report={report.data} doc={doc} />;
 }
 
-function ReviewQueue({ report }: { report: Analysis }) {
+function ReviewQueue({ report, doc }: { report: Analysis; doc?: string }) {
   const batchId = report.batch.id;
-  const [filter, setFilter] = useState<QueueFilter>({ severity: null, rule: null, pendingOnly: true });
+  const [baseFilter, setFilter] = useState<QueueFilter>({ severity: null, rule: null, pendingOnly: true });
   const [index, setIndex] = useState(0);
+  // A revisão anda pasta por pasta: sem pasta na URL, abre a primeira com pendência.
+  const folders = useMemo(() => folderCounts(report), [report]);
+  const [defaultFolder] = useState(() => nextPendingFolder(folders) ?? report.documents[0]?.id);
+  const folder = doc === ALL_FOLDERS ? null : (doc ?? defaultFolder ?? null);
+  const folderInfo = folders.find((c) => c.document.id === folder);
+  const nextFolder = nextPendingFolder(folders, folder);
+  const nextFolderName = folders.find((c) => c.document.id === nextFolder)?.document.name;
+  const filter = useMemo(() => ({ ...baseFilter, document: folder }), [baseFilter, folder]);
+  const goFolder = (target: string | null) => navigate({ name: "review", id: batchId, doc: target ?? ALL_FOLDERS });
+  useEffect(() => setIndex(0), [folder]);
   const [history, setHistory] = useState<string[]>([]);
   const [numberingOpen, setNumberingOpen] = useState(false);
   const [toast, setToast] = useState<{ text: string; n: number } | null>(null);
@@ -152,9 +165,36 @@ function ReviewQueue({ report }: { report: Analysis }) {
     <div className="review">
       <aside className="queue">
         <div className="queue-head">
+          <div className="folder-bar">
+            <label className="small muted" htmlFor="review-folder">Pasta</label>
+            <select id="review-folder" value={folder ?? ALL_FOLDERS} onChange={(e) => goFolder(e.target.value === ALL_FOLDERS ? null : e.target.value)}>
+              <option value={ALL_FOLDERS}>Todas as pastas ({report.findings.length - done} pendente(s))</option>
+              {folders.map((c) => (
+                <option key={c.document.id} value={c.document.id}>
+                  {c.pending > 0 ? "● " : "✓ "}
+                  {c.document.name} — {c.pending > 0 ? `${c.pending} pendente(s)` : "concluída"}
+                </option>
+              ))}
+            </select>
+            {nextFolder && (
+              <button className="small-btn" onClick={() => goFolder(nextFolder)} title={`Próxima pasta com pendência: ${nextFolderName}`}>
+                Próxima pasta →
+              </button>
+            )}
+          </div>
           <div className="queue-progress">
-            <strong>{done}</strong> de {report.findings.length} decididas
-            <div className="progress small"><div style={{ width: pct(report.findings.length ? done / report.findings.length : 0) }} /></div>
+            {folderInfo ? (
+              <>
+                <strong>{folderInfo.total - folderInfo.pending}</strong> de {folderInfo.total} decididas nesta pasta
+                <div className="progress small"><div style={{ width: pct(folderInfo.total ? (folderInfo.total - folderInfo.pending) / folderInfo.total : 1) }} /></div>
+                <span className="small muted">Caixa: {done} de {report.findings.length}</span>
+              </>
+            ) : (
+              <>
+                <strong>{done}</strong> de {report.findings.length} decididas
+                <div className="progress small"><div style={{ width: pct(report.findings.length ? done / report.findings.length : 0) }} /></div>
+              </>
+            )}
           </div>
           <BulkButtons batchId={batchId} document={current?.document} analyzing={analyzing} />
           <div className="filters">
@@ -209,6 +249,14 @@ function ReviewQueue({ report }: { report: Analysis }) {
       </aside>
 
       <main className="detail">
+        {folderInfo && (
+          <div className="folder-title">
+            <span className="small muted">Pasta</span> <strong>{folderInfo.document.name}</strong>
+            <span className="small muted">
+              {folderInfo.pending > 0 ? `${folderInfo.pending} pendente(s) nesta pasta` : "pasta concluída"}
+            </span>
+          </div>
+        )}
         {current ? (
           <Detail
             item={current}
@@ -230,8 +278,18 @@ function ReviewQueue({ report }: { report: Analysis }) {
           />
         ) : (
           <div className="empty">
-            <h2>Fila vazia</h2>
-            <p className="muted">Tudo decidido. Veja o <a href={href({ name: "reports", id: batchId })}>relatório e a ordem de retrabalho</a>.</p>
+            {folderInfo && folderInfo.pending === 0 && nextFolder ? (
+              <>
+                <h2>Pasta {folderInfo.document.name} concluída</h2>
+                <p className="muted">Ainda há pendência em outras pastas.</p>
+                <button className="primary" onClick={() => goFolder(nextFolder)}>Ir para a próxima pasta: {nextFolderName} →</button>
+              </>
+            ) : (
+              <>
+                <h2>Fila vazia</h2>
+                <p className="muted">Tudo decidido. Veja o <a href={href({ name: "reports", id: batchId })}>relatório e a ordem de retrabalho</a>.</p>
+              </>
+            )}
           </div>
         )}
         {toast && (

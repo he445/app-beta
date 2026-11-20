@@ -36,9 +36,25 @@ mostra todos os atalhos. Para instalar e publicar, veja
    aparelho. **Enviar lote:** no computador, arraste a pasta ou um `.zip`; no celular,
    escolha um `.zip` ou as imagens. Só documentos sintéticos ou públicos na PoC.
 3. **Painel:** veredito, percentual que dispensa revisão, defeitos por severidade, por
-   tipo e por estação.
-4. **Revisão:** a fila mostra só o que foi sinalizado, do mais grave ao menos grave.
-   A página aparece ampliada com a área do defeito destacada, a medida, o limiar e a
+   tipo e por estação. **Salvar caixa** grava a versão corrigida da caixa (na pasta de
+   saída no programa desktop, senão baixa o `.zip`) e gera o relatório das caixas
+   concluídas; fica bloqueado, com o motivo ao lado, enquanto houver página faltando sem
+   decisão ou correção em andamento. **Aprovar tudo (defeito de origem)** aceita a caixa
+   como está: toda sinalização sem decisão vira defeito de origem, com uma ressalva
+   opcional que vale para todas e sai no relatório para o cliente. Nada vai para
+   retrabalho e o veredito fica "aprovado com ressalvas". Antes de gravar, o painel
+   mostra quantas sinalizações entram e de que tipo. Página faltando tem **alerta
+   próprio**: a lista de cada pasta com as folhas que faltam. **Confirmar, com as páginas
+   faltando** marca também essas como defeito de origem (o papel já veio sem a folha) e o
+   relatório da caixa lista a pasta e as folhas; **Só as outras** deixa as páginas
+   faltando para decidir uma a uma no cartão da Sequência.
+4. **Revisão:** a revisão anda **pasta por pasta**. Ela abre na primeira pasta com
+   pendência; o seletor **Pasta** no topo da fila mostra cada pasta com quantas faltam
+   (ou "concluída") e **Próxima pasta →** pula para a seguinte com pendência. O nome da
+   pasta fica no alto da tela e o progresso conta só a pasta (a caixa aparece embaixo).
+   Ao terminar uma pasta, a tela oferece ir para a próxima; "Todas as pastas" volta à
+   fila única da caixa. Dentro da pasta, a fila mostra só o que foi sinalizado, do mais
+   grave ao menos grave. A página aparece ampliada com a área do defeito destacada, a medida, o limiar e a
    correção proposta. Decida pelo teclado:
 
 | Tecla | Ação |
@@ -73,7 +89,12 @@ decida cada uma.
 5. **Sequência:** miniaturas na ordem do arquivo com a numeração e o estado de cada
    página. Quando a numeração foi lida da imagem, o canto mostra o recorte exato onde ela
    foi procurada. **Ampliar**, duplo clique ou Z abre a página inteira, com
-   Original/Corrigida, setas e Esc.
+   Original/Corrigida, setas e Esc. Na página ampliada, **Aprovar** (ou A) aprova como
+   falso positivo as sinalizações pendentes daquela página e passa para a seguinte; o
+   botão mostra quantas faltam e diz "Sem pendência" quando não há. **Defeito de
+   origem** (ou O) abre um campo para a ressalva (opcional, por exemplo "original
+   manchado"): Enter confirma, marca as pendentes da página como defeito de origem com
+   essa ressalva e passa para a seguinte; Esc desiste.
    - **Digitação rápida:** o cursor já começa na primeira página com dúvida. Digite o
      número e Enter: grava e vai para a próxima com dúvida. Tab passa sem gravar; Esc
      volta ao valor anterior. Pode digitar sem esperar: as gravações vão em fila. A
@@ -109,10 +130,17 @@ decida cada uma.
 7. **Relatório:** salve o lote corrigido na pasta de saída (programa desktop) ou baixe o
    `.zip` (com aviso se ainda houver críticos pendentes),
    o relatório, os CSVs e a ordem de retrabalho por estação.
-   - **Relatórios por caixa:** com todas as decisões da caixa tomadas, salvar gera o
-     relatório da caixa (PDF para imprimir e JSON para a Gestão): páginas faltando e
-     ilegíveis de cada processo, ou "Nenhuma pendência". O cartão mostra a versão mais
-     nova de cada caixa e baixa o PDF. Se a pendência mudar depois, gere de novo: sai a
+   - **Relatórios por caixa:** com todas as decisões médio ou acima da caixa tomadas
+     (as baixas não seguram), salvar gera o
+     relatório da caixa (PDF para imprimir e JSON para a Gestão): páginas faltando,
+     páginas ilegíveis (arquivo corrompido) e defeitos de imagem por tipo (desfocadas,
+     exposição ruim, resolução abaixo do exigido) de cada processo, ou "Nenhuma
+     pendência". O cartão mostra a versão mais
+     nova de cada caixa e baixa o PDF; caixa ainda não concluída aparece com o que falta
+     decidir.
+   - **Defeitos de origem (para o cliente):** as páginas faltando aceitas aparecem à
+     parte, com a pasta e as folhas ("CX1/proc-7: fls. 13 e 14"); os outros itens trazem
+     a pasta, o defeito e a ressalva do revisor. Se a pendência mudar depois, gere de novo: sai a
      versão 2 e a 1 fica guardada.
 
 O original nunca é alterado: toda correção gera uma cópia, registrada com data, hora e

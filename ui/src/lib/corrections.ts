@@ -1,5 +1,5 @@
 // Estado das telas de correção em lote (TAREFAS 3 e 4), como funções puras.
-import type { Analysis, BulkCorrection, BulkDecision, CorrectedDocument, CorrectedPage, CorrectedPlan, QaDocument } from "../api/types";
+import type { Analysis, BulkCorrection, BulkDecision, CorrectedDocument, CorrectedPage, CorrectedPlan, Finding, QaDocument } from "../api/types";
 import { ruleLabel } from "./format";
 
 export function isActive(op: BulkCorrection | undefined): boolean {
@@ -151,6 +151,62 @@ export function skippedText(op: BulkCorrection | undefined, targetIds?: Set<stri
 
 /** Regras que não entram em "Decidir semelhantes": cada página faltando pede decisão própria. */
 export const NO_SIMILAR_RULES = new Set(["missing_page"]);
+
+/** Página faltando sem decisão: a pasta e as folhas, para o alerta e o relatório. */
+export interface MissingItem {
+  id: string;
+  folder: string;
+  /** Folhas que faltam ("13", "14"); vazio quando só a contagem declarada não fecha. */
+  folios: string[];
+  message: string;
+}
+
+export interface MassDecisionPlan {
+  /** Sinalizações sem decisão que entram direto, na ordem do relatório. */
+  ids: string[];
+  /** Quantas de cada regra entram, da que tem mais para a que tem menos. */
+  byRule: [string, number][];
+  /** Páginas faltando sem decisão: só entram se o revisor confirmar no alerta próprio. */
+  missing: MissingItem[];
+}
+
+/** Pasta de uma sinalização: a do documento alvo ou a da página. */
+function folderName(report: Analysis, f: Finding): string {
+  const docId =
+    f.target.kind === "document" ? f.target.id : report.pages.find((p) => p.id === f.target.id)?.document_id;
+  return report.documents.find((d) => d.id === docId)?.name ?? "";
+}
+
+/**
+ * "Aprovar tudo como defeito de origem" no painel: tudo que está sem decisão. Página
+ * faltando vem à parte (``missing``), porque pede confirmação própria: só entra se o
+ * revisor confirmar a lista de pastas e folhas.
+ */
+export function massDecisionPlan(report: Analysis): MassDecisionPlan {
+  const pending = report.findings.filter((f) => !f.decision);
+  const included = pending.filter((f) => !NO_SIMILAR_RULES.has(f.rule));
+  const counts = new Map<string, number>();
+  for (const f of included) counts.set(f.rule, (counts.get(f.rule) ?? 0) + 1);
+  return {
+    ids: included.map((f) => f.id),
+    byRule: [...counts.entries()].sort((a, b) => b[1] - a[1]),
+    missing: pending
+      .filter((f) => NO_SIMILAR_RULES.has(f.rule))
+      .map((f) => ({
+        id: f.id,
+        folder: folderName(report, f),
+        folios: ((f.correction.params?.missing as unknown[] | undefined) ?? []).map(String),
+        message: f.message,
+      })),
+  };
+}
+
+/** "fls. 13, 14 e 15" (como no relatório por caixa). */
+export function foliosText(folios: string[]): string {
+  if (folios.length === 0) return "";
+  if (folios.length === 1) return `fls. ${folios[0]}`;
+  return `fls. ${folios.slice(0, -1).join(", ")} e ${folios.at(-1)}`;
+}
 
 export const BULK_DECISION_LABEL: Record<BulkDecision, string> = {
   approve: "Aprovar (falso positivo)",

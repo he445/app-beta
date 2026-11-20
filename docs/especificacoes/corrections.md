@@ -77,6 +77,16 @@ cadeia de correções da página). `correct` não é aceito como decisão em lot
 resultado traz `applied_by_rule` e nada em `skipped`. Desfazer em lote vale do mesmo
 jeito. Essas decisões não viram exemplo da coleta do beta.
 
+### "Aprovar tudo (defeito de origem)", no painel
+
+Não é uma operação em lote do motor: a interface manda uma decisão individual
+(`POST /findings/{id}/decision`, `source_defect`, com a mesma `note` como ressalva) para
+cada sinalização sem decisão do lote, uma de cada vez, e mostra o progresso. Página
+faltando só entra depois de um alerta próprio que lista cada pasta com as folhas que
+faltam; sem essa confirmação ela fica para o cartão da Sequência. Como são decisões
+individuais, não têm `operation_id`, não entram no Desfazer em lote (desfaz-se uma a
+uma) e contam na coleta do beta como as outras decisões individuais.
+
 ### Desfazer em lote
 
 Remove a decisão das sinalizações que **ainda** carregam o `operation_id` da operação

@@ -79,9 +79,9 @@ export function nextRotation(current: number, delta: number): number {
   return (current + delta) % 360;
 }
 
-export type ZoomKeyAction = "close" | "prev" | "next" | "zoom";
+export type ZoomKeyAction = "close" | "prev" | "next" | "zoom" | "approve" | "source_defect";
 
-/** Teclado do modal de zoom: Esc fecha, setas passam de página, espaço amplia. */
+/** Teclado do modal de zoom: Esc fecha, setas passam de página, espaço amplia, A aprova, O defeito de origem. */
 export function zoomModalKey(e: KeyLike): ZoomKeyAction | null {
   if (e.ctrlKey || e.metaKey || e.altKey) return null;
   const key = e.key.toLowerCase();
@@ -89,6 +89,8 @@ export function zoomModalKey(e: KeyLike): ZoomKeyAction | null {
   if (key === "arrowleft") return "prev";
   if (key === "arrowright") return "next";
   if (key === " " || key === "spacebar") return "zoom";
+  if (key === "a") return "approve";
+  if (key === "o") return "source_defect";
   return null;
 }
 
@@ -136,6 +138,8 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     items: [
       ["← →", "Página anterior / seguinte"],
       ["Espaço", "Mais zoom / menos zoom"],
+      ["A", "Na sequência: aprova as sinalizações pendentes da página e passa para a seguinte"],
+      ["O", "Na sequência: defeito de origem, com ressalva opcional (Enter confirma)"],
       ["Esc", "Fecha"],
     ],
   },

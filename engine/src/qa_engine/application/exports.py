@@ -39,6 +39,7 @@ def findings_csv(
             "correction_action",
             "decision",
             "message",
+            "note",
         ]
     )
     for f in findings:
@@ -59,6 +60,7 @@ def findings_csv(
                 f["correction"]["action"],
                 (f.get("decision") or {}).get("action", ""),
                 f["message"],
+                (f.get("decision") or {}).get("note", ""),
             ]
         )
     return out.getvalue()

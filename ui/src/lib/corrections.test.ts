@@ -11,6 +11,8 @@ import {
   skippedText,
   mergeApplied,
   lastShown,
+  foliosText,
+  massDecisionPlan,
   operationSummary,
   similarCounts,
   unsavedOperation,
@@ -120,6 +122,10 @@ describe("teclado da sequência e do zoom", () => {
     expect(zoomModalKey({ key: "ArrowLeft" })).toBe("prev");
     expect(zoomModalKey({ key: "ArrowRight" })).toBe("next");
     expect(zoomModalKey({ key: " " })).toBe("zoom");
+    expect(zoomModalKey({ key: "a" })).toBe("approve");
+    expect(zoomModalKey({ key: "A" })).toBe("approve");
+    expect(zoomModalKey({ key: "a", ctrlKey: true })).toBeNull();
+    expect(zoomModalKey({ key: "o" })).toBe("source_defect");
     expect(zoomModalKey({ key: "ArrowUp" })).toBeNull();
     expect(zoomModalKey({ key: "ArrowLeft", metaKey: true })).toBeNull();
   });
@@ -254,5 +260,35 @@ describe("lastShown", () => {
     expect(lastShown([op("applied", 3, 3), op("undone")])?.status).toBe("applied");
     expect(lastShown([op("undone"), op("applied", 3, 3)])).toBeUndefined();
     expect(lastShown([op("saved", 3, 3)])).toBeUndefined();
+  });
+});
+
+describe("aprovar tudo como defeito de origem (painel)", () => {
+  const f = (id: string, rule: string, target: string, extra: object = {}) =>
+    ({ id, rule, message: "", target: { kind: rule === "missing_page" ? "document" : "page", id: target },
+       correction: { params: {} }, ...extra }) as never;
+  const report = {
+    documents: [{ id: "d1", name: "CX1/proc-7", page_ids: ["p1"] }],
+    pages: [{ id: "p1", document_id: "d1" }],
+    findings: [
+      f("1", "blank_page", "p1"),
+      f("2", "blank_page", "p1"),
+      f("3", "skew", "p1"),
+      f("4", "skew", "p1", { decision: { action: "approve" } }),
+      f("5", "missing_page", "d1", { message: "Faltam fls. 13 a 14.", correction: { params: { missing: ["13", "14"] } } }),
+    ],
+  } as never;
+
+  it("pega tudo sem decisão e separa página faltando, com pasta e folhas", () => {
+    const plan = massDecisionPlan(report);
+    expect(plan.ids).toEqual(["1", "2", "3"]);
+    expect(plan.byRule).toEqual([["blank_page", 2], ["skew", 1]]);
+    expect(plan.missing).toEqual([{ id: "5", folder: "CX1/proc-7", folios: ["13", "14"], message: "Faltam fls. 13 a 14." }]);
+  });
+
+  it("escreve as folhas como no relatório da caixa", () => {
+    expect(foliosText(["7"])).toBe("fls. 7");
+    expect(foliosText(["13", "14", "15"])).toBe("fls. 13, 14 e 15");
+    expect(foliosText([])).toBe("");
   });
 });

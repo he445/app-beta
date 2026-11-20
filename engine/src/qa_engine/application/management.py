@@ -98,7 +98,10 @@ def management_view(
                 "concluded_at": first["concluded_at"],
                 "updated_at": latest["concluded_at"],
                 "ref": ref,
-                "totals": dict(latest["totals"]),
+                # A Gestão mantém o contrato dela: os defeitos tipificados ficam no relatório.
+                "totals": {
+                    k: latest["totals"][k] for k in ("processes", "pages", "missing", "illegible")
+                },
                 "processes": [
                     {
                         "number": p["number"],

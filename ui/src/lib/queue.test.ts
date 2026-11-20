@@ -3,7 +3,7 @@ import type { Analysis, Finding } from "../api/types";
 import { parseSse } from "../api/sse";
 import { csvObjects, parseCsv } from "./csv";
 import { currentRotation, keyToAction, nextRotation } from "./keys";
-import { buildQueue, clampIndex, replaceFinding } from "./queue";
+import { buildQueue, clampIndex, folderCounts, nextPendingFolder, replaceFinding } from "./queue";
 
 function finding(id: string, severity: Finding["severity"], page: string, rule = "blur"): Finding {
   return {
@@ -52,6 +52,18 @@ describe("fila de revisão", () => {
     expect(buildQueue(report, base).map((i) => i.finding.id)).toEqual(["f2", "f3", "f1"]);
     expect(buildQueue(report, { ...base, severity: "critical" }).map((i) => i.finding.id)).toEqual(["f2"]);
     expect(buildQueue(report, { ...base, rule: "skew" }).map((i) => i.finding.id)).toEqual(["f3"]);
+  });
+  it("divide por pasta: filtra, conta pendências e acha a próxima pasta", () => {
+    const base = { severity: null, rule: null, pendingOnly: true };
+    expect(buildQueue(report, { ...base, document: "d1" }).map((i) => i.finding.id)).toEqual(["f2", "f1"]);
+    expect(buildQueue(report, { ...base, document: "d2" }).map((i) => i.finding.id)).toEqual(["f3"]);
+    const counts = folderCounts(report);
+    expect(counts.map((c) => [c.document.id, c.pending, c.total])).toEqual([["d1", 2, 3], ["d2", 1, 1]]);
+    expect(nextPendingFolder(counts)).toBe("d1");
+    expect(nextPendingFolder(counts, "d1")).toBe("d2");
+    expect(nextPendingFolder(counts, "d2")).toBe("d1");
+    const done = counts.map((c) => ({ ...c, pending: 0 }));
+    expect(nextPendingFolder(done, "d1")).toBeUndefined();
   });
   it("mantém o índice dentro da fila e substitui a sinalização decidida", () => {
     expect(clampIndex(5, 3)).toBe(2);
