@@ -1,6 +1,6 @@
 {
  "seed": 20261105,
- "pages": 35,
+ "pages": 43,
  "defects": [
   {
    "rule": "blur",
@@ -123,6 +123,16 @@
   {
    "rule": "blank_page",
    "file": "CX001/DOC0007/0006.tif",
+   "page_in_file": 0
+  },
+  {
+   "rule": "blank_page",
+   "file": "CX001/DOC0008/0002.tif",
+   "page_in_file": 0
+  },
+  {
+   "rule": "blank_page",
+   "file": "CX001/DOC0008/0003.tif",
    "page_in_file": 0
   }
  ]

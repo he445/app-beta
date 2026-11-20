@@ -6,6 +6,82 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ## [Não lançado]
 
+## [1.2.0] — 2026-11-20
+
+### Adicionado
+
+- **Caixa de regressão** (`tools/bench_box/`, [documentação](docs/testes/caixa-de-regressao.md)):
+  1.000 páginas reais do RVL-CDIP com problemas inseridos, geradas byte a byte com semente
+  fixa; `score_box.py` confere o relatório contra o gabarito (par de duplicata e cópia
+  certa separados, correções automáticas em página limpa, lacunas maiores que o documento,
+  "fora de ordem" falsos, folhas perdidas pelo `manifest.csv`, tempo e ângulo de
+  inclinação por página) e reprova contra a base; `time_pages.py` cronometra cada página
+  em série. Base da 1.1.0 em `baseline-1.1.0.json`: 296 de 318 problemas achados.
+
+### Corrigido
+
+- **Folha em branco com transparência do verso ou gradiente de luz** deixa de ser lida
+  como "verso numerado" (ADR-0025): só conta como escrito a caixa com tinta de verdade.
+  Caixa sem tinta com contraste acima da transparência é "traço fraco" (possível número a
+  lápis claro) e deixa a branca para revisão, nunca para remoção. `blank_page` 1.2.0,
+  parâmetros `writing_min_ink`, `writing_min_pixels` e `faint_min_delta`.
+- **Duplicata redigitalizada** (ADR-0026): a comparação alinha as duas páginas (giro de
+  ±3° e deslocamento) antes de medir a semelhança e confere a tinta numa máscara de 512 px
+  (formulário repetido com preenchimento diferente não é duplicata); números de folha
+  diferentes lidos com confiança vetam o par; a cópia exata é achada pelo hash do raster,
+  mesmo com pouca tinta. Com nitidez parecida sai a segunda ocorrência; se a primeira for
+  claramente pior, sai ela e a outra ocupa a posição dela no lote corrigido
+  (`params.keep_position`). `duplicate_page` 1.1.0, parâmetros novos
+  `candidate_min_similarity`, `max_ink_difference`, `sharpness_margin` e
+  `numbering_veto_confidence`; `min_similarity` 0,96, `max_hash_distance` 80,
+  `min_ink_coverage` 0,002.
+- **Página com borda preta** (ADR-0027): desfoque, exposição e o classificador de
+  orientação medem a vista de conteúdo, sem as faixas que `black_borders` sinalizaria; a
+  inclinação mede essa vista já de pé. O desfoque também tira da medida os componentes de
+  tinta grandes e sólidos (faixa estreita, tarja). Acaba o desfoque falso, com pedido de
+  redigitalização, em página com borda, e a página girada com borda deixa de passar como de
+  pé. `blur` 1.2.0 (parâmetros `solid_min_area` e `solid_min_solidity`), `exposure` 1.1.0,
+  `orientation` 1.3.0.
+- **Rotação errada em página muito inclinada:** acima de 2° de inclinação, com confiança de
+  pelo menos 0,3, o classificador de orientação também lê uma cópia endireitada e vale a
+  leitura mais confiante; de pé, a inclinação medida antes não é medida de novo.
+  `orientation` 1.4.0, parâmetros `deskew_before_orient` e `deskew_min_confidence`.
+- **Inclinação sem evidência** (ADR-0028): abaixo de confiança 0,1 a inclinação não é
+  sinalizada; até 0,3 vai para revisão, sem correção automática. `skew` 1.2.0, parâmetros
+  `min_flag_confidence` e `min_auto_confidence`.
+- **Página com pouca tinta** (de 0,3% a 1% de tinta) deixa de ser ponto cego: inclinação e
+  desfoque passam a medi-la e a orientação propõe rotação a partir de `review_threshold`,
+  sempre para revisão e fora da linha de base do lote. A página que já é "quase branca" não
+  recebe esses avisos; a inclinação só é sinalizada nela acima de 3°. `skew` 1.3.0
+  (`review_min_ink_coverage`, `low_ink_min_angle`), `blur` 1.3.0
+  (`review_min_ink_coverage`), `orientation` 1.5.0.
+- **Plano B do detector de escritos** não devolve mais o fundo: caixa que cobre mais da
+  metade do recorte ou encosta em 3 bordas dele é gradiente de luz, não escrito. A leitura
+  da região da numeração também descarta caixa encostada na borda da página, como a busca
+  nos quatro cantos já fazia.
+- **Lacuna implausível na numeração** (ADR-0029): salto com mais folhas faltando que o
+  próprio documento (a partir de 10) ou que `max_gap_sheets` (perfil, padrão 50) vira
+  `numbering_review` ("Salto de fls. 20 para 1021: leitura de numeração duvidosa"), nunca
+  "Faltam fls.". Leitura isolada fora da sequência das vizinhas (20, 2019, 22) é descartada
+  e o documento é resolvido de novo; a página fica "ambígua" na Sequência. Numeração com
+  salto implausível não propõe reordenação automática: o documento fica na ordem do
+  arquivo e vai para revisão. `out_of_order`, `missing_page` e `numbering_review` 1.3.0;
+  parâmetros de perfil `max_gap_sheets` e `min_implausible_gap`.
+
+### Desempenho
+
+- **Inclinação em três passadas** (um quarto da resolução, metade e cheia) sobre `uint8`,
+  com a projeção por `cv2.reduce`: a medida cai de cerca de 0,13 s para 0,04 s por página,
+  sem mudança de detecção na caixa de regressão. O 0° é medido com um giro mínimo nas
+  passadas grossas (sem isso a busca reduzida voltava para 0°), e a passada final parte do
+  pico refinado da passada do meio. `skew` 1.4.0.
+- **Metadados do PNG sem segunda decodificação:** o EXIF é procurado pelos cabeçalhos dos
+  blocos do arquivo; antes o Pillow decodificava a imagem inteira só para isso (cerca de
+  20 ms por página). TIFF e JPEG não mudam.
+- **Recorte do canto da numeração** em PNG rápido e só quando vai ser usado (antes, em
+  compressão máxima e às vezes duas vezes). O detector de escritos calcula a nota de cada
+  contorno só no retângulo dele, com o mesmo resultado.
+
 ## [1.1.0] — 2026-11-18
 
 ### Adicionado

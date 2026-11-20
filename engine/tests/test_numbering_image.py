@@ -23,6 +23,7 @@ from qa_engine.application.profile import Profile, profile_from_dict
 from qa_engine.application.review import renumber, report_marks
 from qa_engine.application.serialize import analysis_json
 from qa_engine.application.services import run_analysis
+from qa_engine.detectors.features import BoxKind, InkCheck
 from qa_engine.detectors.strike import strike_score
 from qa_engine.domain.sequencing import (
     NumberingMode,
@@ -134,6 +135,59 @@ def test_empty_region_is_not_written() -> None:
     gray = np.full((1240, 874), 235, np.uint8)
     read = ImageNumberingReader(Boxes([]), Texts()).read(gray, 150)
     assert read.marks == () and not read.written and read.crop_png
+
+
+def faint_patch(contrast: int, paper: int = 235) -> NDArray[np.uint8]:
+    """Escrito com o traço ``contrast`` níveis abaixo do papel."""
+    patch = np.full((70, 70), paper, np.uint8)
+    cv2.putText(patch, "8", (12, 52), cv2.FONT_HERSHEY_SIMPLEX, 1.6, paper - contrast, 4)
+    return patch
+
+
+def test_ink_check_separates_ink_faint_trace_and_background() -> None:
+    """ADR-0025: só a caixa com tinta conta como escrito."""
+    check = InkCheck(paper=235)
+    assert check.classify(faint_patch(200)) is BoxKind.WRITING
+    assert check.classify(faint_patch(30)) is BoxKind.FAINT  # lápis claro
+    assert check.classify(faint_patch(14)) is BoxKind.BACKGROUND  # transparência do verso
+    assert check.classify(np.zeros((0, 0), np.uint8)) is BoxKind.BACKGROUND
+
+
+def test_reader_ignores_boxes_without_ink() -> None:
+    """A transparência do verso não vira escrito nem chega ao reconhecedor."""
+    gray = np.full((1240, 874), 235, np.uint8)
+    gray[40:110, 600:670] = faint_patch(14)
+    box = TextBox(600 - int(0.60 * 874), 40, 70, 70, 0.9)
+    reader = ImageNumberingReader(Boxes([box]), Texts())  # Texts() vazio: ler seria erro
+    read = reader.read(gray, 150, ink=InkCheck(paper=235))
+    assert not read.written and not read.faint and read.marks == ()
+    gray[40:110, 600:670] = faint_patch(30)
+    faint = reader.read(gray, 150, ink=InkCheck(paper=235))
+    assert not faint.written and faint.faint and faint.marks == ()
+    assert reader.corner_writing(gray, 150, InkCheck(paper=235)) == (False, True)
+    old = ImageNumberingReader(Boxes([box]), Texts("8")).read(gray, 150)
+    assert old.written  # sem a conferência, toda caixa é escrito, como antes
+
+
+def test_fallback_detector_does_not_return_the_background() -> None:
+    """Gradiente de luz no recorte não vira uma caixa do tamanho da região (R2)."""
+    from qa_engine.adapters.text_detection import OpenCvTextDetector
+
+    h, w = 297, 512
+    gradient = np.tile(np.linspace(200, 245, w, dtype=np.float32), (h, 1))
+    gray = gradient.astype(np.uint8)
+    assert OpenCvTextDetector().detect(gray) == []
+    cv2.putText(gray, "27", (300, 120), cv2.FONT_HERSHEY_SIMPLEX, 2.0, 30, 5)
+    boxes = OpenCvTextDetector().detect(gray)
+    assert boxes and all(b.w * b.h < 0.5 * w * h for b in boxes)
+
+
+def test_reader_ignores_boxes_on_the_page_edge() -> None:
+    """Caixa encostada na borda da página é sombra do digitalizador, também na região."""
+    gray, boxes = page_with(("12", False))
+    edge_box = TextBox(boxes[0].x, 0, boxes[0].w, boxes[0].h, 0.9)
+    read = ImageNumberingReader(Boxes([edge_box]), Texts()).read(gray, 150)
+    assert not read.written and read.marks == ()
 
 
 def test_profile_numbering_reader_settings(full_profile_path: Path) -> None:
@@ -297,9 +351,15 @@ def test_blank_page_considers_the_numbering(tmp_path: Path, test_profile: Profil
         for f in report["findings"]
         if f["rule"] == "blank_page"
     }
-    # Só a vazia é branca (removida da cópia). O carimbo continua "quase branca", para o
-    # revisor olhar, e nunca é removido; as folhas com número não são sinalizadas.
-    assert flags == {"vazia": "remove_page", "so-carimbo": "human_review"}, flags
+    # A vazia e a de verso transparente são brancas (removidas da cópia). O carimbo continua
+    # "quase branca" e o lápis claro é branca para revisão: nunca removidos. As folhas com
+    # número não são sinalizadas.
+    assert flags == {
+        "vazia": "remove_page",
+        "verso-transparente": "remove_page",
+        "so-carimbo": "human_review",
+        "lapis-claro": "human_review",
+    }, flags
 
 
 def test_numbering_from_the_sidecar_also_keeps_the_page(

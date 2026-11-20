@@ -14,6 +14,7 @@
 | Bench de numeração | Acerto exato, acerto entre as três leituras, taxa de ambíguo e tempo de cada reconhecedor | `tools/bench_numbering.py` |
 | Bench de orientação | Desfechos da regra `orientation` contra um gabarito (`arquivo`, `angulo_real`): correção automática errada, página girada sem sinalização e revisões | `tools/bench_orientation.py` |
 | Conformidade | O lote `core` gerado tem de casar com o gabarito versionado | [Suíte de conformidade](conformidade.md) |
+| Caixa de regressão | 1.000 páginas reais com problemas inseridos: achados por problema, avisos falsos, correções automáticas em página limpa e tempo por página, comparados com a base da versão anterior | [Caixa de regressão](caixa-de-regressao.md) |
 | Interface | Funções puras (fila, atalhos, correções) e cliente HTTP | `ui/src/**/*.test.ts` (Vitest) |
 | Ponta a ponta | Fluxo completo no navegador, no celular e no programa desktop sem janela | `ui/e2e/` (Playwright) |
 | Pacote Windows | Testes e conformidade em Windows; teste de fumaça do executável com o lote de exemplo e custo por página | `.github/workflows/windows.yml`, `QA-suporte.exe --self-test` |

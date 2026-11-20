@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from enum import StrEnum
+
 import cv2
 import numpy as np
 from numpy.typing import NDArray
@@ -42,3 +45,43 @@ def compute_features(gray: NDArray[np.uint8]) -> PageFeatures:
     area = ink[y0:y1, x0:x1]
     coverage = float(area.mean()) if area.size else 0.0
     return PageFeatures(ink=ink, core=core, ink_coverage=coverage, paper_level=paper)
+
+
+class BoxKind(StrEnum):
+    """O que uma caixa achada pelo detector de texto contém de verdade."""
+
+    WRITING = "writing"
+    """Tinta: conta como escrito (a folha não é branca) e segue para a leitura."""
+    FAINT = "faint"
+    """Traço fraco, sem tinta (possível número a lápis claro): branca só para revisão."""
+    BACKGROUND = "background"
+    """Fundo: transparência do verso, gradiente do papel. Ignorada."""
+
+
+@dataclass(frozen=True, slots=True)
+class InkCheck:
+    """Confirmação de tinta dentro de uma caixa (``docs/especificacoes/detectors/blank_page.md``).
+
+    O detector de texto normaliza o contraste e acha texto até na transparência do verso;
+    quem decide se há tinta é o brilho dos pixels contra o papel da página.
+    """
+
+    paper: float
+    """Brilho do papel da página (percentil 90, o mesmo da máscara de tinta)."""
+    min_ink: float = 0.01
+    """Fração mínima de pixels de tinta na caixa (``writing_min_ink``)."""
+    min_pixels: int = 30
+    """Pixels de tinta mínimos na caixa, a 150 dpi (``writing_min_pixels``)."""
+    faint_delta: float = 26.0
+    """Contraste (papel menos o percentil 5 da caixa) a partir do qual uma caixa sem tinta é
+    traço fraco, não fundo (``faint_min_delta``)."""
+
+    def classify(self, patch: NDArray[np.uint8]) -> BoxKind:
+        """Classifica o conteúdo de uma caixa."""
+        if patch.size == 0:
+            return BoxKind.BACKGROUND
+        dark = int(np.count_nonzero(patch <= self.paper - MIN_INK_DELTA))
+        if dark >= self.min_pixels and dark / patch.size >= self.min_ink:
+            return BoxKind.WRITING
+        contrast = self.paper - float(np.percentile(patch, 5))
+        return BoxKind.FAINT if contrast >= self.faint_delta else BoxKind.BACKGROUND

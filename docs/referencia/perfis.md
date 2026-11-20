@@ -24,6 +24,8 @@ limiares, e como a numeração e as estações são tratadas.
 | `numbering.min_confidence` | número |  |  | Abaixo disso a leitura não conta. mín. 0, máx. 1 |
 | `numbering.high_confidence` | número |  |  | A partir disso a leitura é confiável: ancora lacunas e a ordem proposta. mín. 0, máx. 1 |
 | `numbering.image_high_confidence` | número |  |  | Confiança alta das leituras do leitor de imagem; substitui high_confidence quando a numeração vem da imagem (a escala de cada leitor é diferente). Ausente: vale high_confidence. mín. 0, máx. 1 |
+| `numbering.max_gap_sheets` | inteiro |  |  | Padrão 50. Lacuna maior que isto (ou maior que o próprio documento, a partir de min_implausible_gap folhas) é leitura de numeração duvidosa e vai para revisão, não vira folha faltando. mín. 1 |
+| `numbering.min_implausible_gap` | inteiro |  |  | Padrão 10. Lacuna maior que o próprio documento só é tratada como leitura duvidosa a partir deste número de folhas (documento curto com algumas folhas faltando continua sendo folha faltando). mín. 1 |
 | `numbering.max_first_folio` | inteiro ou vazio |  |  | Documento cuja numeração começa depois desta folha vai para revisão (continuação de outro volume ou leitura errada). Ausente ou nulo: desligado; ligue quando todo documento da operação começa perto de fls. 1. mín. 1 |
 | `numbering.regions` | lista de lista de número |  |  | Onde procurar o número na página já orientada, em frações [x0, y0, x1, y1], testadas em ordem. Padrão: canto superior direito [0.60, 0.00, 1.00, 0.18]. |
 | `numbering.struck_threshold` | número |  |  | Nota de riscado a partir da qual o escrito é tratado como numeração anterior. Padrão 0,6. mín. 0, máx. 1 |
@@ -74,7 +76,7 @@ Especificação: [low_resolution.md](../especificacoes/detectors/low_resolution.
 
 ### `blank_page`
 
-Página em branco. Versão 1.1.0, severidade `low`.
+Página em branco. Versão 1.2.0, severidade `low`.
 Especificação: [blank_page.md](../especificacoes/detectors/blank_page.md).
 
 | Parâmetro | Tipo | Padrão | Faixa | Descrição |
@@ -82,11 +84,14 @@ Especificação: [blank_page.md](../especificacoes/detectors/blank_page.md).
 | `blank_threshold` | número | `0.003` | mín. 0, máx. 1 | Cobertura abaixo da qual a página é branca |
 | `near_blank_threshold` | número | `0.01` | mín. 0, máx. 1 | Cobertura abaixo da qual a página é quase branca |
 | `mark_min_area` | inteiro | `400` | mín. 0 | Área em pixels a 150 dpi de uma marca isolada (carimbo, rubrica) que impede classificar como branca |
+| `writing_min_ink` | número | `0.01` | mín. 0, máx. 1 | Fração mínima de pixels de tinta numa caixa de escrito para ela contar como escrito |
+| `writing_min_pixels` | inteiro | `30` | mín. 0 | Pixels de tinta mínimos, a 150 dpi, numa caixa de escrito para ela contar como escrito |
+| `faint_min_delta` | número | `26` | mín. 0, máx. 255 | Contraste (papel menos o percentil 5 da caixa) a partir do qual uma caixa sem tinta é traço fraco e deixa a branca para revisão |
 | `remove_blank_pages` | sim/não | `true` |  | Se a correção proposta para página branca é removê-la |
 
 ### `orientation`
 
-Página de lado ou de cabeça para baixo. Versão 1.2.0, severidade `medium`.
+Página de lado ou de cabeça para baixo. Versão 1.5.0, severidade `medium`.
 Especificação: [orientation.md](../especificacoes/detectors/orientation.md).
 
 | Parâmetro | Tipo | Padrão | Faixa | Descrição |
@@ -96,7 +101,9 @@ Especificação: [orientation.md](../especificacoes/detectors/orientation.md).
 | `upright_min_probability` | número | `0.5` | mín. 0, máx. 1 | Probabilidade de 0° abaixo da qual a página sem rotação convincente vai para revisão como orientação incerta |
 | `skip_blank` | sim/não | `true` |  | Não classificar página branca e exigir confiança alta na página com pouca tinta |
 | `blank_ink_coverage` | número | `0.003` | mín. 0, máx. 1 | Cobertura de tinta abaixo da qual a página é branca e não é classificada |
-| `min_ink_coverage` | número | `0.01` | mín. 0, máx. 1 | Cobertura de tinta abaixo da qual a página tem pouca tinta: só sinaliza a partir de auto_threshold, sempre para revisão |
+| `min_ink_coverage` | número | `0.01` | mín. 0, máx. 1 | Cobertura de tinta abaixo da qual a página tem pouca tinta: sinaliza a partir de review_threshold, sempre para revisão, e sem orientação incerta |
+| `deskew_before_orient` | número | `2.0` | mín. 0 | Inclinação, em graus, acima da qual o classificador recebe uma cópia endireitada da página |
+| `deskew_min_confidence` | número | `0.3` | mín. 0, máx. 1 | Confiança mínima da inclinação para endireitar antes de classificar |
 
 ### `black_borders`
 
@@ -111,7 +118,7 @@ Especificação: [black_borders.md](../especificacoes/detectors/black_borders.md
 
 ### `blur`
 
-Desfoque. Versão 1.1.0, severidade `critical`.
+Desfoque. Versão 1.3.0, severidade `critical`.
 Especificação: [blur.md](../especificacoes/detectors/blur.md).
 
 | Parâmetro | Tipo | Padrão | Faixa | Descrição |
@@ -120,10 +127,13 @@ Especificação: [blur.md](../especificacoes/detectors/blur.md).
 | `absolute_threshold` | número | `0.6` | mín. 0 | Limiar usado quando o lote tem menos de min_batch_size páginas elegíveis |
 | `min_batch_size` | inteiro | `5` | mín. 1 | Páginas elegíveis necessárias para usar a mediana do lote |
 | `min_ink_coverage` | número | `0.01` | mín. 0, máx. 1 | Cobertura de tinta mínima para a página ser avaliada |
+| `solid_min_area` | número | `0.02` | mín. 0, máx. 1 | Fração da página a partir da qual um componente de tinta sólido sai da medida (faixa preta estreita, tarja) |
+| `solid_min_solidity` | número | `0.9` | mín. 0, máx. 1 | Área do componente sobre a da envoltória convexa a partir da qual ele é sólido, não escrita |
+| `review_min_ink_coverage` | número | `0.003` | mín. 0, máx. 1 | Cobertura mínima para medir; entre ela e min_ink_coverage a página tem pouca tinta e só vai para revisão |
 
 ### `skew`
 
-Inclinação. Versão 1.1.0, severidade `medium`.
+Inclinação. Versão 1.4.0, severidade `medium`.
 Especificação: [skew.md](../especificacoes/detectors/skew.md).
 
 | Parâmetro | Tipo | Padrão | Faixa | Descrição |
@@ -132,10 +142,14 @@ Especificação: [skew.md](../especificacoes/detectors/skew.md).
 | `reject_threshold` | número | `3.0` | mín. 0 | Ângulo absoluto acima do qual a severidade sobe para alto |
 | `max_angle` | número | `10.0` | mín. 1, máx. 45 | Faixa de busca, em graus, para cada lado |
 | `min_ink_coverage` | número | `0.01` | mín. 0, máx. 1 | Cobertura mínima para estimar o ângulo |
+| `min_flag_confidence` | número | `0.1` | mín. 0, máx. 1 | Confiança abaixo da qual a inclinação não é sinalizada: o ângulo achado pontua igual a 0° |
+| `min_auto_confidence` | número | `0.3` | mín. 0, máx. 1 | Confiança a partir da qual a correção de inclinação é automática; abaixo, vai para revisão |
+| `review_min_ink_coverage` | número | `0.003` | mín. 0, máx. 1 | Cobertura mínima para medir; entre ela e min_ink_coverage a página tem pouca tinta e só vai para revisão |
+| `low_ink_min_angle` | número | `3.0` | mín. 0 | Na página com pouca tinta, ângulo absoluto mínimo, em graus, para sinalizar (com poucas linhas a estimativa é ruidosa em ângulo pequeno) |
 
 ### `exposure`
 
-Escura, clara ou sem contraste. Versão 1.0.0, severidade `high`.
+Escura, clara ou sem contraste. Versão 1.1.0, severidade `high`.
 Especificação: [exposure.md](../especificacoes/detectors/exposure.md).
 
 | Parâmetro | Tipo | Padrão | Faixa | Descrição |
@@ -150,32 +164,36 @@ Especificação: [exposure.md](../especificacoes/detectors/exposure.md).
 
 ### `duplicate_page`
 
-Página duplicada. Versão 1.0.0, severidade `medium`.
+Página duplicada. Versão 1.1.0, severidade `medium`.
 Especificação: [duplicate_page.md](../especificacoes/detectors/duplicate_page.md).
 
 | Parâmetro | Tipo | Padrão | Faixa | Descrição |
 | --- | --- | --- | --- | --- |
-| `max_hash_distance` | inteiro | `48` | mín. 0, máx. 256 | Distância de Hamming máxima entre dHash de 256 bits para virar candidato |
-| `min_similarity` | número | `0.95` | mín. 0, máx. 1 | Correlação mínima das miniaturas para confirmar a duplicata |
-| `min_ink_coverage` | número | `0.005` | mín. 0, máx. 1 | Páginas com menos tinta (brancas) não são comparadas |
+| `max_hash_distance` | inteiro | `80` | mín. 0, máx. 256 | Distância de Hamming máxima entre dHash de 256 bits para virar candidato (a redigitalização girada até 3° chega a 72) |
+| `min_similarity` | número | `0.96` | mín. 0, máx. 1 | Semelhança mínima depois do alinhamento (giro e deslocamento) para confirmar a duplicata |
+| `candidate_min_similarity` | número | `0.6` | mín. 0, máx. 1 | Correlação mínima das miniaturas sem alinhar para o par ir à comparação alinhada |
+| `max_ink_difference` | número | `0.01` | mín. 0, máx. 1 | Fração máxima do traço de uma página sem traço da outra, depois de alinhar (formulário repetido com preenchimento diferente não é duplicata) |
+| `sharpness_margin` | número | `0.8` | mín. 0, máx. 1 | Razão de nitidez acima da qual sai a segunda ocorrência; abaixo, sai a menos nítida |
+| `numbering_veto_confidence` | número | `0.85` | mín. 0, máx. 1 | Confiança mínima das leituras de número de folha das duas páginas para números diferentes vetarem o par |
+| `min_ink_coverage` | número | `0.002` | mín. 0, máx. 1 | Páginas com menos tinta não vão à comparação alinhada (cópia exata é achada pelo hash do raster) |
 
 ### `missing_page`
 
-Página faltando. Versão 1.2.0, severidade `critical`.
+Página faltando. Versão 1.3.0, severidade `critical`.
 Especificação: [sequencing.md](../especificacoes/sequencing.md).
 
 Sem parâmetros.
 
 ### `out_of_order`
 
-Página fora de ordem. Versão 1.2.0, severidade `medium`.
+Página fora de ordem. Versão 1.3.0, severidade `medium`.
 Especificação: [sequencing.md](../especificacoes/sequencing.md).
 
 Sem parâmetros.
 
 ### `numbering_review`
 
-Revisar numeração. Versão 1.2.0, severidade `high`.
+Revisar numeração. Versão 1.3.0, severidade `high`.
 Especificação: [sequencing.md](../especificacoes/sequencing.md).
 
 Sem parâmetros.

@@ -7,6 +7,7 @@ outro adaptador, em processo externo, numa fase seguinte.
 from __future__ import annotations
 
 import hashlib
+import struct
 import warnings
 from datetime import UTC, datetime
 from pathlib import Path
@@ -126,7 +127,7 @@ def _read_image(path: Path) -> tuple[str, int, dict[str, Any]]:
         dpi = img.info.get("dpi")
         if dpi and float(dpi[0]) > 1:
             tags["dpi"] = round(float(dpi[0]), 1)
-        exif = img.getexif()
+        exif = _exif(img, path)
         for tag, name in _TIFF_TAGS.items():
             value = exif.get(tag)
             if value:
@@ -145,6 +146,40 @@ def _read_image(path: Path) -> tuple[str, int, dict[str, Any]]:
             tags["compression"] = "deflate"
         pages = sum(1 for _ in ImageSequence.Iterator(img))
     return fmt, pages, tags
+
+
+_PNG_TEXT = {b"tEXt", b"zTXt", b"iTXt"}
+
+
+def _exif(img: Image.Image, path: Path) -> Image.Exif:
+    """EXIF sem decodificar a imagem.
+
+    No PNG, o Pillow decodifica a imagem inteira para procurar o EXIF depois dos pixels
+    (``getexif`` chama ``load``): a mesma página era decodificada aqui e de novo na análise.
+    Os blocos do arquivo são percorridos só pelos cabeçalhos; com texto depois dos pixels
+    (perfil EXIF em texto), vale o caminho do Pillow.
+    """
+    if img.format != "PNG" or "exif" in img.info:
+        return img.getexif()
+    with path.open("rb") as handle:
+        handle.seek(8)
+        after_pixels = False
+        while header := handle.read(8):
+            if len(header) < 8:
+                break
+            length, kind = struct.unpack(">I4s", header)
+            if kind == b"eXIf":
+                exif = Image.Exif()
+                exif.load(handle.read(length))
+                return exif
+            if kind == b"IEND":
+                break
+            if kind == b"IDAT":
+                after_pixels = True
+            elif after_pixels and kind in _PNG_TEXT:
+                return img.getexif()
+            handle.seek(length + 4, 1)
+    return Image.Exif()
 
 
 def _preserved_image(path: Path, page_in_file: int) -> PreservedTags:

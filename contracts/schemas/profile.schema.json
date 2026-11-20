@@ -88,6 +88,16 @@
           "maximum": 1,
           "description": "Confiança alta das leituras do leitor de imagem; substitui high_confidence quando a numeração vem da imagem (a escala de cada leitor é diferente). Ausente: vale high_confidence."
         },
+        "max_gap_sheets": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Padrão 50. Lacuna maior que isto (ou maior que o próprio documento, a partir de min_implausible_gap folhas) é leitura de numeração duvidosa e vai para revisão, não vira folha faltando."
+        },
+        "min_implausible_gap": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Padrão 10. Lacuna maior que o próprio documento só é tratada como leitura duvidosa a partir deste número de folhas (documento curto com algumas folhas faltando continua sendo folha faltando)."
+        },
         "max_first_folio": {
           "type": [
             "integer",

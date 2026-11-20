@@ -216,6 +216,8 @@ def profile_from_dict(data: Mapping[str, Any]) -> Profile:
                 if numbering.get("max_first_folio") is not None
                 else None
             ),
+            max_gap_sheets=int(numbering.get("max_gap_sheets", 50)),
+            min_implausible_gap=int(numbering.get("min_implausible_gap", 10)),
         ),
         image_high_confidence=(
             float(numbering["image_high_confidence"])

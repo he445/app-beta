@@ -118,17 +118,46 @@ documento tem fls. 1, poucos têm fls. 1990). Documento que começa em fls. 1 nu
 comum a todas as folhas, então nunca cai aqui. A tabela `confusions` é a mesma da leitura
 por imagem (`numbering.confusions`, padrão 1↔7, 2↔9, 0↔9, 3↔5, 7↔9 e 0↔6).
 
+### 6. Plausibilidade das lacunas
+
+O resolvedor confia numa lacuna quando os dois lados foram lidos com confiança. Um número
+impresso no canto (data, protocolo, código de formulário) também é lido com confiança, e
+cria saltos que nenhuma folha faltando explica. O detector `sequence` faz três testes
+depois de resolver, sem mudar o resolvedor:
+
+```text
+implausível(lacuna) ← faltantes > max_gap_sheets
+                      ou faltantes > max(páginas do documento, min_implausible_gap)
+
+1. leitura fora da curva: página vizinha de uma lacuna implausível, com uma só marca
+   lida com confiança ≥ min_confidence, cujas vizinhas também têm leitura e são
+   coerentes entre si (0 < depois − antes ≤ 2), mas o valor da página não fica entre
+   elas (20, 2019, 22) → as marcas dessa página são descartadas, o documento é resolvido
+   de novo e a página fica `ambiguous`
+2. se ainda há lacuna implausível e a ordem proposta muda o documento: a ordem não é
+   proposta (fica a do arquivo) e o documento vai para revisão
+3. cada lacuna implausível restante vira `numbering_review` na página do salto, nunca
+   `missing_page`
+```
+
+O teste 2 existe porque um documento sem numeração de folha, com números impressos
+espalhados pelo canto, produz uma "ordem" sem sentido; reordenar automaticamente sem
+evidência é pior que não reordenar.
+
 ## Sinalizações
 
 | Regra | Alvo | Quando | Severidade | Correção |
 | --- | --- | --- | --- | --- |
-| `out_of_order` | documento | reordenado | médio | `automatic/reorder`, `params.order` |
-| `missing_page` | documento | lacuna confirmada | crítico | `physical/locate_sheet` (`rescan_back` se só faltam versos) |
+| `out_of_order` | documento | reordenado, sem lacuna implausível | médio | `automatic/reorder`, `params.order` |
+| `missing_page` | documento | lacuna confirmada e plausível | crítico | `physical/locate_sheet` (`rescan_back` se só faltam versos) |
 | `missing_page` | documento | páginas < contagem do `manifest.csv` | crítico | `physical/locate_sheet` |
 | `numbering_review` | página | lacuna não confirmada (página depois da lacuna) | alto | `escalate/human_review` |
 | `numbering_review` | página | repetição, salvo se a página está num par de `duplicate_page` | alto | idem |
 | `numbering_review` | página | `ambiguous` ou `illegible` | alto | idem |
 | `numbering_review` | página | `inferred` | médio | idem |
+| `numbering_review` | página | leitura fora da curva descartada (seção 6) | alto | idem |
+| `numbering_review` | página | lacuna implausível: "Salto de fls. a para b" (página depois do salto) | alto | idem |
+| `numbering_review` | documento | ordem não proposta por lacuna implausível | médio | idem |
 | `numbering_review` | primeira página com valor | dúvida da checagem de documento (troca sistemática ou salto) | alto | idem |
 | `completeness_unverifiable` | documento | nenhuma página com marca e sem contagem declarada | baixo | `escalate/human_review` |
 
@@ -145,6 +174,7 @@ Uma dúvida nunca vira "página faltando": vira `numbering_review`.
 | `w_infer` | 1,0 | | `w_repeat` | 1,0 |
 | `confusions` | tabela padrão | | `w_gap_max` | 1,5 |
 | `max_first_folio` | desligado | | `image_high_confidence` | igual a `high_confidence` |
+| `max_gap_sheets` | 50 | | `min_implausible_gap` | 10 |
 
 `image_high_confidence` substitui `high_confidence` quando as marcas vêm do leitor de
 imagem (a escala de confiança de cada leitor é diferente; o `numbering.json` continua com
@@ -180,6 +210,10 @@ Na tela de Sequência o revisor digita a numeração de uma página ou reordena 
 - A lacuna confirmada depende de `high_confidence`, e a confiança do reconhecedor não é
   calibrada: uma leitura errada em dois dígitos com 0,94 (1922 lida como 1999) vira "Faltam
   fls. 1996 a 1998", com ação física.
+- Número impresso que cria lacuna pequena (até `min_implausible_gap` e menor que o
+  documento) passa no teste de plausibilidade. A defesa continua sendo exigir os dois lados
+  confiáveis e a aprovação manual da folha faltante; distinguir número impresso de
+  manuscrito pede medida com documentos reais.
 - A trilha de numeração anterior (riscada) é registrada, mas não resolvida por uma
   segunda programação dinâmica.
 - Numeração impressa ("Página 3 de 12") depende da porta `OcrEngine` (fase seguinte).
@@ -187,12 +221,17 @@ Na tela de Sequência o revisor digita a numeração de uma página ou reordena 
 ## Casos de conformidade
 
 `conformance/fixtures/sequencing/*.json` (entrada e saída esperada do resolvedor; a
-checagem de documento em `erro-sistematico-de-digito`) e
+checagem de documento em `erro-sistematico-de-digito`; a plausibilidade em
+`data-impressa-no-meio` e `salto-implausivel-sem-vizinhas-coerentes`) e
 `conformance/fixtures/core` (documentos `DOC0004`, `DOC0005`, `DOC0006`).
 
 ## Histórico de versões
 
 - 1.0.0: versão inicial.
+- 1.3.0: plausibilidade das lacunas (seção 6, ADR-0029): lacuna implausível vira
+  `numbering_review`, leitura fora da curva é descartada e o documento é resolvido de novo,
+  ordem com salto implausível não é proposta. Parâmetros `max_gap_sheets` e
+  `min_implausible_gap`.
 - 1.2.0: checagem de documento (troca sistemática de dígito e, opcional, início depois
   de `max_first_folio`), com `numbering_review` na primeira página com valor.
 - 1.1.0: teto `w_gap_max` na penalidade de salto (lacuna grande no fim do documento

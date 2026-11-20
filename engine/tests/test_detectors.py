@@ -72,6 +72,43 @@ def test_skew_severity_and_sign() -> None:
     assert SKEW.evaluate(observe(SKEW, degraded(synth.d_skew, angle=0.3)), {}, params) is None
 
 
+def test_skew_needs_evidence_to_flag_and_to_correct_alone() -> None:
+    """ADR-0028: confiança 0 não sinaliza; confiança baixa vai para revisão."""
+    from qa_engine.detectors.base import Observation
+
+    params = params_for("skew", None)
+
+    def flag(confidence: float):  # type: ignore[no-untyped-def]
+        return SKEW.evaluate(
+            Observation({"angle": 1.9}, extra={"confidence": confidence}), {}, params
+        )
+
+    assert flag(0.0) is None
+    weak = flag(0.2)
+    assert weak is not None and weak.correction.params.get("review") is True
+    strong = flag(0.6)
+    assert strong is not None and "review" not in strong.correction.params
+
+
+def test_low_ink_pages_are_measured_but_only_go_to_review() -> None:
+    """R4: pouca tinta (0,3% a 1%) é medida, sai da linha de base e só vai para revisão."""
+    from qa_engine.detectors.base import Observation, baseline_of
+
+    skew_params = params_for("skew", None)
+    sparse = {"confidence": 1.0, "low_ink": True}
+    strong = SKEW.evaluate(Observation({"angle": 4.0}, extra=sparse), {}, skew_params)
+    assert strong is not None and strong.correction.params["review"] is True
+    assert strong.confidence == 0.5
+    mild = SKEW.evaluate(Observation({"angle": 1.5}, extra=sparse), {}, skew_params)
+    assert mild is None  # poucas linhas: ângulo pequeno não é confiável
+    blur_params = params_for("blur", None)
+    obs = Observation({"energy": 0.01}, extra={"low_ink": True, "baseline_excluded": True})
+    soft = BLUR.evaluate(obs, {}, blur_params)
+    assert soft is not None and soft.correction.action is CorrectionAction.HUMAN_REVIEW
+    stats = baseline_of([Observation({"energy": 1.0}), obs])
+    assert stats["energy"].n == 1
+
+
 def test_blank_and_near_blank() -> None:
     blank = evaluate(BLANK, blank_150(), CLEAN)
     assert blank is not None and blank.correction.action is CorrectionAction.REMOVE_PAGE
@@ -79,6 +116,46 @@ def test_blank_and_near_blank() -> None:
     stamp[600:640, 400:520] = 30  # carimbo isolado: nunca removido automaticamente
     near = evaluate(BLANK, stamp, CLEAN)
     assert near is not None and near.correction.action is CorrectionAction.HUMAN_REVIEW
+
+
+def test_blank_with_faint_trace_goes_to_review_never_removed() -> None:
+    """ADR-0025: traço fraco sem tinta num canto (possível lápis claro) não remove a folha."""
+    from dataclasses import replace
+
+    params = params_for("blank_page", None)
+    obs = observe(BLANK, blank_150())
+    faint = BLANK.evaluate(replace(obs, extra={**obs.extra, "numbering_faint": True}), {}, params)
+    assert faint is not None and faint.correction.action is CorrectionAction.HUMAN_REVIEW
+    assert faint.confidence == 0.5
+    written = replace(obs, extra={**obs.extra, "numbering_written": True, "numbering_faint": True})
+    assert BLANK.evaluate(written, {}, params) is None
+
+
+def test_blur_ignores_solid_blocks() -> None:
+    """Faixa preta estreita dentro da área útil não derruba a nitidez (ADR-0027)."""
+    clean = page_150(7)
+    barred = clean.copy()
+    w = barred.shape[1]
+    barred[:, int(0.02 * w) : int(0.075 * w)] = 15  # passa da margem de 4%, antes do texto
+    plain, with_bar = observe(BLUR, clean), observe(BLUR, barred)
+    assert with_bar.values["energy"] == pytest.approx(plain.values["energy"], rel=0.15)
+
+
+def test_content_view_crops_only_real_borders() -> None:
+    """A vista de conteúdo corta a faixa que a regra sinalizaria, nunca uma linha da borda."""
+    from qa_engine.application.analyze import content_view
+    from qa_engine.detectors.base import PageRaster
+
+    gray = page_150(8).copy()
+    h, w = gray.shape
+    gray[:, : int(0.06 * w)] = 10
+    view, _ = content_view(PageRaster(gray, 1.0, 150.0), compute_features(gray), None)
+    assert view.gray.shape[1] < w - int(0.06 * w) and view.gray.shape[0] == h
+    assert view.gray[:, :5].min() > 60  # sem a faixa
+    thin = page_150(8).copy()
+    thin[:2, :] = 10  # duas linhas escuras do scanner: abaixo de min_fraction
+    same, _ = content_view(PageRaster(thin, 1.0, 150.0), compute_features(thin), None)
+    assert same.gray.shape == thin.shape
 
 
 def test_black_borders_crop_fraction() -> None:

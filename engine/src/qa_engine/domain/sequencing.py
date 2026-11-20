@@ -197,6 +197,12 @@ class SequenceParams:
     """Trocas de dígito do leitor: a checagem de documento procura a troca sistemática."""
     max_first_folio: int | None = None
     """Documento cuja numeração começa depois disto vai para revisão (``None``: desligado)."""
+    max_gap_sheets: int = 50
+    """Lacuna maior que isto é leitura de numeração duvidosa, não folha faltando. Não muda
+    o resolvedor: é lida pelo detector ``sequence`` (``docs/especificacoes/sequencing.md``)."""
+    min_implausible_gap: int = 10
+    """Lacuna maior que o documento só é implausível a partir deste tamanho (documento curto
+    com algumas folhas faltando é comum). Também só é lida pelo detector ``sequence``."""
 
 
 @dataclass(frozen=True, slots=True)

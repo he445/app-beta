@@ -1,5 +1,5 @@
 id: blank_page
-version: 1.1.0
+version: 1.2.0
 title: Página em branco
 spec: docs/especificacoes/detectors/blank_page.md
 input: page_gray_150dpi
@@ -9,5 +9,8 @@ params:
   blank_threshold: { type: number, default: 0.003, minimum: 0, maximum: 1, description: "Cobertura abaixo da qual a página é branca" }
   near_blank_threshold: { type: number, default: 0.01, minimum: 0, maximum: 1, description: "Cobertura abaixo da qual a página é quase branca" }
   mark_min_area: { type: integer, default: 400, minimum: 0, description: "Área em pixels a 150 dpi de uma marca isolada (carimbo, rubrica) que impede classificar como branca" }
+  writing_min_ink: { type: number, default: 0.01, minimum: 0, maximum: 1, description: "Fração mínima de pixels de tinta numa caixa de escrito para ela contar como escrito" }
+  writing_min_pixels: { type: integer, default: 30, minimum: 0, description: "Pixels de tinta mínimos, a 150 dpi, numa caixa de escrito para ela contar como escrito" }
+  faint_min_delta: { type: number, default: 26, minimum: 0, maximum: 255, description: "Contraste (papel menos o percentil 5 da caixa) a partir do qual uma caixa sem tinta é traço fraco e deixa a branca para revisão" }
   remove_blank_pages: { type: boolean, default: true, description: "Se a correção proposta para página branca é removê-la" }
 output: finding

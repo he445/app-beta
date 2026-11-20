@@ -1,6 +1,6 @@
 # exposure: Escura, clara ou sem contraste
 
-Versão: 1.0.0 · Severidade padrão: alto
+Versão: 1.1.0 · Severidade padrão: alto
 
 ## Objetivo
 
@@ -10,6 +10,11 @@ próprio lote (papel amarelado ou carbono têm outro normal).
 ## Entrada
 
 Raster de análise e máscara de tinta.
+
+A medida é feita na **vista de conteúdo**: a página sem as faixas pretas do digitalizador
+que [`black_borders`](black_borders.md) sinalizaria (acima de `min_fraction`), com folga de
+0,5% do lado (ADR-0027). Sem faixa, a vista é a própria página. A faixa preta puxava a mediana da tinta para o preto e inflava o
+contraste medido.
 
 ## Algoritmo
 
@@ -64,4 +69,5 @@ ao contrário da média e do desvio do histograma, que variam com ela.
 
 ## Histórico de versões
 
+- 1.1.0: mede a vista de conteúdo, sem as faixas pretas (ADR-0027).
 - 1.0.0: versão inicial.

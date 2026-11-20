@@ -18,17 +18,26 @@ from qa_engine.application.layout import DocumentLayout, discover, read_manifest
 from qa_engine.application.metadata import MetadataField, document_metadata, match_station
 from qa_engine.application.numbering_image import DEFAULT_CONFUSIONS, ImageNumberingReader
 from qa_engine.application.profile import NumberingImageConfig, Profile
-from qa_engine.detectors import blank_page, corrupted_file, duplicate_page, orientation, sequence
+from qa_engine.detectors import (
+    black_borders,
+    blank_page,
+    corrupted_file,
+    duplicate_page,
+    orientation,
+    sequence,
+    skew,
+)
 from qa_engine.detectors.base import (
     ANALYSIS_DPI,
     Flag,
     Observation,
+    PageFeatures,
     PageRaster,
     Stats,
     baseline_of,
 )
 from qa_engine.detectors.features import compute_features
-from qa_engine.detectors.registry import PAGE_DETECTORS, manifest
+from qa_engine.detectors.registry import PAGE_DETECTORS, manifest, params_for
 from qa_engine.domain import ids
 from qa_engine.domain.model import (
     Document,
@@ -47,7 +56,7 @@ from qa_engine.domain.scoring import (
     green_sample,
     pages_needing_review,
 )
-from qa_engine.domain.sequencing import Mark, PageCandidates, PageNumbering
+from qa_engine.domain.sequencing import Mark, PageCandidates, PageNumbering, parse_folio
 from qa_engine.ports import (
     Clock,
     Executor,
@@ -88,14 +97,16 @@ class PageResult:
     color_mode: Any = None
     scale: float = 1.0
     observations: Mapping[str, Observation] = field(default_factory=dict)
-    fingerprint: tuple[int, Any, float, bool] | None = None
+    fingerprint: tuple[int, Any, float, bool, bytes, bytes, str | None] | None = None
     error: str | None = None
     marks: tuple[Mark, ...] = ()
     """Marcas de numeração lidas da imagem."""
     numbering_crop: bytes | None = None
     """Recorte da região da numeração (PNG), para a tela de Sequência."""
     written: bool = False
-    """Algum escrito na região da numeração (mesmo ilegível)."""
+    """Algum escrito com tinta na região da numeração (mesmo ilegível)."""
+    faint: bool = False
+    """Só traço fraco, sem tinta, na numeração ou nos cantos: branca vai para revisão."""
 
 
 def _classifier(models_dir: Path) -> OrientationClassifier:
@@ -139,7 +150,40 @@ def _reader(models_dir: Path, config: NumberingImageConfig) -> ImageNumberingRea
 
 
 ORIENTED_RULES = frozenset({"skew"})
-"""Regras que dependem do sentido do texto: medidas na vista já orientada."""
+"""Regras que dependem do sentido do texto: medidas na vista de conteúdo já orientada."""
+CONTENT_RULES = frozenset({"blur", "exposure"})
+"""Regras que medem o conteúdo: na vista sem as faixas pretas do digitalizador."""
+CONTENT_SLACK = 0.005
+"""Folga, em fração do lado, cortada além de cada faixa preta na vista de conteúdo."""
+
+
+def content_view(
+    raster: PageRaster, features: PageFeatures, params: Mapping[str, Any] | None
+) -> tuple[PageRaster, PageFeatures]:
+    """A página sem as faixas pretas que ``black_borders`` mede, com folga (ADR-0027).
+
+    A faixa preta derruba a nitidez medida, puxa a mediana da tinta e entra no recorte que o
+    classificador de orientação vê. Sem faixa, a vista é a própria página.
+    """
+    p = dict(params) if params is not None else params_for(black_borders.ID, None)
+    obs = black_borders.DETECTOR.measure(raster, features, p)
+    crop = dict(obs.extra.get("crop_fraction", {}))
+    # Só a faixa que a regra sinalizaria: cortar uma linha escura da borda do scanner muda o
+    # recorte central do classificador sem tirar nada que atrapalhe as medidas.
+    floor = float(p["min_fraction"])
+    if not any(float(v) > floor for v in crop.values()):
+        return raster, features
+    h, w = raster.gray.shape
+
+    def cut(side: str, size: int) -> int:
+        frac = float(crop.get(side, 0.0))
+        return math.ceil((frac + CONTENT_SLACK) * size) if frac > floor else 0
+
+    top, bottom, left, right = cut("top", h), cut("bottom", h), cut("left", w), cut("right", w)
+    if top + bottom >= h // 2 or left + right >= w // 2:
+        return raster, features
+    gray = np.ascontiguousarray(raster.gray[top : h - bottom, left : w - right])
+    return replace(raster, gray=gray), compute_features(gray)
 
 
 def oriented_view(gray: Any, angle: int) -> Any:
@@ -173,32 +217,65 @@ def analyze_page(
     )
     features = compute_features(raster.gray)
     rules = dict(task.rules)
-    upright_raster, upright_features = raster, features
+    content, content_features = content_view(raster, features, rules.get(black_borders.ID))
+    upright_raster, upright_features = content, content_features
+    page_upright = raster.gray  # numeração: a página inteira, de pé (regiões são frações dela)
+    rotated = False
+    pre_skew: Observation | None = None
     if orientation.ID in rules and not orientation.skips(features, rules[orientation.ID]):
         if classifier is None and task.models_dir is not None:
             classifier = _classifier(task.models_dir)
         if classifier is not None:
-            prediction = classifier.classify(raster.gray)
+            orient_params = rules[orientation.ID]
+            skew_params = rules.get(skew.ID) or params_for(skew.ID, None)
+            # Inclinação na vista de conteúdo antes de classificar: com inclinação forte e
+            # confiável, o classificador recebe uma cópia endireitada (ADR-0027).
+            pre_skew = skew.DETECTOR.measure(content, content_features, skew_params)
+            prediction = classifier.classify(content.gray)
+            if pre_skew.eligible:
+                angle = float(pre_skew.values["angle"])
+                strong = abs(angle) > float(orient_params["deskew_before_orient"])
+                trusted = float(pre_skew.extra.get("confidence", 0.0)) >= float(
+                    orient_params["deskew_min_confidence"]
+                )
+                if strong and trusted:
+                    # O classificador olha um recorte central e é sensível a ele: vale a
+                    # leitura mais confiante entre a vista crua e a endireitada.
+                    other = classifier.classify(skew.straightened(content.gray, angle))
+                    if other.probability > prediction.probability:
+                        prediction = other
             raster = replace(raster, orientation=prediction)
+            content = replace(content, orientation=prediction)
+            upright_raster = content
             review_at = orientation.suggest_at(features, rules[orientation.ID])
             if prediction.angle and prediction.probability >= review_at:
-                view = oriented_view(raster.gray, prediction.angle)
-                upright_raster = replace(raster, gray=view)
-                upright_features = compute_features(view)
+                turned = oriented_view(content.gray, prediction.angle)
+                upright_raster = replace(content, gray=turned)
+                upright_features = compute_features(turned)
+                page_upright = oriented_view(raster.gray, prediction.angle)
+                rotated = True
     detectors = {d.id: d for d in PAGE_DETECTORS}
-    observations = {
-        rule: detectors[rule].measure(upright_raster, upright_features, params)
-        if rule in ORIENTED_RULES
-        else detectors[rule].measure(raster, features, params)
-        for rule, params in task.rules
-    }
+    observations = {}
+    for rule, params in task.rules:
+        if rule == skew.ID and pre_skew is not None and not rotated:
+            observations[rule] = pre_skew  # de pé: a medida antes da orientação vale
+        elif rule in ORIENTED_RULES:
+            observations[rule] = detectors[rule].measure(upright_raster, upright_features, params)
+        elif rule in CONTENT_RULES:
+            observations[rule] = detectors[rule].measure(content, content_features, params)
+        else:
+            observations[rule] = detectors[rule].measure(raster, features, params)
+    blank_params = rules.get(blank_page.ID)
     numbering_read = None
     if task.numbering is not None and task.models_dir is not None:
         numbering_read = _reader(task.models_dir, task.numbering).read(
-            upright_raster.gray, ANALYSIS_DPI, task.numbering.regions
+            page_upright,
+            ANALYSIS_DPI,
+            task.numbering.regions,
+            ink=blank_page.ink_check(features.paper_level, blank_params),
         )
     written = numbering_read.written if numbering_read else False
-    blank_params = rules.get(blank_page.ID)
+    faint = numbering_read.faint if numbering_read else False
     if (
         not written
         and blank_params is not None
@@ -207,16 +284,22 @@ def analyze_page(
         and features.ink_coverage < float(blank_params["near_blank_threshold"])
     ):
         # Página quase vazia: a orientação não é confiável, então procura nos quatro cantos.
-        written = _reader(task.models_dir, task.blank_corners).has_writing(
-            raster.gray, ANALYSIS_DPI
+        written, corner_faint = _reader(task.models_dir, task.blank_corners).corner_writing(
+            raster.gray, ANALYSIS_DPI, blank_page.ink_check(features.paper_level, blank_params)
         )
+        faint = faint or corner_faint
     blur_obs = observations.get("blur")
     sharpness = blur_obs.values["energy"] if blur_obs is not None else 0.0
+    view_png, ink_png = duplicate_page.views(raster.gray, features.ink)
+    blank_at = float(blank_params["blank_threshold"]) if blank_params is not None else 0.003
     fingerprint = (
         duplicate_page.dhash(raster.gray),
         duplicate_page.thumbnail(raster.gray),
         0.0 if math.isnan(sharpness) else sharpness,
         features.ink_coverage >= task.duplicate_min_ink,
+        view_png,
+        ink_png,
+        duplicate_page.raster_hash(raster.gray) if features.ink_coverage >= blank_at else None,
     )
     return PageResult(
         loaded.width_px,
@@ -229,6 +312,7 @@ def analyze_page(
         marks=numbering_read.marks if numbering_read else (),
         numbering_crop=numbering_read.crop_png if numbering_read else None,
         written=written,
+        faint=faint and not written,
     )
 
 
@@ -504,6 +588,7 @@ def analyze_batch(
     image_marks: dict[str, tuple[Mark, ...]] = {}
     crops: dict[str, bytes] = {}
     written: dict[str, bool] = {}
+    faint: dict[str, bool] = {}
 
     # Numeração do numbering.json: lida antes, para liberar cada processo já com ela.
     if not profile.numbering_enabled:
@@ -548,13 +633,19 @@ def analyze_batch(
                 current[pid] = {
                     **page_obs,
                     blank_page.ID: replace(
-                        blank_obs, extra={**blank_obs.extra, "numbering_written": has_numbering}
+                        blank_obs,
+                        extra={
+                            **blank_obs.extra,
+                            "numbering_written": has_numbering,
+                            "numbering_faint": faint.get(pid, False) and not has_numbering,
+                        },
                     ),
                 }
 
         # Linha de base e avaliação de cada página, com os parâmetros da estação dela;
         # a linha de base de uma regra usa todas as páginas em que a regra está ligada.
         baselines: dict[str, dict[str, Stats]] = {}
+        page_flags: list[tuple[str, str, Flag]] = []
         for detector in PAGE_DETECTORS:
             measured = {pid: obs[detector.id] for pid, obs in current.items() if detector.id in obs}
             if not measured:
@@ -565,7 +656,12 @@ def analyze_batch(
                 params = dict(rules_for(station_ids[pid]))[detector.id]
                 flag = detector.evaluate(obs, baseline, params)
                 if flag is not None:
-                    factory.add(detector.id, Target(TargetKind.PAGE, pid), flag, scales[pid])
+                    page_flags.append((detector.id, pid, flag))
+        reviewed_blank = {pid for rule, pid, _ in page_flags if rule == blank_page.ID}
+        for rule, pid, flag in page_flags:
+            if pid in reviewed_blank and _low_ink_flag(flag):
+                continue  # a quase branca já leva o conferente à página
+            factory.add(rule, Target(TargetKind.PAGE, pid), flag, scales[pid])
 
         duplicate_copies: dict[str, str] = {}
         chosen = [p for p in prints if p.page_id in included]
@@ -574,15 +670,28 @@ def analyze_batch(
             def dup_params_of(page_id: str) -> Mapping[str, Any]:
                 return profile.params(duplicate_page.ID, station_ids[page_id])
 
+            veto_at = float(profile.params(duplicate_page.ID)["numbering_veto_confidence"])
+
+            def folio_of(page_id: str) -> str | None:
+                live = [m for m in marks_of(page_id) if not m.struck and m.top is not None]
+                if len(live) != 1 or live[0].top is None or live[0].top.confidence < veto_at:
+                    return None
+                folio = parse_folio(live[0].top.text)
+                return None if folio is None else str(folio)
+
+            doc_of = {pid: name for name, pids in doc_pages.items() for pid in pids}
             pairs = duplicate_page.find_duplicates(
-                chosen, profile.params(duplicate_page.ID), dup_params_of
+                chosen, profile.params(duplicate_page.ID), dup_params_of, folio_of
             )
             for pair in pairs:
                 duplicate_copies[pair.copy] = pair.original
+                same_doc = doc_of.get(pair.copy) == doc_of.get(pair.original)
                 factory.add(
                     duplicate_page.ID,
                     Target(TargetKind.PAGE, pair.copy),
-                    _duplicate_flag(pair, dup_params_of(pair.copy)),
+                    _duplicate_flag(
+                        pair, dup_params_of(pair.copy), keep_position=pair.copy_first and same_doc
+                    ),
                 )
 
         # Sequência e completude por documento.
@@ -716,6 +825,7 @@ def analyze_batch(
         else:
             observations[pid] = dict(result.observations)
             written[pid] = result.written
+            faint[pid] = result.faint
             if image_numbering is not None:
                 image_marks[f"{rel}#{page_in_file}"] = result.marks
                 if result.numbering_crop:
@@ -724,8 +834,12 @@ def analyze_batch(
             if result.fingerprint is not None and profile.enabled(
                 duplicate_page.ID, station_ids[pid]
             ):
-                dh, thumb, sharp, eligible = result.fingerprint
-                prints.append(duplicate_page.Fingerprint(pid, dh, thumb, sharp, eligible))
+                dh, thumb, sharp, eligible, view_png, ink_png, rhash = result.fingerprint
+                prints.append(
+                    duplicate_page.Fingerprint(
+                        pid, dh, thumb, sharp, eligible, view_png, ink_png, rhash
+                    )
+                )
         last_of_doc = position + 1 == len(plan) or plan[position + 1][0] != doc_name
         if last_of_doc:
             ready.append(doc_name)
@@ -766,23 +880,49 @@ def evaluate_page(
             factory.add(corrupted_file.ID, target, corrupted_file.flag_load_error(result.error))
         return factory.findings
     detectors = {d.id: d for d in PAGE_DETECTORS}
+    flags: list[tuple[str, Flag]] = []
     for rule, obs in result.observations.items():
         if not profile.enabled(rule, station_id):
             continue
         if rule == blank_page.ID:
             numbered = has_numbering or result.written
-            obs = replace(obs, extra={**obs.extra, "numbering_written": numbered})
+            obs = replace(
+                obs,
+                extra={
+                    **obs.extra,
+                    "numbering_written": numbered,
+                    "numbering_faint": result.faint and not numbered,
+                },
+            )
         flag = detectors[rule].evaluate(
             obs, baselines.get(rule, {}), profile.params(rule, station_id)
         )
         if flag is not None:
+            flags.append((rule, flag))
+    blank = any(rule == blank_page.ID for rule, _ in flags)
+    for rule, flag in flags:
+        if not (blank and _low_ink_flag(flag)):
             factory.add(rule, target, flag, result.scale)
     return factory.findings
 
 
-def _duplicate_flag(pair: duplicate_page.DuplicatePair, params: Mapping[str, Any]) -> Flag:
+def _low_ink_flag(flag: Flag) -> bool:
+    """Sinalização feita só por a página ter pouca tinta (inclinação, desfoque, orientação)."""
+    return bool(flag.correction.params.get("low_ink"))
+
+
+def _duplicate_flag(
+    pair: duplicate_page.DuplicatePair, params: Mapping[str, Any], keep_position: bool = False
+) -> Flag:
     from qa_engine.domain.model import Correction, CorrectionAction, CorrectionClass
 
+    correction_params: dict[str, Any] = {"duplicate_of": pair.original}
+    if keep_position:
+        # A cópia (claramente pior) vem antes: a página que fica ocupa a posição dela.
+        correction_params["keep_position"] = True
+        text = "Remover esta via (a menos nítida do par); a outra fica na posição desta."
+    else:
+        text = "Remover esta cópia (a segunda via do par)."
     return Flag(
         severity=Severity.MEDIUM,
         measure=round(pair.similarity, 4),
@@ -791,8 +931,8 @@ def _duplicate_flag(pair: duplicate_page.DuplicatePair, params: Mapping[str, Any
         correction=Correction(
             CorrectionClass.AUTOMATIC,
             CorrectionAction.REMOVE_PAGE,
-            "Remover esta cópia (a menos nítida do par). Duas vias legítimas: aprovar (A).",
-            {"duplicate_of": pair.original},
+            text + " Duas vias legítimas: aprovar (A).",
+            correction_params,
         ),
-        message=f"Página quase idêntica a outra do lote (correlação {pair.similarity:.3f}).",
+        message=f"Página quase idêntica a outra do lote (semelhança {pair.similarity:.3f}).",
     )

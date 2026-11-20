@@ -2119,6 +2119,10 @@ export interface components {
                 high_confidence?: number;
                 /** @description Confiança alta das leituras do leitor de imagem; substitui high_confidence quando a numeração vem da imagem (a escala de cada leitor é diferente). Ausente: vale high_confidence. */
                 image_high_confidence?: number;
+                /** @description Padrão 50. Lacuna maior que isto (ou maior que o próprio documento, a partir de min_implausible_gap folhas) é leitura de numeração duvidosa e vai para revisão, não vira folha faltando. */
+                max_gap_sheets?: number;
+                /** @description Padrão 10. Lacuna maior que o próprio documento só é tratada como leitura duvidosa a partir deste número de folhas (documento curto com algumas folhas faltando continua sendo folha faltando). */
+                min_implausible_gap?: number;
                 /** @description Documento cuja numeração começa depois desta folha vai para revisão (continuação de outro volume ou leitura errada). Ausente ou nulo: desligado; ligue quando todo documento da operação começa perto de fls. 1. */
                 max_first_folio?: number | null;
                 /** @description Onde procurar o número na página já orientada, em frações [x0, y0, x1, y1], testadas em ordem. Padrão: canto superior direito [0.60, 0.00, 1.00, 0.18]. */

@@ -126,11 +126,19 @@ def robust_stats(values: Iterable[float]) -> Stats:
     return Stats(median=median, sigma=1.4826 * mad, n=len(data))
 
 
+BASELINE_EXCLUDED = "baseline_excluded"
+"""Chave de ``Observation.extra``: página avaliada, mas fora da linha de base (pouca tinta)."""
+
+
 def baseline_of(observations: Iterable[Observation]) -> dict[str, Stats]:
-    """Linha de base do lote: estatística robusta de cada medida, só das páginas elegíveis."""
+    """Linha de base do lote: estatística robusta de cada medida, só das páginas elegíveis.
+
+    Página com pouca tinta é avaliada, mas fica fora da linha de base
+    (``extra["baseline_excluded"]``): pouco escrito mede diferente e deslocaria a mediana.
+    """
     columns: dict[str, list[float]] = {}
     for obs in observations:
-        if not obs.eligible:
+        if not obs.eligible or obs.extra.get(BASELINE_EXCLUDED):
             continue
         for key, value in obs.values.items():
             columns.setdefault(key, []).append(value)

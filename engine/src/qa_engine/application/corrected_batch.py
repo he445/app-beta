@@ -185,6 +185,24 @@ def build_plan(
             if removal is not None:
                 items[pid]["changes"].append(_change(removal, f"removida: {reason}"))
 
+        # Duplicata em que saiu a primeira ocorrência (a mais pobre): a via que fica ocupa a
+        # posição dela, para não sair da ordem do documento.
+        keep_at: dict[str, tuple[str, Mapping[str, Any]]] = {}
+        for pid in doc["page_ids"]:
+            for f in by_target.get(pid, []):
+                params = f["correction"].get("params") or {}
+                original = params.get("duplicate_of")
+                if (
+                    f["rule"] == "duplicate_page"
+                    and params.get("keep_position")
+                    and items[pid]["status"] == "removed"
+                    and original in items
+                    and original in order
+                ):
+                    keep_at[original] = (pid, f)
+        for original, (slot, _) in keep_at.items():
+            order.remove(original)
+            order.insert(order.index(slot), original)
         kept = [pid for pid in order if items[pid]["status"] == "exported"]
         original_rank = {
             pid: i
@@ -207,6 +225,20 @@ def build_plan(
                         "params": {},
                         "decided_by": manual["reviewer"],
                         "decided_at": manual["decided_at"],
+                    }
+                )
+            elif pid in keep_at and original_rank[pid] != new_index:
+                item["moved"] = True
+                removal_finding = keep_at[pid][1]
+                item["changes"].append(
+                    {
+                        **_change(
+                            removal_finding,
+                            f"movida da posição {item['old_position']} para a "
+                            f"{new_index + 1}, no lugar da outra via da duplicata",
+                        ),
+                        "action": CorrectionAction.REORDER.value,
+                        "params": {},
                     }
                 )
             elif reordered and reorder is not None and original_rank[pid] != new_index:

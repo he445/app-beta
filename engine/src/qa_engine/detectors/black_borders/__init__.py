@@ -31,13 +31,14 @@ def _band(lines_dark: NDArray[np.bool_]) -> int:
     return int(stops[0]) if stops.size else int(lines_dark.size)
 
 
+ID = "black_borders"
 _SIDE_PT = {"top": "topo", "bottom": "base", "left": "esquerda", "right": "direita"}
 
 
 class BlackBorders:
     """Detector de bordas pretas."""
 
-    id = "black_borders"
+    id = ID
 
     def measure(self, page: PageRaster, features: PageFeatures, params: Params) -> Observation:
         """Largura da faixa escura contínua em cada lado, em pixels do raster."""

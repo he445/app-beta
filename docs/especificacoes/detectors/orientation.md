@@ -1,6 +1,6 @@
 # orientation: Página de lado ou de cabeça para baixo
 
-Versão: 1.2.0 · Severidade padrão: médio
+Versão: 1.5.0 · Severidade padrão: médio
 
 ## Objetivo
 
@@ -15,13 +15,30 @@ Raster de análise (cinza, 150 dpi) e a orientação prevista pela porta
 {0, 90, 180, 270}, que é o giro **horário** que a página sofreu, e a probabilidade `p` de
 cada ângulo. Sem modelos configurados, a regra não classifica nenhuma página.
 
+O classificador recebe a **vista de conteúdo**: a página sem as faixas pretas que
+[`black_borders`](black_borders.md) sinalizaria, com folga de 0,5% do lado (ADR-0027). O
+modelo olha um recorte central, e a faixa preta dentro dele fazia uma página girada passar
+como de pé. Só a faixa acima de `min_fraction` é cortada: uma ou duas linhas escuras da
+borda do scanner mudam o recorte central sem tirar nada que atrapalhe.
+
+**Inclinação antes de classificar.** Antes do classificador, a inclinação é estimada na
+vista de conteúdo (o mesmo cálculo de [`skew`](skew.md)). Se ela passar de
+`deskew_before_orient` com confiança de pelo menos `deskew_min_confidence`, o classificador
+também recebe uma cópia endireitada em memória, e vale a leitura de maior probabilidade
+entre as duas. Numa página de lado a busca de ângulo não acha linhas e devolve confiança
+baixa, então nada é endireitado por engano. Na caixa de regressão, das 41 páginas com
+inclinação acima de 2°, a vista crua errou uma (5,9° lida como de cabeça para baixo com
+0,898) e a endireitada sozinha criou uma orientação incerta falsa (2,8°, de 0,77 para
+0,33); a leitura mais confiante acertou as 41. Quando a página fica de pé, essa inclinação
+é a que a regra `skew` usa, sem medir de novo.
+
 ## Algoritmo
 
 ```text
 se skip_blank e cobertura_de_tinta < blank_ink_coverage: inelegível (página branca)
 pouca_tinta ← skip_blank e cobertura_de_tinta < min_ink_coverage
 a, p ← classificador(página)
-limite ← auto_threshold se pouca_tinta, senão review_threshold
+limite ← review_threshold
 se a = 0 ou p < limite:
     se pouca_tinta ou p₀ ≥ upright_min_probability: nada
     senão: orientação incerta (abaixo)
@@ -30,10 +47,12 @@ se p ≥ auto_threshold e não pouca_tinta: correção automática (entra no "Co
 senão: correção sugerida com review = verdadeiro (fica para o revisor, que aplica com C)
 ```
 
-Página com pouca tinta (bilhete, despacho curto, só assinatura) é classificada, mas a
-rotação só é proposta com probabilidade de pelo menos `auto_threshold` e nunca entra no
-"Corrigir tudo": pouco escrito engana o modelo, e passar girada sem aviso é pior que uma
-revisão a mais.
+Página com pouca tinta (bilhete, despacho curto, só assinatura) é classificada, e a
+rotação é proposta a partir de `review_threshold`, sempre para revisão, nunca no "Corrigir
+tudo": pouco escrito engana o modelo, e passar girada sem aviso é pior que uma revisão a
+mais. Se a página já é "quase branca" (regra `blank_page`), a rotação não é proposta: a
+quase branca já leva o conferente a ela. Na caixa de regressão, uma página de 0,95% de tinta
+girada 270° (probabilidade 0,89) passava calada com o limite antigo, `auto_threshold`.
 
 **Orientação incerta.** Quando nenhuma rotação passa do limite e a probabilidade de a
 página estar de pé, `p₀`, fica abaixo de `upright_min_probability`, o modelo não sabe: a
@@ -61,6 +80,8 @@ inclinação medido na vista girada vale na cópia girada.
 | `skip_blank` | sim/não | sim | | Não classificar página branca e exigir confiança alta na página com pouca tinta |
 | `blank_ink_coverage` | número | 0,003 | 0 a 1 | Cobertura de tinta abaixo da qual a página é branca e não é classificada |
 | `min_ink_coverage` | número | 0,01 | 0 a 1 | Cobertura de tinta abaixo da qual a página tem pouca tinta |
+| `deskew_before_orient` | número (graus) | 2,0 | ≥ 0 | Inclinação acima da qual o classificador também lê a cópia endireitada |
+| `deskew_min_confidence` | número | 0,3 | 0 a 1 | Confiança mínima da inclinação para endireitar antes de classificar |
 
 Os limites são ponto de partida conservador e são calibrados no beta: toda rotação
 automática que o revisor desfizer conta como erro, e `auto_threshold` sobe até zerar.
@@ -113,6 +134,11 @@ devolve o original pixel a pixel) está em `engine/tests/test_orientation.py`.
 
 ## Histórico de versões
 
+- 1.5.0: na página com pouca tinta, a rotação é proposta a partir de `review_threshold`,
+  sempre para revisão; não é proposta na página que já é quase branca.
+- 1.4.0: com inclinação forte e confiável, classifica também a cópia endireitada e fica com
+  a leitura mais confiante (`deskew_before_orient`, `deskew_min_confidence`).
+- 1.3.0: classifica a vista de conteúdo, sem as faixas pretas (ADR-0027).
 - 1.2.0: orientação incerta (`upright_min_probability`): sem rotação convincente e com
   0° abaixo de 0,5, a página vai para revisão em vez de passar como de pé. No kit público,
   as giradas sem sinalização caem de 11 para 3, as revisões sobem de 52 para 71 e 5,7% das

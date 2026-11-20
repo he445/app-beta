@@ -127,10 +127,11 @@ def test_uncertain_never_enters_fix_all_nor_applies_to_low_ink() -> None:
 
     flag = spread_flag({0: 0.10, 90: 0.40, 180: 0.30, 270: 0.20})
     assert flag is not None and flag.correction.params["review"] is True
-    # Pouca tinta (carimbo, rubrica): o modelo espalha sem haver texto; nada.
+    # Pouca tinta (carimbo, rubrica): o modelo espalha sem haver texto; sem orientação
+    # incerta, só a rotação a partir de review_threshold.
     obs = Observation(
-        {"angle": 180.0, "probability": 0.87, "upright_probability": 0.06},
-        extra={"low_ink": True, "runner_up": (180, 0.87)},
+        {"angle": 180.0, "probability": 0.45, "upright_probability": 0.06},
+        extra={"low_ink": True, "runner_up": (180, 0.45)},
     )
     assert orientation.DETECTOR.evaluate(obs, {}, params()) is None
 
@@ -175,10 +176,10 @@ def sparse_150() -> np.ndarray:
     return gray
 
 
-def test_low_ink_page_is_classified_but_only_flags_high_confidence_for_review(
+def test_low_ink_page_is_classified_and_flags_from_the_review_threshold(
     tmp_path: Path,
 ) -> None:
-    """P1 do relatório de testes: bilhete curto girado não pode passar calado."""
+    """Bilhete curto girado não pode passar calado: revisão a partir de review_threshold."""
     gray = sparse_150()
     coverage = compute_features(gray).ink_coverage
     assert params()["blank_ink_coverage"] <= coverage < params()["min_ink_coverage"]
@@ -202,8 +203,10 @@ def test_low_ink_page_is_classified_but_only_flags_high_confidence_for_review(
         "review": True,
         "low_ink": True,
     }
-    assert high.threshold == params()["auto_threshold"]
-    assert flag(180, 0.87) is None  # abaixo de auto_threshold: carimbo (CX001/DOC0007)
+    assert high.threshold == params()["review_threshold"]
+    medium = flag(270, 0.87)  # caixa de regressão: 270° com 0,89 passava calado
+    assert medium is not None and medium.correction.params["review"] is True
+    assert flag(180, 0.55) is None  # abaixo de review_threshold
     assert flag(0, 0.99) is None
 
 
@@ -237,6 +240,50 @@ def test_skew_is_measured_on_the_upright_view(tmp_path: Path) -> None:
     assert abs(with_view.observations["skew"].values["angle"] - 2.5) < 0.3
     without = analyze_page(PageTask(path, 0, rules, 0.05), classifier=Fixed(0, 0.95))
     assert abs(without.observations["skew"].values["angle"] - 2.5) > 1.0  # texto em pé: lixo
+
+
+class Sequence:
+    """Classificador falso: responde em ordem, uma resposta por chamada."""
+
+    def __init__(self, *answers: tuple[int, float]) -> None:
+        self.answers = [OrientationPrediction(a, p) for a, p in answers]
+        self.calls = 0
+
+    def classify(self, gray: np.ndarray) -> OrientationPrediction:
+        self.calls += 1
+        return self.answers.pop(0)
+
+
+def _skewed(tmp_path: Path, angle: float) -> Path:
+    hi = synth.Page(synth.text_page(random.Random(42), (1748, 2480), 7, 5, 7))
+    synth.d_skew(hi, random.Random(3), angle=angle)
+    return save(tmp_path / f"inclinada-{angle}.tif", cv2.resize(hi.gray, (874, 1240)))
+
+
+def test_strong_skew_also_classifies_the_straightened_view(tmp_path: Path) -> None:
+    """Com inclinação forte, vale a leitura mais confiante entre a vista crua e a endireitada."""
+    from qa_engine.detectors.registry import params_for
+
+    rules = (("orientation", params()), ("skew", params_for("skew", None)))
+    path = _skewed(tmp_path, 5.0)
+    wrong_then_right = Sequence((180, 0.9), (0, 0.93))
+    result = analyze_page(PageTask(path, 0, rules, 0.05), classifier=wrong_then_right)
+    assert wrong_then_right.calls == 2
+    assert result.observations["orientation"].values["angle"] == 0
+    right_then_worse = Sequence((0, 0.77), (180, 0.58))
+    kept = analyze_page(PageTask(path, 0, rules, 0.05), classifier=right_then_worse)
+    assert kept.observations["orientation"].values["angle"] == 0
+    # De pé, a inclinação medida antes de classificar é a que vale.
+    assert abs(kept.observations["skew"].values["angle"] - 5.0) < 0.3
+
+
+def test_mild_skew_classifies_once(tmp_path: Path) -> None:
+    from qa_engine.detectors.registry import params_for
+
+    rules = (("orientation", params()), ("skew", params_for("skew", None)))
+    once = Fixed(0, 0.95)
+    analyze_page(PageTask(_skewed(tmp_path, 1.0), 0, rules, 0.05), classifier=once)
+    assert once.calls == 1
 
 
 def test_other_rules_measure_the_original(tmp_path: Path) -> None:
