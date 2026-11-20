@@ -386,32 +386,40 @@ class CorrectionService:
         rule: str | None = None,
         action: DecisionAction | None = None,
         partial: bool = False,
+        note: str | None = None,
+        include_missing: bool = False,
     ) -> dict[str, Any]:
         """Cria a operação em lote na fila; ``run_bulk`` a executa.
 
         Sem ``action``: "Corrigir pasta" (escopo ``document``) ou "Corrigir tudo" (``batch``),
-        só o que é automático e seguro. Com ``action``: "Decidir semelhantes", a mesma
-        decisão em todas as sinalizações pendentes de ``rule`` no escopo.
+        só o que é automático e seguro. Com ``action``: a mesma decisão em todas as
+        sinalizações pendentes do escopo, só de ``rule`` ("Decidir semelhantes") ou de todas
+        as regras, sem ``rule`` ("Aprovar tudo como defeito de origem", ADR-0031).
 
         Args:
             ctx: lote.
             scope_kind: ``batch`` ou ``document``.
             scope_id: documento, no escopo ``document``.
             reviewer: quem pediu.
-            rule: só as sinalizações desta regra (obrigatória com ``action``).
+            rule: só as sinalizações desta regra; sem ela, todas.
             action: decisão a aplicar em todas (``approve``, ``reject``, ``source_defect``).
             partial: a caixa ainda está em análise; vale para os processos já prontos.
+            note: ressalva gravada em cada decisão (só com ``action``).
+            include_missing: página faltando também entra (só com ``action``; o revisor
+                confirmou a lista de pastas e folhas).
 
         Raises:
             NotFoundError: documento fora do relatório (inexistente ou ainda em análise).
             ConflictError: já há uma operação em andamento no lote.
-            ValueError: decisão sem regra, ``correct`` como decisão em lote ou regra que
-                exige decisão individual (página faltando).
+            ValueError: ``correct`` como decisão em lote, ressalva ou página faltando sem
+                decisão, ou página faltando sem ``include_missing``.
         """
         if any(op["status"] in {"queued", "running"} for op in self.operations(ctx.batch_id)):
             raise ConflictError("já há uma correção em lote em andamento neste lote")
-        if action is not None and (rule is None or action is DecisionAction.CORRECT):
-            raise ValueError("decisão em lote pede uma regra e approve, reject ou source_defect")
+        if action is DecisionAction.CORRECT:
+            raise ValueError("decisão em lote aceita approve, reject ou source_defect")
+        if action is None and (note or include_missing):
+            raise ValueError("ressalva e página faltando só valem com uma decisão em lote")
         report = self._report(ctx)
         if scope_kind == "document":
             if not any(d["id"] == scope_id for d in report["documents"]):
@@ -420,8 +428,8 @@ class CorrectionService:
             scope_id = ctx.batch_id
         assert scope_id is not None
         plan = (
-            plan_decisions(report, scope_kind, scope_id, rule)
-            if action is not None and rule is not None
+            plan_decisions(report, scope_kind, scope_id, rule, include_missing)
+            if action is not None
             else plan_bulk(report, scope_kind, scope_id, rule)
         )
         operation: dict[str, Any] = {
@@ -437,6 +445,10 @@ class CorrectionService:
             operation["rule"] = rule
         if action is not None:
             operation["action"] = action.value
+        if note and note.strip():
+            operation["note"] = note.strip()
+        if include_missing:
+            operation["include_missing"] = True
         if partial:
             operation["partial"] = True
         self.store.create_operation(operation)
@@ -544,14 +556,20 @@ class CorrectionService:
         action = DecisionAction(op["action"])
         try:
             report = self._report(ctx)
-            plan = plan_decisions(report, op["scope"]["kind"], op["scope"]["id"], op["rule"])
+            plan = plan_decisions(
+                report,
+                op["scope"]["kind"],
+                op["scope"]["id"],
+                op.get("rule"),
+                bool(op.get("include_missing")),
+            )
             self.store.update_operation(operation_id, status="running", total=plan.total, done=0)
             applied_by_rule: Counter[str] = Counter()
             for done, unit in enumerate(plan.units, start=1):
                 self.store.update_operation(operation_id, current=unit.label)
                 now = self.clock.now()
                 decided = [
-                    decide(f, action, op["reviewer"], now, None, operation_id)
+                    decide(f, action, op["reviewer"], now, op.get("note"), operation_id)
                     for f in unit.findings
                 ]
                 self.store.record_decisions(ctx.batch_id, decided, None)

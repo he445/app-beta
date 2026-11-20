@@ -1478,7 +1478,7 @@ def create_app(
 
     @app.post("/batches/{batch_id}/bulk-corrections", status_code=202)
     def start_bulk(batch_id: str, body: Annotated[dict[str, Any], Body()]) -> dict[str, Any]:
-        """Corrigir pasta, Corrigir tudo e Decidir semelhantes (ADR-0024).
+        """Corrigir pasta, Corrigir tudo, Decidir semelhantes e Aprovar tudo (ADR-0024, 0031).
 
         Com a caixa em análise, vale para os processos já prontos: a pasta pedida tem de
         estar pronta, e a caixa inteira fica marcada ``partial``. As decisões entram como
@@ -1505,6 +1505,8 @@ def create_app(
                 rule=body.get("rule"),
                 action=DecisionAction(action) if action else None,
                 partial=partial and body["scope"] == "batch",
+                note=body.get("note"),
+                include_missing=bool(body.get("include_missing")),
             )
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc

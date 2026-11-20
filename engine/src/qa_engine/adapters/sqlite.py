@@ -358,8 +358,8 @@ class SqliteRepository:
         with self._tx() as c:
             c.execute(
                 "INSERT INTO operations (id, batch_id, scope_kind, scope_id, status, done, total,"
-                " current, reviewer, started_at, rule, action, partial)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " current, reviewer, started_at, rule, action, partial, note, include_missing)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     operation["id"],
                     operation["batch_id"],
@@ -374,6 +374,8 @@ class SqliteRepository:
                     operation.get("rule"),
                     operation.get("action"),
                     1 if operation.get("partial") else 0,
+                    operation.get("note"),
+                    1 if operation.get("include_missing") else 0,
                 ),
             )
 
@@ -985,11 +987,13 @@ def _operation(row: sqlite3.Row) -> dict[str, Any]:
         "reviewer": row["reviewer"],
         "started_at": row["started_at"],
     }
-    for key in ("finished_at", "saved_at", "error", "rule", "action"):
+    for key in ("finished_at", "saved_at", "error", "rule", "action", "note"):
         if row[key]:
             data[key] = row[key]
     if row["partial"]:
         data["partial"] = True
+    if row["include_missing"]:
+        data["include_missing"] = True
     if row["result_json"]:
         data["result"] = json.loads(row["result_json"])
     if row["undo_json"]:

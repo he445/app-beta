@@ -201,21 +201,31 @@ DECISION_EXCLUDED_RULES = MISSING_PAGE_RULES
 
 
 def plan_decisions(
-    report: Mapping[str, Any], scope_kind: str, scope_id: str, rule: str
+    report: Mapping[str, Any],
+    scope_kind: str,
+    scope_id: str,
+    rule: str | None,
+    include_missing: bool = False,
 ) -> BulkPlan:
-    """Decidir semelhantes: todas as sinalizações sem decisão de uma regra no escopo.
+    """A mesma decisão em todas as sinalizações sem decisão do escopo.
+
+    Com ``rule``, é o "Decidir semelhantes" (só aquela regra); sem ``rule``, todas as
+    regras ("Aprovar tudo como defeito de origem", ADR-0031). Página faltando só entra com
+    ``include_missing``: o revisor confirmou a lista de pastas e folhas antes.
 
     Uma unidade de progresso por documento (a decisão não regrava imagem: só ``correct``
     muda a cadeia de correções da página). Nada fica pendente por categoria.
 
     Raises:
-        ValueError: regra fora do "Decidir semelhantes" (página faltando).
+        ValueError: página faltando pedida sem ``include_missing``.
     """
-    if rule in DECISION_EXCLUDED_RULES:
+    if rule in DECISION_EXCLUDED_RULES and not include_missing:
         raise ValueError(
             "Página faltando não entra em decisão em lote: decida cada uma na revisão."
         )
     documents, in_scope = _in_scope(report, scope_kind, scope_id, rule)
+    if not include_missing:
+        in_scope = [f for f in in_scope if f["rule"] not in DECISION_EXCLUDED_RULES]
     page_doc = {pid: d["id"] for d in documents for pid in d["page_ids"]}
     by_doc: dict[str, list[Mapping[str, Any]]] = {}
     for finding in in_scope:

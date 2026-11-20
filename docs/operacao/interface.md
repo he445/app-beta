@@ -47,7 +47,8 @@ mostra todos os atalhos. Para instalar e publicar, veja
    próprio**: a lista de cada pasta com as folhas que faltam. **Confirmar, com as páginas
    faltando** marca também essas como defeito de origem (o papel já veio sem a folha) e o
    relatório da caixa lista a pasta e as folhas; **Só as outras** deixa as páginas
-   faltando para decidir uma a uma no cartão da Sequência.
+   faltando para decidir uma a uma no cartão da Sequência. O andamento aparece no
+   painel e **Desfazer** desfaz a operação inteira de uma vez.
 4. **Revisão:** a revisão anda **pasta por pasta**. Ela abre na primeira pasta com
    pendência; o seletor **Pasta** no topo da fila mostra cada pasta com quantas faltam
    (ou "concluída") e **Próxima pasta →** pula para a seguinte com pendência. O nome da

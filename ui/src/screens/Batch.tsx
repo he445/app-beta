@@ -7,10 +7,10 @@ import {
   useBatch,
   useBoxLocks,
   useBulkOperations,
-  useDecideMany,
   usePlan,
   useReport,
   useSaveCorrected,
+  useStartBulk,
 } from "../api/hooks";
 import { streamEvents } from "../api/sse";
 import type { Analysis, BatchStatus } from "../api/types";
@@ -171,44 +171,40 @@ function SaveBox({ batchId, batchName }: { batchId: string; batchName: string })
 }
 
 /**
- * "Aprovar tudo como defeito de origem": aceita a caixa como está, com ressalva. Cada
- * sinalização sem decisão vira defeito de origem com a mesma ressalva e sai no relatório
- * ("Defeitos de origem, para o cliente"); nada vai para retrabalho e o veredito fica
- * "aprovado com ressalvas". Página faltando tem alerta próprio, com a lista de pastas e
- * folhas: só entra se o revisor confirmar, e aí o relatório da caixa lista cada uma.
+ * "Aprovar tudo como defeito de origem": aceita a caixa como está, com ressalva. É uma
+ * operação em lote do motor (ADR-0031): toda sinalização sem decisão vira defeito de
+ * origem com a mesma ressalva, sai no relatório ("Defeitos de origem, para o cliente"),
+ * fica fora da coleta do beta e se desfaz de uma vez. Página faltando tem alerta próprio,
+ * com a lista de pastas e folhas: só entra se o revisor confirmar.
+ * O andamento e o Desfazer aparecem junto dos botões em lote do painel.
  */
 function SourceDefectAll({ report }: { report: Analysis }) {
   const batchId = report.batch.id;
   const plan = massDecisionPlan(report);
   const ops = useBulkOperations(batchId);
-  const many = useDecideMany(batchId);
+  const start = useStartBulk(batchId);
   const [step, setStep] = useState<"closed" | "confirm" | "missing">("closed");
   const [note, setNote] = useState("");
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
-  const [result, setResult] = useState<{ total: number; missing: number } | null>(null);
-  const busy = many.isPending || Boolean(activeOperation(ops.data));
+  const busy = start.isPending || Boolean(activeOperation(ops.data));
   const all = plan.ids.length + plan.missing.length;
   const folders = new Set(plan.missing.map((m) => m.folder)).size;
 
   function run(includeMissing: boolean) {
-    const ids = includeMissing ? [...plan.ids, ...plan.missing.map((m) => m.id)] : plan.ids;
-    const missing = includeMissing ? plan.missing.length : 0;
-    setProgress({ done: 0, total: ids.length });
-    many.mutate(
-      { findingIds: ids, action: "source_defect", note, onProgress: (done) => setProgress({ done, total: ids.length }) },
+    start.mutate(
+      { action: "source_defect", note, includeMissing },
       {
-        onSuccess: (total) => {
-          setResult({ total, missing });
+        onSuccess: () => {
           setStep("closed");
+          setNote("");
         },
       },
     );
   }
 
-  if (all === 0 && !result) return null;
+  if (all === 0) return null;
   return (
     <div className="source-defect-all">
-      {step === "closed" && all > 0 && (
+      {step === "closed" && (
         <button onClick={() => setStep("confirm")} disabled={busy} title="Marca todas as sinalizações sem decisão como defeito de origem, com ressalva">
           Aprovar tudo (defeito de origem) · {all}
         </button>
@@ -219,7 +215,8 @@ function SourceDefectAll({ report }: { report: Analysis }) {
             <p className="small">
               {plan.ids.length} sinalização(ões) sem decisão vão ser aceitas como estão, como problema que veio do papel:{" "}
               {plan.byRule.map(([rule, n]) => `${n} ${ruleLabel(rule)}`).join(", ")}. Nada vai para retrabalho, o
-              veredito fica “aprovado com ressalvas” e a lista sai no relatório para o cliente.
+              veredito fica “aprovado com ressalvas” e a lista sai no relatório para o cliente. Dá para desfazer de uma
+              vez depois.
             </p>
           )}
           {plan.missing.length > 0 && (
@@ -242,20 +239,15 @@ function SourceDefectAll({ report }: { report: Analysis }) {
               onChange={(e) => setNote(e.target.value)}
               placeholder="Ressalva (opcional): ex. papel original com manchas e páginas em branco"
               aria-label="Ressalva"
-              disabled={many.isPending}
+              disabled={start.isPending}
               autoFocus
             />
             <button className="primary" disabled={busy}>
-              {many.isPending && progress
-                ? `Gravando ${progress.done} de ${progress.total}…`
-                : plan.missing.length > 0
-                  ? "Continuar"
-                  : "Confirmar"}
+              {start.isPending ? "Iniciando…" : plan.missing.length > 0 ? "Continuar" : "Confirmar"}
             </button>
-            <button type="button" onClick={() => setStep("closed")} disabled={many.isPending}>Cancelar</button>
+            <button type="button" onClick={() => setStep("closed")} disabled={start.isPending}>Cancelar</button>
           </form>
-          <Progress progress={many.isPending ? progress : null} />
-          <ErrorBox error={many.error} />
+          <ErrorBox error={start.error} />
         </Card>
       )}
       {step === "missing" && (
@@ -277,37 +269,18 @@ function SourceDefectAll({ report }: { report: Analysis }) {
           </ul>
           <div className="row wrap">
             <button className="danger" disabled={busy} onClick={() => run(true)}>
-              {many.isPending && progress ? `Gravando ${progress.done} de ${progress.total}…` : "Confirmar, com as páginas faltando"}
+              {start.isPending ? "Iniciando…" : "Confirmar, com as páginas faltando"}
             </button>
             {plan.ids.length > 0 && (
               <button disabled={busy} onClick={() => run(false)} title="Decida as páginas faltando uma a uma no cartão da Sequência">
                 Só as outras {plan.ids.length}
               </button>
             )}
-            <button className="link" disabled={many.isPending} onClick={() => setStep("confirm")}>Voltar</button>
+            <button className="link" disabled={start.isPending} onClick={() => setStep("confirm")}>Voltar</button>
           </div>
-          <Progress progress={many.isPending ? progress : null} />
-          <ErrorBox error={many.error} />
+          <ErrorBox error={start.error} />
         </div>
       )}
-      {result && step === "closed" && (
-        <div className="ok-banner small" role="status">
-          {result.total} sinalização(ões) marcadas como defeito de origem
-          {result.missing > 0 ? `, ${result.missing} delas página(s) faltando` : ""}
-          {note.trim() ? `, com a ressalva “${note.trim()}”` : ""}.{" "}
-          {result.missing > 0 && "O relatório da caixa lista a pasta e as folhas. "}
-          <a href={href({ name: "reports", id: batchId })}>Ver no relatório</a>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Progress({ progress }: { progress: { done: number; total: number } | null }) {
-  if (!progress) return null;
-  return (
-    <div className="progress small" role="progressbar" aria-valuenow={progress.done} aria-valuemax={progress.total}>
-      <div style={{ width: `${(progress.done / Math.max(1, progress.total)) * 100}%` }} />
     </div>
   );
 }

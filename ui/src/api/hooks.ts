@@ -137,11 +137,18 @@ export function useBulkOperations(batchId: string) {
   return query;
 }
 
-/** Pedido de operação em lote: sem pasta = a caixa; com ``action`` = Decidir semelhantes. */
+/**
+ * Pedido de operação em lote: sem pasta = a caixa; com ``action`` = a mesma decisão nas
+ * pendentes (da ``rule``, ou de todas as regras sem ela: Aprovar tudo, ADR-0031).
+ */
 export interface BulkStart {
   documentId?: string;
   rule?: string;
   action?: BulkDecision;
+  /** Ressalva gravada em cada decisão (só com ``action``). */
+  note?: string;
+  /** Página faltando também entra (só depois de o revisor confirmar a lista). */
+  includeMissing?: boolean;
 }
 
 export function useStartBulk(batchId: string) {
@@ -153,6 +160,8 @@ export function useStartBulk(batchId: string) {
         ...(req.documentId ? { document_id: req.documentId } : {}),
         ...(req.rule ? { rule: req.rule } : {}),
         ...(req.action ? { action: req.action } : {}),
+        ...(req.action && req.note?.trim() ? { note: req.note.trim() } : {}),
+        ...(req.action && req.includeMissing ? { include_missing: true } : {}),
         reviewer: reviewer(),
       }),
     onSuccess: (op) => {
@@ -218,38 +227,6 @@ export function useDecide(batchId: string) {
       applyDecision(qc, batchId, res);
       void qc.invalidateQueries({ queryKey: keys.plan(batchId) });
       void qc.invalidateQueries({ queryKey: ["image", res.finding.target.id, "corrected"] });
-    },
-  });
-}
-
-/**
- * A mesma decisão, com a mesma ressalva, numa lista de sinalizações, uma a uma (cada uma
- * fica no histórico com data, revisor e ressalva). ``onProgress`` recebe quantas já foram.
- */
-export function useDecideMany(batchId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({
-      findingIds,
-      action,
-      note,
-      onProgress,
-    }: {
-      findingIds: string[];
-      action: DecisionAction;
-      note?: string;
-      onProgress?: (done: number) => void;
-    }) => {
-      let done = 0;
-      for (const id of findingIds) {
-        applyDecision(qc, batchId, await postDecision(id, action, note));
-        onProgress?.(++done);
-      }
-      return done;
-    },
-    onSettled: () => {
-      void qc.invalidateQueries({ queryKey: keys.report(batchId) });
-      void qc.invalidateQueries({ queryKey: keys.plan(batchId) });
     },
   });
 }

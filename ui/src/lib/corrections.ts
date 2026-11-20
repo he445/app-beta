@@ -59,7 +59,7 @@ export function progressView(op: BulkCorrection | undefined): ProgressView {
       return { title: "Na fila…", detail: "A correção começa em instantes.", percent: 0, tone: "info", finished: false };
     case "running":
       return {
-        title: `Corrigindo ${done} de ${total}`,
+        title: op.action ? `Decidindo: processo ${done} de ${total}` : `Corrigindo ${done} de ${total}`,
         detail: current ? `Agora: ${current}` : "",
         percent,
         tone: "info",
@@ -244,8 +244,15 @@ export function operationSummary(op: BulkCorrection, documentName?: string): str
   if (op.status === "undone") return `${where}: desfeito.`;
   const n = op.result?.applied_total ?? 0;
   if (op.action) {
-    const rule = op.rule ? ruleLabel(op.rule) : "";
-    return n ? `${where}: ${n} × ${rule} ${BULK_DECISION_DONE[op.action]}.` : `${where}: nenhuma ${rule} pendente.`;
+    const ressalva = op.note ? ` Ressalva: “${op.note}”.` : "";
+    if (!op.rule) {
+      const missing = op.include_missing ? ", com as páginas faltando" : "";
+      return n
+        ? `${where}: ${n} sinalização(ões) ${BULK_DECISION_DONE[op.action]}${missing}.${ressalva}`
+        : `${where}: nenhuma sinalização pendente.`;
+    }
+    const rule = ruleLabel(op.rule);
+    return n ? `${where}: ${n} × ${rule} ${BULK_DECISION_DONE[op.action]}.${ressalva}` : `${where}: nenhuma ${rule} pendente.`;
   }
   const partial = op.partial ? " (só as pastas já prontas; rode de novo quando a análise terminar)" : "";
   const skipped = op.result?.skipped_total ?? 0;

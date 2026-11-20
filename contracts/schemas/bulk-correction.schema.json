@@ -54,6 +54,14 @@
       ],
       "description": "Decisão aplicada em lote (Decidir semelhantes); ausente = corrigir o automático."
     },
+    "note": {
+      "type": "string",
+      "description": "Ressalva gravada em cada decisão da operação."
+    },
+    "include_missing": {
+      "type": "boolean",
+      "description": "Página faltando entrou na decisão (o revisor confirmou a lista)."
+    },
     "partial": {
       "type": "boolean",
       "description": "Rodou com a caixa ainda em análise: só os processos já prontos entraram."

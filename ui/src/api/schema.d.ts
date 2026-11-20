@@ -1624,6 +1624,10 @@ export interface components {
              * @enum {unknown}
              */
             action?: "approve" | "reject" | "source_defect";
+            /** @description Ressalva gravada em cada decisão da operação. */
+            note?: string;
+            /** @description Página faltando entrou na decisão (o revisor confirmou a lista). */
+            include_missing?: boolean;
             /** @description Rodou com a caixa ainda em análise: só os processos já prontos entraram. */
             partial?: boolean;
             /** @enum {unknown} */
@@ -1686,7 +1690,7 @@ export interface components {
         };
         /**
          * BulkCorrectionRequest
-         * @description Pedido de operação em lote: "Corrigir pasta" (scope document), "Corrigir tudo" (scope batch) ou "Decidir semelhantes" (com rule e action). Com a caixa em análise, vale para os processos já prontos (ADR-0024).
+         * @description Pedido de operação em lote: "Corrigir pasta" (scope document), "Corrigir tudo" (scope batch), "Decidir semelhantes" (action com rule) ou "Aprovar tudo como defeito de origem" (action sem rule, ADR-0031). Com a caixa em análise, vale para os processos já prontos (ADR-0024).
          */
         "bulk-correction-request.schema": {
             /** @enum {unknown} */
@@ -1694,14 +1698,18 @@ export interface components {
             /** Format: uuid */
             document_id?: string;
             reviewer: string;
-            /** @description Só as sinalizações desta regra. Obrigatória com action; página faltando (missing_page) não aceita action. */
+            /** @description Só as sinalizações desta regra. Com action e sem rule, a decisão vale para todas as regras. Página faltando (missing_page) só entra com include_missing. */
             rule?: components["schemas"]["rule-id.schema"];
             /**
-             * @description Decidir semelhantes: a mesma decisão em todas as sinalizações pendentes da regra no escopo (approve = falso positivo, reject = retrabalho, source_defect = defeito de origem). Sem ela, corrige só o que é automático e seguro.
+             * @description A mesma decisão em todas as sinalizações pendentes do escopo, da regra ou de todas (approve = falso positivo, reject = retrabalho, source_defect = defeito de origem). Sem ela, corrige só o que é automático e seguro.
              * @enum {unknown}
              */
             action?: "approve" | "reject" | "source_defect";
-        } & (unknown & unknown);
+            /** @description Ressalva do revisor, gravada em cada decisão. Só com action. */
+            note?: string;
+            /** @description Página faltando também entra na decisão. Só com action; a interface só manda depois de o revisor confirmar a lista de pastas e folhas. */
+            include_missing?: boolean;
+        } & (unknown & unknown & unknown);
         /**
          * CorrectedPage
          * @description Uma página do lote final: de onde vem, para onde vai e o que mudou.

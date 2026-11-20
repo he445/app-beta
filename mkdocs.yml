@@ -93,6 +93,7 @@ nav:
           - "0028 Evidência mínima na inclinação": adr/0028-evidencia-minima-na-inclinacao.md
           - "0029 Lacuna implausível na numeração": adr/0029-lacuna-implausivel-na-numeracao.md
           - "0030 Defeitos de imagem tipificados no relatório da caixa": adr/0030-defeitos-de-imagem-tipificados-no-relatorio-da-caixa.md
+          - "0031 Aprovar tudo como operação em lote": adr/0031-aprovar-tudo-como-operacao-em-lote.md
           - Modelo: adr/0000-template.md
   - Especificações:
       - especificacoes/index.md

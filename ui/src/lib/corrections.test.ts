@@ -250,6 +250,11 @@ describe("Decidir semelhantes e Corrigir pasta (ADR-0024)", () => {
       operationSummary(op("applied", 1, 1, { scope: { kind: "document", id: "d1" }, result: result(3, 2) }), "CX1/DOC1"),
     ).toBe("Pasta CX1/DOC1: 3 correção(ões) aplicada(s); 2 pedem decisão humana ou redigitalização.");
     expect(operationSummary(op("applied", 0, 0, { partial: true, result: result(0) }))).toContain("só as pastas já prontas");
+    // Aprovar tudo (ADR-0031): decisão sem regra, com ressalva e páginas faltando.
+    expect(
+      operationSummary(op("applied", 2, 2, { action: "source_defect", note: "papel manchado", include_missing: true, result: result(220) })),
+    ).toBe("Caixa: 220 sinalização(ões) como defeito de origem, com as páginas faltando. Ressalva: “papel manchado”.");
+    expect(progressView(op("running", 1, 12, { action: "source_defect" })).title).toBe("Decidindo: processo 1 de 12");
   });
 });
 

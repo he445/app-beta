@@ -61,15 +61,19 @@ já prontos: o documento pedido tem de estar pronto (`409` se ainda está em an�
 escopo de lote inteiro volta com `partial: true`. As decisões entram como as individuais
 e a passada final as mantém (ADR-0024).
 
-## "Decidir semelhantes"
+## "Decidir semelhantes" e "Aprovar tudo"
 
-Pedido com `rule` e `action` (`approve`, `reject` ou `source_defect`), no escopo de um
-documento ou do lote:
+Pedido com `action` (`approve`, `reject` ou `source_defect`), no escopo de um documento ou
+do lote. Com `rule`, vale só para aquela regra ("Decidir semelhantes"); sem `rule`, para
+todas ("Aprovar tudo como defeito de origem", [ADR-0031](../adr/0031-aprovar-tudo-como-operacao-em-lote.md)).
+`note` é a ressalva do revisor, gravada em cada decisão; `include_missing` deixa entrar
+página faltando. `note` e `include_missing` sem `action`: 422.
 
 ```text
-se rule = missing_page: 422 (cada página faltando pede decisão própria)
-para cada sinalização sem decisão da regra no escopo:
-    decide action (revisor, horário, operation_id)
+se página faltando pedida (rule = missing_page) sem include_missing: 422
+para cada sinalização sem decisão do escopo (da regra, se dada):
+    se é página faltando e não include_missing: pula
+    decide action (revisor, horário, note, operation_id)
 ```
 
 Uma unidade de progresso por documento; nenhuma imagem é regravada (só `correct` muda a
@@ -79,13 +83,10 @@ jeito. Essas decisões não viram exemplo da coleta do beta.
 
 ### "Aprovar tudo (defeito de origem)", no painel
 
-Não é uma operação em lote do motor: a interface manda uma decisão individual
-(`POST /findings/{id}/decision`, `source_defect`, com a mesma `note` como ressalva) para
-cada sinalização sem decisão do lote, uma de cada vez, e mostra o progresso. Página
-faltando só entra depois de um alerta próprio que lista cada pasta com as folhas que
-faltam; sem essa confirmação ela fica para o cartão da Sequência. Como são decisões
-individuais, não têm `operation_id`, não entram no Desfazer em lote (desfaz-se uma a
-uma) e contam na coleta do beta como as outras decisões individuais.
+A interface pede uma operação do lote inteiro com `action = source_defect`, sem `rule` e
+com a ressalva em `note`. Página faltando só entra (`include_missing`) depois de um alerta
+próprio que lista cada pasta com as folhas que faltam; sem essa confirmação ela fica para
+o cartão da Sequência. O andamento e o Desfazer em lote aparecem no painel.
 
 ### Desfazer em lote
 

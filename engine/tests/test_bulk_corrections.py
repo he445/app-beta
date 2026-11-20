@@ -86,7 +86,7 @@ def report(client: TestClient, batch_id: str) -> dict[str, Any]:
     return data
 
 
-def run_bulk(client: TestClient, batch_id: str, **scope: str) -> dict[str, Any]:
+def run_bulk(client: TestClient, batch_id: str, **scope: Any) -> dict[str, Any]:
     body = {"scope": "batch", "reviewer": REVIEWER, **scope}
     r = client.post(f"/batches/{batch_id}/bulk-corrections", json=body, headers=AUTH)
     assert r.status_code == 202, r.text
@@ -333,11 +333,55 @@ def test_decide_similar_refuses_missing_page_and_correct(
     missing = {"scope": "batch", "reviewer": REVIEWER, "rule": "missing_page", "action": "approve"}
     r = client.post(url, json=missing, headers=AUTH)
     assert r.status_code == 422 and "decida cada uma" in r.text
-    no_rule = {"scope": "batch", "reviewer": REVIEWER, "action": "approve"}
-    assert client.post(url, json=no_rule, headers=AUTH).status_code == 422
     correct = {"scope": "batch", "reviewer": REVIEWER, "rule": "skew", "action": "correct"}
     assert client.post(url, json=correct, headers=AUTH).status_code == 422
+    # Ressalva e página faltando só valem com uma decisão (o contrato recusa sem action).
+    for extra in ({"note": "papel manchado"}, {"include_missing": True}):
+        body = {"scope": "batch", "reviewer": REVIEWER, **extra}
+        assert client.post(url, json=body, headers=AUTH).status_code == 422
     assert client.get(url, headers=AUTH).json() == []  # nenhuma operação criada
+
+
+def test_approve_all_as_source_defect_with_note_leaves_missing_page_and_undoes(
+    client: TestClient, correction_batch: Path
+) -> None:
+    """Aprovar tudo (ADR-0031): todas as regras numa operação, com ressalva, sem página faltando."""
+    batch_id = upload(client, correction_batch)
+    before = report(client, batch_id)
+    pending = [f for f in before["findings"] if not f.get("decision")]
+    others = {f["id"] for f in pending if f["rule"] != "missing_page"}
+    missing = {f["id"] for f in pending if f["rule"] == "missing_page"}
+    assert others and missing
+    op = run_bulk(client, batch_id, action="source_defect", note="papel original manchado")
+    assert op["action"] == "source_defect" and "rule" not in op
+    assert op["note"] == "papel original manchado" and "include_missing" not in op
+    assert op["result"]["applied_total"] == len(others)
+    after = {f["id"]: f for f in report(client, batch_id)["findings"]}
+    for fid in others:
+        decision = after[fid]["decision"]
+        assert decision["action"] == "source_defect"
+        assert decision["note"] == "papel original manchado"
+        assert decision["operation_id"] == op["id"]  # em lote: fora da coleta do beta
+    for fid in missing:
+        assert not after[fid].get("decision")
+
+    r = client.delete(f"/bulk-corrections/{op['id']}", params={"reviewer": REVIEWER}, headers=AUTH)
+    assert r.status_code == 200, r.text
+    assert r.json()["undo"]["undone_total"] == len(others)
+    assert report(client, batch_id) == before
+
+
+def test_approve_all_includes_missing_page_only_when_confirmed(
+    client: TestClient, correction_batch: Path
+) -> None:
+    batch_id = upload(client, correction_batch)
+    missing = {f["id"] for f in by_rule(report(client, batch_id))["missing_page"]}
+    op = run_bulk(client, batch_id, action="source_defect", include_missing=True)
+    assert op["include_missing"] is True
+    assert op["result"]["applied_by_rule"]["missing_page"] == len(missing)
+    findings = report(client, batch_id)["findings"]
+    assert all(f.get("decision") for f in findings)
+    assert all(f["decision"]["action"] == "source_defect" for f in findings if f["id"] in missing)
 
 
 # Página faltando e lote corrigido -------------------------------------------------------

@@ -18,7 +18,10 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
   **Aprovar tudo (defeito de origem)** faz o mesmo em todas as sinalizações sem decisão
   da caixa, com uma ressalva para todas. Página faltando pede confirmação num alerta
   próprio, com a lista de pastas e folhas; confirmada, o relatório da caixa lista a pasta
-  e as folhas que faltam. A ressalva aparece no Relatório ("Defeitos de origem, para o
+  e as folhas que faltam. É uma operação em lote do motor
+  ([ADR-0031](docs/adr/0031-aprovar-tudo-como-operacao-em-lote.md)): o pedido de operação
+  aceita decisão sem regra, ressalva (`note`) e `include_missing`; as decisões ficam fora
+  da coleta do beta e se desfazem de uma vez. A ressalva aparece no Relatório ("Defeitos de origem, para o
   cliente", com as páginas faltando à parte, por pasta) e na coluna nova `note` do
   `findings.csv`.
 - **Revisão por pasta:** a fila abre na primeira pasta com pendência, com seletor de pasta
