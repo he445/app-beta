@@ -7,7 +7,7 @@ Produz as regras ``missing_page``, ``out_of_order``, ``numbering_review`` e
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from qa_engine.detectors.base import Flag
 from qa_engine.domain.model import (
@@ -19,13 +19,62 @@ from qa_engine.domain.model import (
     TargetKind,
 )
 from qa_engine.domain.sequencing import (
+    Gap,
     PageCandidates,
     PageNumberingState,
     SequenceParams,
     SequenceResult,
     document_doubt,
+    parse_folio,
     resolve,
 )
+
+
+def implausible(gap: Gap, page_count: int, params: SequenceParams) -> bool:
+    """Lacuna maior que o documento (a partir de ``min_implausible_gap``) ou que ``max_gap_sheets``.
+
+    Um número impresso no canto (data, protocolo), lido com confiança, cria um salto assim;
+    folha faltando de verdade raramente é mais numerosa que o documento inteiro.
+    """
+    size = len(gap.missing)
+    return size > params.max_gap_sheets or size > max(page_count, params.min_implausible_gap)
+
+
+def _top_number(page: PageCandidates, params: SequenceParams) -> int | None:
+    """Número de folha da leitura mais confiável de uma página com uma só marca não riscada."""
+    live = [m for m in page.marks if not m.struck and m.top is not None]
+    if len(live) != 1 or live[0].top is None or live[0].top.confidence < params.min_confidence:
+        return None
+    folio = parse_folio(live[0].top.text)
+    return None if folio is None else folio.number
+
+
+def outliers(
+    pages: Sequence[PageCandidates], result: SequenceResult, params: SequenceParams
+) -> set[str]:
+    """Páginas junto a uma lacuna implausível cuja leitura destoa das duas vizinhas coerentes.
+
+    Exemplo: 20, 1021, 22. A leitura do meio é descartada e o documento é resolvido de novo,
+    com o mesmo resolvedor (``domain/sequencing.py`` não muda).
+    """
+    near = {
+        pid
+        for gap in result.gaps
+        if implausible(gap, len(pages), params)
+        for pid in (gap.after_page_id, gap.before_page_id)
+    }
+    found: set[str] = set()
+    for i in range(1, len(pages) - 1):
+        page = pages[i]
+        if page.page_id not in near:
+            continue
+        value = _top_number(page, params)
+        before, after = _top_number(pages[i - 1], params), _top_number(pages[i + 1], params)
+        if value is None or before is None or after is None:
+            continue
+        if 0 < after - before <= 2 and not before <= value <= after:
+            found.add(page.page_id)
+    return found
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,9 +129,53 @@ def analyze_document(
     paired = set(duplicates) | set(duplicates.values())
     pages = [PageCandidates(p.page_id) if p.page_id in duplicates else p for p in pages]
     result = resolve(pages, params)
+    dropped = outliers(pages, result, params)
+    readings = {p.page_id: _top_number(p, params) for p in pages if p.page_id in dropped}
+    if dropped:
+        pages = [PageCandidates(p.page_id) if p.page_id in dropped else p for p in pages]
+        result = resolve(pages, params)
+        result = replace(
+            result,
+            pages=tuple(
+                replace(p, state=PageNumberingState.AMBIGUOUS) if p.page_id in dropped else p
+                for p in result.pages
+            ),
+        )
     flags: list[SequenceFlag] = []
     doc = Target(TargetKind.DOCUMENT, document_id)
+    if result.reordered and any(implausible(g, len(pages), params) for g in result.gaps):
+        # Ordem proposta por uma numeração com saltos implausíveis não tem evidência:
+        # o documento fica na ordem do arquivo e a numeração vai para revisão.
+        file_order = {p.page_id: i for i, p in enumerate(pages)}
+        result = replace(
+            result,
+            pages=tuple(sorted(result.pages, key=lambda p: file_order[p.page_id])),
+            order=tuple(p.page_id for p in pages),
+            reordered=False,
+        )
+        flags.append(
+            SequenceFlag(
+                "numbering_review",
+                doc,
+                Flag(
+                    severity=Severity.MEDIUM,
+                    measure=float(sum(implausible(g, len(pages), params) for g in result.gaps)),
+                    threshold=0.0,
+                    confidence=0.5,
+                    correction=Correction(
+                        CorrectionClass.ESCALATE,
+                        CorrectionAction.HUMAN_REVIEW,
+                        "Conferir a numeração na tela de Sequência antes de reordenar.",
+                    ),
+                    message=(
+                        "Numeração lida com saltos implausíveis: a ordem não foi proposta. "
+                        "Provavelmente números impressos (datas, códigos) lidos como folha."
+                    ),
+                ),
+            )
+        )
     position = {page_id: i + 1 for i, page_id in enumerate(result.order)}
+    value_of = {p.page_id: p.value for p in result.pages}
 
     if result.reordered:
         flags.append(
@@ -107,9 +200,34 @@ def analyze_document(
             )
         )
 
+    for page_id in sorted(dropped):
+        flags.append(
+            _review(
+                page_id,
+                f"Leitura fls. {readings[page_id]} fora da sequência das vizinhas: descartada. "
+                "Confira o canto e digite a numeração.",
+                0.0,
+                0.0,
+                Severity.HIGH,
+            )
+        )
+
     for gap in result.gaps:
         names = [str(f) for f in gap.missing]
         span = names[0] if len(names) == 1 else f"{names[0]} a {names[-1]}"
+        if implausible(gap, len(pages), params):
+            # A lista de faltantes tem teto (1000): o salto sai das próprias leituras.
+            first, last = value_of[gap.after_page_id], value_of[gap.before_page_id]
+            flags.append(
+                _review(
+                    gap.before_page_id,
+                    f"Salto de fls. {first} para {last}: leitura de numeração duvidosa.",
+                    float(len(names)),
+                    float(params.max_gap_sheets),
+                    Severity.HIGH,
+                )
+            )
+            continue
         if not gap.confirmed:
             flags.append(
                 _review(
@@ -167,7 +285,7 @@ def analyze_document(
         )
 
     for numbering in result.pages:
-        if not numbering.needs_review:
+        if not numbering.needs_review or numbering.page_id in dropped:
             continue
         severity = (
             Severity.MEDIUM if numbering.state is PageNumberingState.INFERRED else Severity.HIGH

@@ -237,3 +237,48 @@ def test_gap_size_counts_missing_between_without_the_list(
     from qa_engine.domain.sequencing import gap_size, missing_between
 
     assert gap_size(prev, cur, mode) == len(missing_between(prev, cur, mode))
+
+
+def test_printed_number_in_the_middle_is_discarded_and_resolved_again() -> None:
+    """Data impressa lida com confiança (20, 2019, 22): descartada, sem "Faltam fls."."""
+    result, flags = analyze_document(
+        "doc", pages_from(["20", "21", "2019", "23"]), SequenceParams()
+    )
+    assert result.gaps == ()
+    assert [f.rule for f in flags] == ["numbering_review"]
+    assert flags[0].target.id == "p2"
+    assert "2019" in flags[0].flag.message
+    by_id = {p.page_id: p for p in result.pages}
+    assert by_id["p2"].state is PageNumberingState.AMBIGUOUS
+    assert str(by_id["p2"].value) == "22"
+
+
+def test_gap_larger_than_document_is_review_not_missing_page() -> None:
+    _, flags = analyze_document("doc", pages_from(["20", "21", "3021", "3022"]), SequenceParams())
+    assert [f.rule for f in flags] == ["numbering_review"]
+    assert flags[0].flag.message == "Salto de fls. 21 para 3021: leitura de numeração duvidosa."
+
+
+def test_max_gap_sheets_comes_from_the_profile() -> None:
+    folios = [str(i) for i in range(1, 41)] + [str(i) for i in range(61, 101)]
+    _, flags = analyze_document("doc", pages_from(folios), SequenceParams())
+    assert [f.rule for f in flags] == ["missing_page"]
+    _, flags = analyze_document("doc", pages_from(folios), SequenceParams(max_gap_sheets=10))
+    assert [f.rule for f in flags] == ["numbering_review"]
+
+
+def test_short_document_with_a_few_missing_sheets_still_flags_missing_page() -> None:
+    _, flags = analyze_document("doc", pages_from(["1", "2", "9", "10"]), SequenceParams())
+    assert [f.rule for f in flags] == ["missing_page"]
+
+
+def test_incoherent_numbering_is_not_reordered() -> None:
+    """Números impressos sem relação (datas, códigos): nada de reordenar automaticamente."""
+    pages = pages_from(["100", "980", "3509", "0", "1733", "1428", "17"])
+    result, flags = analyze_document("doc", pages, SequenceParams())
+    assert not result.reordered
+    assert list(result.order) == [p.page_id for p in pages]
+    rules = {f.rule for f in flags}
+    assert "out_of_order" not in rules
+    assert "missing_page" not in rules
+    assert any(f.rule == "numbering_review" and f.target.kind.value == "document" for f in flags)

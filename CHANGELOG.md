@@ -57,6 +57,14 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
   metade do recorte ou encosta em 3 bordas dele é gradiente de luz, não escrito. A leitura
   da região da numeração também descarta caixa encostada na borda da página, como a busca
   nos quatro cantos já fazia.
+- **Lacuna implausível na numeração** (ADR-0029): salto com mais folhas faltando que o
+  próprio documento (a partir de 10) ou que `max_gap_sheets` (perfil, padrão 50) vira
+  `numbering_review` ("Salto de fls. 20 para 1021: leitura de numeração duvidosa"), nunca
+  "Faltam fls.". Leitura isolada fora da sequência das vizinhas (20, 2019, 22) é descartada
+  e o documento é resolvido de novo; a página fica "ambígua" na Sequência. Numeração com
+  salto implausível não propõe reordenação automática: o documento fica na ordem do
+  arquivo e vai para revisão. `out_of_order`, `missing_page` e `numbering_review` 1.3.0;
+  parâmetros de perfil `max_gap_sheets` e `min_implausible_gap`.
 
 ## [1.1.0] — 2026-11-18
 
