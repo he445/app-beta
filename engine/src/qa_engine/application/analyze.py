@@ -645,6 +645,7 @@ def analyze_batch(
         # Linha de base e avaliação de cada página, com os parâmetros da estação dela;
         # a linha de base de uma regra usa todas as páginas em que a regra está ligada.
         baselines: dict[str, dict[str, Stats]] = {}
+        page_flags: list[tuple[str, str, Flag]] = []
         for detector in PAGE_DETECTORS:
             measured = {pid: obs[detector.id] for pid, obs in current.items() if detector.id in obs}
             if not measured:
@@ -655,7 +656,12 @@ def analyze_batch(
                 params = dict(rules_for(station_ids[pid]))[detector.id]
                 flag = detector.evaluate(obs, baseline, params)
                 if flag is not None:
-                    factory.add(detector.id, Target(TargetKind.PAGE, pid), flag, scales[pid])
+                    page_flags.append((detector.id, pid, flag))
+        reviewed_blank = {pid for rule, pid, _ in page_flags if rule == blank_page.ID}
+        for rule, pid, flag in page_flags:
+            if pid in reviewed_blank and _low_ink_flag(flag):
+                continue  # a quase branca já leva o conferente à página
+            factory.add(rule, Target(TargetKind.PAGE, pid), flag, scales[pid])
 
         duplicate_copies: dict[str, str] = {}
         chosen = [p for p in prints if p.page_id in included]
@@ -874,6 +880,7 @@ def evaluate_page(
             factory.add(corrupted_file.ID, target, corrupted_file.flag_load_error(result.error))
         return factory.findings
     detectors = {d.id: d for d in PAGE_DETECTORS}
+    flags: list[tuple[str, Flag]] = []
     for rule, obs in result.observations.items():
         if not profile.enabled(rule, station_id):
             continue
@@ -891,8 +898,17 @@ def evaluate_page(
             obs, baselines.get(rule, {}), profile.params(rule, station_id)
         )
         if flag is not None:
+            flags.append((rule, flag))
+    blank = any(rule == blank_page.ID for rule, _ in flags)
+    for rule, flag in flags:
+        if not (blank and _low_ink_flag(flag)):
             factory.add(rule, target, flag, result.scale)
     return factory.findings
+
+
+def _low_ink_flag(flag: Flag) -> bool:
+    """Sinalização feita só por a página ter pouca tinta (inclinação, desfoque, orientação)."""
+    return bool(flag.correction.params.get("low_ink"))
 
 
 def _duplicate_flag(

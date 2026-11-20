@@ -66,9 +66,11 @@ def runner_up(prediction: OrientationPrediction) -> tuple[int, float] | None:
 
 
 def suggest_at(features: PageFeatures, params: Params) -> float:
-    """Probabilidade mínima para a regra propor a rotação nesta página."""
-    key = "auto_threshold" if low_ink(features, params) else "review_threshold"
-    return float(params[key])
+    """Probabilidade mínima para a regra propor a rotação nesta página.
+
+    Também na página com pouca tinta é ``review_threshold``: ela vai sempre para revisão.
+    """
+    return float(params["review_threshold"])
 
 
 class Orientation:
@@ -93,7 +95,7 @@ class Orientation:
     def evaluate(self, obs: Observation, baseline: Baseline, params: Params) -> Flag | None:
         """Automática acima de ``auto_threshold``; para revisão acima de ``review_threshold``.
 
-        Na página com pouca tinta, só sinaliza a partir de ``auto_threshold`` e sempre para
+        Na página com pouca tinta, sinaliza a partir de ``review_threshold`` e sempre para
         revisão: pouco escrito engana o modelo, mas passar de lado calada é pior.
         """
         if not obs.eligible:
@@ -102,7 +104,7 @@ class Orientation:
         probability = obs.values["probability"]
         auto_at = float(params["auto_threshold"])
         sparse = bool(obs.extra.get("low_ink"))
-        review_at = auto_at if sparse else float(params["review_threshold"])
+        review_at = float(params["review_threshold"])
         if angle == 0 or probability < review_at:
             if sparse:
                 return None  # carimbo e rubrica: sem sentido de leitura, o modelo espalha
@@ -123,7 +125,7 @@ class Orientation:
         return Flag(
             severity=Severity.MEDIUM,
             measure=round(probability, 4),
-            threshold=auto_at if automatic or sparse else review_at,
+            threshold=auto_at if automatic else review_at,
             confidence=round(probability, 4),
             correction=Correction(
                 CorrectionClass.AUTOMATIC,

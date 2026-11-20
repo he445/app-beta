@@ -1,5 +1,5 @@
 id: blur
-version: 1.2.0
+version: 1.3.0
 title: Desfoque
 spec: docs/especificacoes/detectors/blur.md
 input: page_gray_150dpi
@@ -12,4 +12,5 @@ params:
   min_ink_coverage: { type: number, default: 0.01, minimum: 0, maximum: 1, description: "Cobertura de tinta mínima para a página ser avaliada" }
   solid_min_area: { type: number, default: 0.02, minimum: 0, maximum: 1, description: "Fração da página a partir da qual um componente de tinta sólido sai da medida (faixa preta estreita, tarja)" }
   solid_min_solidity: { type: number, default: 0.9, minimum: 0, maximum: 1, description: "Área do componente sobre a da envoltória convexa a partir da qual ele é sólido, não escrita" }
+  review_min_ink_coverage: { type: number, default: 0.003, minimum: 0, maximum: 1, description: "Cobertura mínima para medir; entre ela e min_ink_coverage a página tem pouca tinta e só vai para revisão" }
 output: finding

@@ -9,6 +9,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from qa_engine.detectors.base import (
+    BASELINE_EXCLUDED,
     Baseline,
     Flag,
     Observation,
@@ -40,9 +41,11 @@ class Blur:
             float(params.get("solid_min_solidity", 0.9)),
         )
         ink = full_ink[y0:y1, x0:x1].astype(np.uint8)
-        eligible = features.ink_coverage >= float(params["min_ink_coverage"]) and ink.any()
+        floor = float(params.get("review_min_ink_coverage", params["min_ink_coverage"]))
+        eligible = features.ink_coverage >= floor and ink.any()
         if not eligible:
             return Observation({"energy": math.nan}, eligible=False)
+        sparse = features.ink_coverage < float(params["min_ink_coverage"])
         contrast = features.paper_level - float(np.median(page.gray[full_ink]))
         if contrast < 1.0:
             return Observation({"energy": math.nan}, eligible=False)
@@ -50,7 +53,8 @@ class Blur:
         mask = cv2.dilate(ink, np.ones((3, 3), np.uint8)) > 0
         # Normalizado pelo contraste ao quadrado: página escura ou desbotada não é desfocada.
         energy = float(np.mean(lap[mask] ** 2)) / (contrast * contrast)
-        return Observation({"energy": energy})
+        extra = {"low_ink": True, BASELINE_EXCLUDED: True} if sparse else {}
+        return Observation({"energy": energy}, extra=extra)
 
     def evaluate(self, obs: Observation, baseline: Baseline, params: Params) -> Flag | None:
         """Sinaliza quando a energia fica abaixo da fração da mediana do lote."""
@@ -66,6 +70,24 @@ class Blur:
         energy = obs.values["energy"]
         if energy >= threshold:
             return None
+        confidence = clamp01(0.5 + 0.5 * (1 - energy / threshold))
+        if obs.extra.get("low_ink"):
+            # Pouco escrito mede pior: revisão, nunca pedido direto de redigitalização.
+            return Flag(
+                severity=Severity.CRITICAL,
+                measure=energy,
+                threshold=threshold,
+                confidence=round(confidence / 2, 4),
+                correction=Correction(
+                    CorrectionClass.ESCALATE,
+                    CorrectionAction.HUMAN_REVIEW,
+                    "Página com pouca tinta: confira se está desfocada antes de pedir a "
+                    "redigitalização.",
+                    {"low_ink": True},
+                ),
+                message=f"Nitidez {energy:.3f} abaixo de {threshold:.3f} ({basis}); página com "
+                "pouca tinta.",
+            )
         return Flag(
             severity=Severity.CRITICAL,
             measure=energy,

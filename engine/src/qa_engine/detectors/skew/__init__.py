@@ -9,6 +9,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from qa_engine.detectors.base import (
+    BASELINE_EXCLUDED,
     Baseline,
     Flag,
     Observation,
@@ -71,12 +72,21 @@ class Skew:
     id = ID
 
     def measure(self, page: PageRaster, features: PageFeatures, params: Params) -> Observation:
-        """Ângulo dominante das linhas de texto na área útil."""
-        if features.ink_coverage < float(params["min_ink_coverage"]):
+        """Ângulo dominante das linhas de texto na área útil.
+
+        Abaixo de ``min_ink_coverage`` e a partir de ``review_min_ink_coverage``, a página tem
+        pouca tinta: é medida, mas só vai para revisão.
+        """
+        coverage = features.ink_coverage
+        if coverage < float(params.get("review_min_ink_coverage", params["min_ink_coverage"])):
             return Observation({"angle": math.nan}, eligible=False)
+        sparse = coverage < float(params["min_ink_coverage"])
         y0, y1, x0, x1 = features.core
         angle, confidence = estimate_skew(features.ink[y0:y1, x0:x1], float(params["max_angle"]))
-        return Observation({"angle": angle}, extra={"confidence": confidence})
+        extra: dict[str, object] = {"confidence": confidence}
+        if sparse:
+            extra.update({"low_ink": True, BASELINE_EXCLUDED: True})
+        return Observation({"angle": angle}, extra=extra)
 
     def evaluate(self, obs: Observation, baseline: Baseline, params: Params) -> Flag | None:
         """Sinaliza acima de ``flag_threshold``; acima de ``reject_threshold`` sobe para alto.
@@ -94,12 +104,19 @@ class Skew:
         confidence = float(obs.extra.get("confidence", 0.5))
         if confidence < float(params["min_flag_confidence"]):
             return None  # sem evidência: o ângulo achado pontua igual a 0°
-        automatic = confidence >= float(params["min_auto_confidence"])
+        sparse = bool(obs.extra.get("low_ink"))
+        if sparse and abs(angle) <= float(params["low_ink_min_angle"]):
+            return None  # poucas linhas: a projeção é ruidosa em ângulo pequeno
+        automatic = confidence >= float(params["min_auto_confidence"]) and not sparse
         reject = abs(angle) > float(params["reject_threshold"])
         direction = "horário" if angle > 0 else "anti-horário"
         correction_params: dict[str, object] = {"skew_deg": round(angle, 2)}
         description = f"Endireitar a página girando {abs(angle):.2f}° no sentido oposto."
-        if not automatic:
+        if sparse:
+            correction_params.update({"review": True, "low_ink": True})
+            description += " Página com pouca tinta: confira antes de aplicar (C)."
+            confidence /= 2
+        elif not automatic:
             correction_params["review"] = True
             description += " Evidência fraca: confira antes de aplicar (C)."
         return Flag(

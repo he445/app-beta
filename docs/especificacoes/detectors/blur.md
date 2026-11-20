@@ -1,6 +1,6 @@
 # blur: Desfoque
 
-Versão: 1.2.0 · Severidade padrão: crítico
+Versão: 1.3.0 · Severidade padrão: crítico
 
 ## Objetivo
 
@@ -54,6 +54,7 @@ torna a medida independente da quantidade de texto.
 | `min_ink_coverage` | número | 0,01 | 0 a 1 |
 | `solid_min_area` | número | 0,02 | 0 a 1 |
 | `solid_min_solidity` | número | 0,9 | 0 a 1 |
+| `review_min_ink_coverage` | número | 0,003 | 0 a 1 |
 
 ## Saída
 
@@ -76,8 +77,15 @@ torna a medida independente da quantidade de texto.
 - Pech-Pacheco et al., *Diatom autofocusing in brightfield microscopy: a comparative study*, 2000
   (variância do Laplaciano).
 
+**Página com pouca tinta** (cobertura de `review_min_ink_coverage` até `min_ink_coverage`):
+é medida, mas fica fora da mediana do lote e, abaixo do limiar, vai para revisão
+(`escalate/human_review`, confiança pela metade), nunca com pedido direto de
+redigitalização. Se a página já é "quase branca", o aviso não é emitido: a quase branca já
+leva o conferente a ela.
+
 ## Histórico de versões
 
+- 1.3.0: mede a página com pouca tinta, sempre para revisão (`review_min_ink_coverage`).
 - 1.2.0: mede a vista de conteúdo, sem as faixas pretas; componentes sólidos e grandes saem
   da máscara e do contraste (ADR-0027). Na caixa de regressão, os 8 desfoques falsos em
   página com borda preta caíram para zero.

@@ -127,10 +127,11 @@ def test_uncertain_never_enters_fix_all_nor_applies_to_low_ink() -> None:
 
     flag = spread_flag({0: 0.10, 90: 0.40, 180: 0.30, 270: 0.20})
     assert flag is not None and flag.correction.params["review"] is True
-    # Pouca tinta (carimbo, rubrica): o modelo espalha sem haver texto; nada.
+    # Pouca tinta (carimbo, rubrica): o modelo espalha sem haver texto; sem orientação
+    # incerta, só a rotação a partir de review_threshold.
     obs = Observation(
-        {"angle": 180.0, "probability": 0.87, "upright_probability": 0.06},
-        extra={"low_ink": True, "runner_up": (180, 0.87)},
+        {"angle": 180.0, "probability": 0.45, "upright_probability": 0.06},
+        extra={"low_ink": True, "runner_up": (180, 0.45)},
     )
     assert orientation.DETECTOR.evaluate(obs, {}, params()) is None
 
@@ -175,10 +176,10 @@ def sparse_150() -> np.ndarray:
     return gray
 
 
-def test_low_ink_page_is_classified_but_only_flags_high_confidence_for_review(
+def test_low_ink_page_is_classified_and_flags_from_the_review_threshold(
     tmp_path: Path,
 ) -> None:
-    """P1 do relatório de testes: bilhete curto girado não pode passar calado."""
+    """Bilhete curto girado não pode passar calado: revisão a partir de review_threshold."""
     gray = sparse_150()
     coverage = compute_features(gray).ink_coverage
     assert params()["blank_ink_coverage"] <= coverage < params()["min_ink_coverage"]
@@ -202,8 +203,10 @@ def test_low_ink_page_is_classified_but_only_flags_high_confidence_for_review(
         "review": True,
         "low_ink": True,
     }
-    assert high.threshold == params()["auto_threshold"]
-    assert flag(180, 0.87) is None  # abaixo de auto_threshold: carimbo (CX001/DOC0007)
+    assert high.threshold == params()["review_threshold"]
+    medium = flag(270, 0.87)  # caixa de regressão: 270° com 0,89 passava calado
+    assert medium is not None and medium.correction.params["review"] is True
+    assert flag(180, 0.55) is None  # abaixo de review_threshold
     assert flag(0, 0.99) is None
 
 

@@ -28,10 +28,22 @@ abaixo dele o ângulo achado pontua praticamente igual a 0° e nada é sinalizad
 antes de classificar a orientação (`orientation.deskew_min_confidence`): numa página de lado
 a busca de ângulo não acha linhas e a confiança fica baixa.
 
+**Página com pouca tinta** (de 0,3% a 1% de tinta, R4): inclinação e desfoque passam a ser
+medidos nela e a orientação propõe rotação a partir de `review_threshold`, sempre para
+revisão; a página fica fora da linha de base do lote. Antes, abaixo de 1% de tinta essas
+regras nem mediam, e 5 dos 22 problemas que escaparam na caixa eram desse tipo. Para não
+encher a fila: a página que já é "quase branca" não recebe esses avisos (a quase branca já
+leva o conferente a ela), a orientação incerta continua desligada nela e a inclinação só é
+sinalizada acima de 3°, porque com poucas linhas a estimativa é ruidosa em ângulo pequeno.
+
 ## Consequências
 
 - Caixa de regressão: as duas correções automáticas sem evidência somem; as 55 inclinações
   inseridas continuam achadas como antes (53).
 - Continua uma correção automática em página limpa: 0,55° com confiança 0,67, colada no
   `flag_threshold`. É ruído de limiar, não falta de evidência.
-- Cobrança: teste dos dois degraus em `test_detectors.py`.
+- Pouca tinta: na caixa, rotação 67 de 68 e inclinação 55 de 55; a página girada que fica
+  de fora (0,25 para cada ângulo) é falha conhecida do modelo. Surgiram 3 avisos novos de
+  revisão em páginas com pouca tinta sem problema inserido (desfoque e orientação).
+- Cobrança: testes dos dois degraus e da pouca tinta em `test_detectors.py`; a página só com
+  carimbo do lote de conformidade (`CX001/DOC0007/0006.tif`) continua só como quase branca.

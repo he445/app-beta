@@ -90,6 +90,25 @@ def test_skew_needs_evidence_to_flag_and_to_correct_alone() -> None:
     assert strong is not None and "review" not in strong.correction.params
 
 
+def test_low_ink_pages_are_measured_but_only_go_to_review() -> None:
+    """R4: pouca tinta (0,3% a 1%) é medida, sai da linha de base e só vai para revisão."""
+    from qa_engine.detectors.base import Observation, baseline_of
+
+    skew_params = params_for("skew", None)
+    sparse = {"confidence": 1.0, "low_ink": True}
+    strong = SKEW.evaluate(Observation({"angle": 4.0}, extra=sparse), {}, skew_params)
+    assert strong is not None and strong.correction.params["review"] is True
+    assert strong.confidence == 0.5
+    mild = SKEW.evaluate(Observation({"angle": 1.5}, extra=sparse), {}, skew_params)
+    assert mild is None  # poucas linhas: ângulo pequeno não é confiável
+    blur_params = params_for("blur", None)
+    obs = Observation({"energy": 0.01}, extra={"low_ink": True, "baseline_excluded": True})
+    soft = BLUR.evaluate(obs, {}, blur_params)
+    assert soft is not None and soft.correction.action is CorrectionAction.HUMAN_REVIEW
+    stats = baseline_of([Observation({"energy": 1.0}), obs])
+    assert stats["energy"].n == 1
+
+
 def test_blank_and_near_blank() -> None:
     blank = evaluate(BLANK, blank_150(), CLEAN)
     assert blank is not None and blank.correction.action is CorrectionAction.REMOVE_PAGE

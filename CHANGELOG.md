@@ -47,6 +47,12 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 - **Inclinação sem evidência** (ADR-0028): abaixo de confiança 0,1 a inclinação não é
   sinalizada; até 0,3 vai para revisão, sem correção automática. `skew` 1.2.0, parâmetros
   `min_flag_confidence` e `min_auto_confidence`.
+- **Página com pouca tinta** (de 0,3% a 1% de tinta) deixa de ser ponto cego: inclinação e
+  desfoque passam a medi-la e a orientação propõe rotação a partir de `review_threshold`,
+  sempre para revisão e fora da linha de base do lote. A página que já é "quase branca" não
+  recebe esses avisos; a inclinação só é sinalizada nela acima de 3°. `skew` 1.3.0
+  (`review_min_ink_coverage`, `low_ink_min_angle`), `blur` 1.3.0
+  (`review_min_ink_coverage`), `orientation` 1.5.0.
 - **Plano B do detector de escritos** não devolve mais o fundo: caixa que cobre mais da
   metade do recorte ou encosta em 3 bordas dele é gradiente de luz, não escrito. A leitura
   da região da numeração também descarta caixa encostada na borda da página, como a busca

@@ -1,6 +1,6 @@
 # orientation: Página de lado ou de cabeça para baixo
 
-Versão: 1.4.0 · Severidade padrão: médio
+Versão: 1.5.0 · Severidade padrão: médio
 
 ## Objetivo
 
@@ -38,7 +38,7 @@ inclinação acima de 2°, a vista crua errou uma (5,9° lida como de cabeça pa
 se skip_blank e cobertura_de_tinta < blank_ink_coverage: inelegível (página branca)
 pouca_tinta ← skip_blank e cobertura_de_tinta < min_ink_coverage
 a, p ← classificador(página)
-limite ← auto_threshold se pouca_tinta, senão review_threshold
+limite ← review_threshold
 se a = 0 ou p < limite:
     se pouca_tinta ou p₀ ≥ upright_min_probability: nada
     senão: orientação incerta (abaixo)
@@ -47,10 +47,12 @@ se p ≥ auto_threshold e não pouca_tinta: correção automática (entra no "Co
 senão: correção sugerida com review = verdadeiro (fica para o revisor, que aplica com C)
 ```
 
-Página com pouca tinta (bilhete, despacho curto, só assinatura) é classificada, mas a
-rotação só é proposta com probabilidade de pelo menos `auto_threshold` e nunca entra no
-"Corrigir tudo": pouco escrito engana o modelo, e passar girada sem aviso é pior que uma
-revisão a mais.
+Página com pouca tinta (bilhete, despacho curto, só assinatura) é classificada, e a
+rotação é proposta a partir de `review_threshold`, sempre para revisão, nunca no "Corrigir
+tudo": pouco escrito engana o modelo, e passar girada sem aviso é pior que uma revisão a
+mais. Se a página já é "quase branca" (regra `blank_page`), a rotação não é proposta: a
+quase branca já leva o conferente a ela. Na caixa de regressão, uma página de 0,95% de tinta
+girada 270° (probabilidade 0,89) passava calada com o limite antigo, `auto_threshold`.
 
 **Orientação incerta.** Quando nenhuma rotação passa do limite e a probabilidade de a
 página estar de pé, `p₀`, fica abaixo de `upright_min_probability`, o modelo não sabe: a
@@ -132,6 +134,8 @@ devolve o original pixel a pixel) está em `engine/tests/test_orientation.py`.
 
 ## Histórico de versões
 
+- 1.5.0: na página com pouca tinta, a rotação é proposta a partir de `review_threshold`,
+  sempre para revisão; não é proposta na página que já é quase branca.
 - 1.4.0: com inclinação forte e confiável, classifica também a cópia endireitada e fica com
   a leitura mais confiante (`deskew_before_orient`, `deskew_min_confidence`).
 - 1.3.0: classifica a vista de conteúdo, sem as faixas pretas (ADR-0027).

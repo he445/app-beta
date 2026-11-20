@@ -89,7 +89,7 @@ Especificação: [blank_page.md](../especificacoes/detectors/blank_page.md).
 
 ### `orientation`
 
-Página de lado ou de cabeça para baixo. Versão 1.4.0, severidade `medium`.
+Página de lado ou de cabeça para baixo. Versão 1.5.0, severidade `medium`.
 Especificação: [orientation.md](../especificacoes/detectors/orientation.md).
 
 | Parâmetro | Tipo | Padrão | Faixa | Descrição |
@@ -99,7 +99,7 @@ Especificação: [orientation.md](../especificacoes/detectors/orientation.md).
 | `upright_min_probability` | número | `0.5` | mín. 0, máx. 1 | Probabilidade de 0° abaixo da qual a página sem rotação convincente vai para revisão como orientação incerta |
 | `skip_blank` | sim/não | `true` |  | Não classificar página branca e exigir confiança alta na página com pouca tinta |
 | `blank_ink_coverage` | número | `0.003` | mín. 0, máx. 1 | Cobertura de tinta abaixo da qual a página é branca e não é classificada |
-| `min_ink_coverage` | número | `0.01` | mín. 0, máx. 1 | Cobertura de tinta abaixo da qual a página tem pouca tinta: só sinaliza a partir de auto_threshold, sempre para revisão |
+| `min_ink_coverage` | número | `0.01` | mín. 0, máx. 1 | Cobertura de tinta abaixo da qual a página tem pouca tinta: sinaliza a partir de review_threshold, sempre para revisão, e sem orientação incerta |
 | `deskew_before_orient` | número | `2.0` | mín. 0 | Inclinação, em graus, acima da qual o classificador recebe uma cópia endireitada da página |
 | `deskew_min_confidence` | número | `0.3` | mín. 0, máx. 1 | Confiança mínima da inclinação para endireitar antes de classificar |
 
@@ -116,7 +116,7 @@ Especificação: [black_borders.md](../especificacoes/detectors/black_borders.md
 
 ### `blur`
 
-Desfoque. Versão 1.2.0, severidade `critical`.
+Desfoque. Versão 1.3.0, severidade `critical`.
 Especificação: [blur.md](../especificacoes/detectors/blur.md).
 
 | Parâmetro | Tipo | Padrão | Faixa | Descrição |
@@ -127,10 +127,11 @@ Especificação: [blur.md](../especificacoes/detectors/blur.md).
 | `min_ink_coverage` | número | `0.01` | mín. 0, máx. 1 | Cobertura de tinta mínima para a página ser avaliada |
 | `solid_min_area` | número | `0.02` | mín. 0, máx. 1 | Fração da página a partir da qual um componente de tinta sólido sai da medida (faixa preta estreita, tarja) |
 | `solid_min_solidity` | número | `0.9` | mín. 0, máx. 1 | Área do componente sobre a da envoltória convexa a partir da qual ele é sólido, não escrita |
+| `review_min_ink_coverage` | número | `0.003` | mín. 0, máx. 1 | Cobertura mínima para medir; entre ela e min_ink_coverage a página tem pouca tinta e só vai para revisão |
 
 ### `skew`
 
-Inclinação. Versão 1.2.0, severidade `medium`.
+Inclinação. Versão 1.3.0, severidade `medium`.
 Especificação: [skew.md](../especificacoes/detectors/skew.md).
 
 | Parâmetro | Tipo | Padrão | Faixa | Descrição |
@@ -141,6 +142,8 @@ Especificação: [skew.md](../especificacoes/detectors/skew.md).
 | `min_ink_coverage` | número | `0.01` | mín. 0, máx. 1 | Cobertura mínima para estimar o ângulo |
 | `min_flag_confidence` | número | `0.1` | mín. 0, máx. 1 | Confiança abaixo da qual a inclinação não é sinalizada: o ângulo achado pontua igual a 0° |
 | `min_auto_confidence` | número | `0.3` | mín. 0, máx. 1 | Confiança a partir da qual a correção de inclinação é automática; abaixo, vai para revisão |
+| `review_min_ink_coverage` | número | `0.003` | mín. 0, máx. 1 | Cobertura mínima para medir; entre ela e min_ink_coverage a página tem pouca tinta e só vai para revisão |
+| `low_ink_min_angle` | número | `3.0` | mín. 0 | Na página com pouca tinta, ângulo absoluto mínimo, em graus, para sinalizar (com poucas linhas a estimativa é ruidosa em ângulo pequeno) |
 
 ### `exposure`
 
