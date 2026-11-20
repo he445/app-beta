@@ -239,6 +239,50 @@ def test_skew_is_measured_on_the_upright_view(tmp_path: Path) -> None:
     assert abs(without.observations["skew"].values["angle"] - 2.5) > 1.0  # texto em pé: lixo
 
 
+class Sequence:
+    """Classificador falso: responde em ordem, uma resposta por chamada."""
+
+    def __init__(self, *answers: tuple[int, float]) -> None:
+        self.answers = [OrientationPrediction(a, p) for a, p in answers]
+        self.calls = 0
+
+    def classify(self, gray: np.ndarray) -> OrientationPrediction:
+        self.calls += 1
+        return self.answers.pop(0)
+
+
+def _skewed(tmp_path: Path, angle: float) -> Path:
+    hi = synth.Page(synth.text_page(random.Random(42), (1748, 2480), 7, 5, 7))
+    synth.d_skew(hi, random.Random(3), angle=angle)
+    return save(tmp_path / f"inclinada-{angle}.tif", cv2.resize(hi.gray, (874, 1240)))
+
+
+def test_strong_skew_also_classifies_the_straightened_view(tmp_path: Path) -> None:
+    """Com inclinação forte, vale a leitura mais confiante entre a vista crua e a endireitada."""
+    from qa_engine.detectors.registry import params_for
+
+    rules = (("orientation", params()), ("skew", params_for("skew", None)))
+    path = _skewed(tmp_path, 5.0)
+    wrong_then_right = Sequence((180, 0.9), (0, 0.93))
+    result = analyze_page(PageTask(path, 0, rules, 0.05), classifier=wrong_then_right)
+    assert wrong_then_right.calls == 2
+    assert result.observations["orientation"].values["angle"] == 0
+    right_then_worse = Sequence((0, 0.77), (180, 0.58))
+    kept = analyze_page(PageTask(path, 0, rules, 0.05), classifier=right_then_worse)
+    assert kept.observations["orientation"].values["angle"] == 0
+    # De pé, a inclinação medida antes de classificar é a que vale.
+    assert abs(kept.observations["skew"].values["angle"] - 5.0) < 0.3
+
+
+def test_mild_skew_classifies_once(tmp_path: Path) -> None:
+    from qa_engine.detectors.registry import params_for
+
+    rules = (("orientation", params()), ("skew", params_for("skew", None)))
+    once = Fixed(0, 0.95)
+    analyze_page(PageTask(_skewed(tmp_path, 1.0), 0, rules, 0.05), classifier=once)
+    assert once.calls == 1
+
+
 def test_other_rules_measure_the_original(tmp_path: Path) -> None:
     from qa_engine.detectors.registry import params_for
 

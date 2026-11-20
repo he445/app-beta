@@ -30,6 +30,13 @@ são frações da folha. Como defesa para faixa estreita demais, o desfoque tamb
 máscara os componentes de tinta grandes e sólidos. A cadeia de correção (recortar → girar →
 endireitar) não muda.
 
+A inclinação também atrapalha o classificador: uma página só inclinada 5,9° foi lida como
+de cabeça para baixo com 0,898, a 0,002 da correção automática. Por isso a inclinação é
+estimada na vista de conteúdo antes de classificar; acima de 2°, com confiança de pelo menos
+0,3, o classificador lê também uma cópia endireitada e vale a leitura mais confiante. Ler só
+a endireitada piorou outra página (2,8°, de 0° com 0,77 para 180° com 0,58). De pé, a
+inclinação medida antes de classificar é a que a regra `skew` usa.
+
 Faixa abaixo de `min_fraction` não é cortada: na caixa, cortar 11 px de uma linha escura do
 topo de uma página sem borda fez o classificador trocar 0° (66%) por 180° (49%).
 
@@ -40,4 +47,7 @@ topo de uma página sem borda fez o classificador trocar 0° (66%) por 180° (49
 - As páginas com borda deixaram de inflar a dispersão do contraste do lote. Uma página de
   tinta cinza, colada no limite (z = −2,0), passou a ganhar "sem contraste": é ruído de
   limiar da regra de exposição, que compara cada página com o lote.
-- Cobrança: testes de `content_view` e do desfoque com faixa sólida em `test_detectors.py`.
+- A página com inclinação acima de 2° (cerca de 4% da caixa) passa pelo classificador duas
+  vezes; a de pé não mede a inclinação de novo.
+- Cobrança: testes de `content_view` e do desfoque com faixa sólida em `test_detectors.py`;
+  testes da leitura endireitada em `test_orientation.py`.

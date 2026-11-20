@@ -89,7 +89,7 @@ Especificação: [blank_page.md](../especificacoes/detectors/blank_page.md).
 
 ### `orientation`
 
-Página de lado ou de cabeça para baixo. Versão 1.3.0, severidade `medium`.
+Página de lado ou de cabeça para baixo. Versão 1.4.0, severidade `medium`.
 Especificação: [orientation.md](../especificacoes/detectors/orientation.md).
 
 | Parâmetro | Tipo | Padrão | Faixa | Descrição |
@@ -100,6 +100,8 @@ Especificação: [orientation.md](../especificacoes/detectors/orientation.md).
 | `skip_blank` | sim/não | `true` |  | Não classificar página branca e exigir confiança alta na página com pouca tinta |
 | `blank_ink_coverage` | número | `0.003` | mín. 0, máx. 1 | Cobertura de tinta abaixo da qual a página é branca e não é classificada |
 | `min_ink_coverage` | número | `0.01` | mín. 0, máx. 1 | Cobertura de tinta abaixo da qual a página tem pouca tinta: só sinaliza a partir de auto_threshold, sempre para revisão |
+| `deskew_before_orient` | número | `2.0` | mín. 0 | Inclinação, em graus, acima da qual o classificador recebe uma cópia endireitada da página |
+| `deskew_min_confidence` | número | `0.3` | mín. 0, máx. 1 | Confiança mínima da inclinação para endireitar antes de classificar |
 
 ### `black_borders`
 

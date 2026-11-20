@@ -25,6 +25,7 @@ from qa_engine.detectors import (
     duplicate_page,
     orientation,
     sequence,
+    skew,
 )
 from qa_engine.detectors.base import (
     ANALYSIS_DPI,
@@ -219,24 +220,46 @@ def analyze_page(
     content, content_features = content_view(raster, features, rules.get(black_borders.ID))
     upright_raster, upright_features = content, content_features
     page_upright = raster.gray  # numeração: a página inteira, de pé (regiões são frações dela)
+    rotated = False
+    pre_skew: Observation | None = None
     if orientation.ID in rules and not orientation.skips(features, rules[orientation.ID]):
         if classifier is None and task.models_dir is not None:
             classifier = _classifier(task.models_dir)
         if classifier is not None:
+            orient_params = rules[orientation.ID]
+            skew_params = rules.get(skew.ID) or params_for(skew.ID, None)
+            # Inclinação na vista de conteúdo antes de classificar: com inclinação forte e
+            # confiável, o classificador recebe uma cópia endireitada (ADR-0027).
+            pre_skew = skew.DETECTOR.measure(content, content_features, skew_params)
             prediction = classifier.classify(content.gray)
+            if pre_skew.eligible:
+                angle = float(pre_skew.values["angle"])
+                strong = abs(angle) > float(orient_params["deskew_before_orient"])
+                trusted = float(pre_skew.extra.get("confidence", 0.0)) >= float(
+                    orient_params["deskew_min_confidence"]
+                )
+                if strong and trusted:
+                    # O classificador olha um recorte central e é sensível a ele: vale a
+                    # leitura mais confiante entre a vista crua e a endireitada.
+                    other = classifier.classify(skew.straightened(content.gray, angle))
+                    if other.probability > prediction.probability:
+                        prediction = other
             raster = replace(raster, orientation=prediction)
             content = replace(content, orientation=prediction)
             upright_raster = content
             review_at = orientation.suggest_at(features, rules[orientation.ID])
             if prediction.angle and prediction.probability >= review_at:
-                view = oriented_view(content.gray, prediction.angle)
-                upright_raster = replace(content, gray=view)
-                upright_features = compute_features(view)
+                turned = oriented_view(content.gray, prediction.angle)
+                upright_raster = replace(content, gray=turned)
+                upright_features = compute_features(turned)
                 page_upright = oriented_view(raster.gray, prediction.angle)
+                rotated = True
     detectors = {d.id: d for d in PAGE_DETECTORS}
     observations = {}
     for rule, params in task.rules:
-        if rule in ORIENTED_RULES:
+        if rule == skew.ID and pre_skew is not None and not rotated:
+            observations[rule] = pre_skew  # de pé: a medida antes da orientação vale
+        elif rule in ORIENTED_RULES:
             observations[rule] = detectors[rule].measure(upright_raster, upright_features, params)
         elif rule in CONTENT_RULES:
             observations[rule] = detectors[rule].measure(content, content_features, params)

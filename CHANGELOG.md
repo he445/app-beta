@@ -40,6 +40,10 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
   redigitalização, em página com borda, e a página girada com borda deixa de passar como de
   pé. `blur` 1.2.0 (parâmetros `solid_min_area` e `solid_min_solidity`), `exposure` 1.1.0,
   `orientation` 1.3.0.
+- **Rotação errada em página muito inclinada:** acima de 2° de inclinação, com confiança de
+  pelo menos 0,3, o classificador de orientação também lê uma cópia endireitada e vale a
+  leitura mais confiante; de pé, a inclinação medida antes não é medida de novo.
+  `orientation` 1.4.0, parâmetros `deskew_before_orient` e `deskew_min_confidence`.
 - **Plano B do detector de escritos** não devolve mais o fundo: caixa que cobre mais da
   metade do recorte ou encosta em 3 bordas dele é gradiente de luz, não escrito. A leitura
   da região da numeração também descarta caixa encostada na borda da página, como a busca

@@ -1,5 +1,5 @@
 id: orientation
-version: 1.3.0
+version: 1.4.0
 title: Página de lado ou de cabeça para baixo
 spec: docs/especificacoes/detectors/orientation.md
 input: page_gray_150dpi
@@ -12,4 +12,6 @@ params:
   skip_blank: { type: boolean, default: true, description: "Não classificar página branca e exigir confiança alta na página com pouca tinta" }
   blank_ink_coverage: { type: number, default: 0.003, minimum: 0, maximum: 1, description: "Cobertura de tinta abaixo da qual a página é branca e não é classificada" }
   min_ink_coverage: { type: number, default: 0.01, minimum: 0, maximum: 1, description: "Cobertura de tinta abaixo da qual a página tem pouca tinta: só sinaliza a partir de auto_threshold, sempre para revisão" }
+  deskew_before_orient: { type: number, default: 2.0, minimum: 0, description: "Inclinação, em graus, acima da qual o classificador recebe uma cópia endireitada da página" }
+  deskew_min_confidence: { type: number, default: 0.3, minimum: 0, maximum: 1, description: "Confiança mínima da inclinação para endireitar antes de classificar" }
 output: finding

@@ -53,10 +53,22 @@ def estimate_skew(ink: NDArray[np.bool_], max_angle: float) -> tuple[float, floa
     return best, confidence
 
 
+def straightened(gray: NDArray[np.uint8], angle: float) -> NDArray[np.uint8]:
+    """Cópia em memória endireitada (``angle`` positivo = inclinada no sentido horário)."""
+    h, w = gray.shape
+    matrix = cv2.getRotationMatrix2D((w / 2.0, h / 2.0), angle, 1.0)
+    paper = int(np.percentile(gray, 90))
+    out = cv2.warpAffine(gray, matrix, (w, h), flags=cv2.INTER_LINEAR, borderValue=paper)
+    return np.ascontiguousarray(out, dtype=np.uint8)
+
+
+ID = "skew"
+
+
 class Skew:
     """Detector de inclinação."""
 
-    id = "skew"
+    id = ID
 
     def measure(self, page: PageRaster, features: PageFeatures, params: Params) -> Observation:
         """Ângulo dominante das linhas de texto na área útil."""
