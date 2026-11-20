@@ -24,8 +24,8 @@ limiares, e como a numeração e as estações são tratadas.
 | `numbering.min_confidence` | número |  |  | Abaixo disso a leitura não conta. mín. 0, máx. 1 |
 | `numbering.high_confidence` | número |  |  | A partir disso a leitura é confiável: ancora lacunas e a ordem proposta. mín. 0, máx. 1 |
 | `numbering.image_high_confidence` | número |  |  | Confiança alta das leituras do leitor de imagem; substitui high_confidence quando a numeração vem da imagem (a escala de cada leitor é diferente). Ausente: vale high_confidence. mín. 0, máx. 1 |
-| `numbering.max_gap_sheets` | inteiro |  | `50` | Lacuna maior que isto (ou maior que o próprio documento, a partir de min_implausible_gap folhas) é leitura de numeração duvidosa e vai para revisão, não vira folha faltando. mín. 1 |
-| `numbering.min_implausible_gap` | inteiro |  | `10` | Lacuna maior que o próprio documento só é tratada como leitura duvidosa a partir deste número de folhas (documento curto com algumas folhas faltando continua sendo folha faltando). mín. 1 |
+| `numbering.max_gap_sheets` | inteiro |  |  | Padrão 50. Lacuna maior que isto (ou maior que o próprio documento, a partir de min_implausible_gap folhas) é leitura de numeração duvidosa e vai para revisão, não vira folha faltando. mín. 1 |
+| `numbering.min_implausible_gap` | inteiro |  |  | Padrão 10. Lacuna maior que o próprio documento só é tratada como leitura duvidosa a partir deste número de folhas (documento curto com algumas folhas faltando continua sendo folha faltando). mín. 1 |
 | `numbering.max_first_folio` | inteiro ou vazio |  |  | Documento cuja numeração começa depois desta folha vai para revisão (continuação de outro volume ou leitura errada). Ausente ou nulo: desligado; ligue quando todo documento da operação começa perto de fls. 1. mín. 1 |
 | `numbering.regions` | lista de lista de número |  |  | Onde procurar o número na página já orientada, em frações [x0, y0, x1, y1], testadas em ordem. Padrão: canto superior direito [0.60, 0.00, 1.00, 0.18]. |
 | `numbering.struck_threshold` | número |  |  | Nota de riscado a partir da qual o escrito é tratado como numeração anterior. Padrão 0,6. mín. 0, máx. 1 |
