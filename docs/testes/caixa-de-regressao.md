@@ -54,7 +54,7 @@ uv run --project engine qa analyze "caixa/caixa teste" --profile profiles/sos-pi
 uv run --project engine python tools/bench_box/time_pages.py "caixa/caixa teste" \
     --profile profiles/sos-piloto.yaml --models models --out saida-serie tempos.json
 python3 tools/bench_box/score_box.py --gabarito caixa --report saida/report.json \
-    --tempos tempos.json --baseline tools/bench_box/baseline-1.1.0.json \
+    --tempos tempos.json --baseline tools/bench_box/baseline-1.2.0.json \
     --json resultado.json --md resultado.md
 ```
 
@@ -75,6 +75,29 @@ inclinação medido em cada página, para conferir que uma otimização não mud
 | Fora de ordem | A caixa nunca embaralha páginas: todo "fora de ordem" é falso |
 | Folha perdida | O processo que o `manifest.csv` declara maior foi apontado |
 | Tempo | Mediana, percentil 95 e máximo por página em série |
+
+## Resultados por versão
+
+| Medida | 1.1.0 | 1.2.0 |
+| --- | --- | --- |
+| Achados | 296 / 318 | 317 / 318 |
+| Folha em branco (comum e verso) | 18 / 20 e 0 / 10 | 20 / 20 e 10 / 10 |
+| Duplicata: pares e cópia certa | 21 / 25 e 19 | 25 / 25 e 25 |
+| Desfoque, inclinação, rotação | 33, 53, 65 | 34, 55, 67 |
+| Avisos fora do gabarito | 15 | 9 |
+| Avisos em página limpa | 5 | 8 |
+| Correção automática em página limpa | 3 | 1 |
+| Lacuna maior que o documento | 2 | 0 |
+| Fora de ordem falso | 3 | 0 |
+| Mediana em série (2 núcleos) | 0,307 s | 0,268 s |
+
+Na 1.2.0, a página que escapa é uma rotação (`processo 6/0037`: o modelo dá 0,25 para cada
+ângulo). A correção automática que sobra é uma inclinação de 0,55° com confiança 0,67, colada
+no limite de sinalização. Dos 9 avisos fora do gabarito, 5 são novos em relação à 1.1.0
+(desfoque e orientação em páginas com pouca tinta e uma exposição no limite) e 11 da 1.1.0
+sumiram (desfoque em página com borda e inclinações sem evidência). A meta de 0,25 s de
+mediana em série não foi atingida: o maior custo que sobra é o detector de escritos no canto
+da numeração (cerca de 0,08 s por página), que não mudou.
 
 ## Como reprova
 

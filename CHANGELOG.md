@@ -6,6 +6,8 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 
 ## [Não lançado]
 
+## [1.2.0] — 2026-11-20
+
 ### Adicionado
 
 - **Caixa de regressão** (`tools/bench_box/`, [documentação](docs/testes/caixa-de-regressao.md)):

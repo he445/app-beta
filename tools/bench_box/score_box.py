@@ -10,7 +10,7 @@ páginas) e as folhas perdidas declaradas no ``manifest.csv``. Com ``--tempos`` 
 Uso::
 
     python3 tools/bench_box/score_box.py --gabarito <dir_gabarito> --report <saida>/report.json \
-        [--tempos tempos.json] [--baseline tools/bench_box/baseline-1.1.0.json] \
+        [--tempos tempos.json] [--baseline tools/bench_box/baseline-1.2.0.json] \
         [--json resultado.json] [--md resultado.md]
 
 ``<dir_gabarito>`` é a pasta com ``gabarito_caixa_teste.csv`` e ``paginas_perdidas.csv``.
