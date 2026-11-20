@@ -62,8 +62,12 @@ com uma tecla; a próxima aparece sozinha.
 Outras teclas úteis: **← →** anterior e seguinte, **Espaço** amplia, **Ctrl+Z** desfaz a
 última decisão, **Q E W** giram a página, **N** digita o número da folha.
 
-No alto da fila, **"X de Y decididas"** mostra quanto falta. Quando chega a Y de Y, a
-tela diz **Fila vazia**.
+A revisão anda **pasta por pasta** e abre na primeira pasta com pendência. O nome da
+pasta fica no alto da tela; no seletor **Pasta**, cada pasta mostra quantas faltam ou
+"concluída". No alto da fila, **"X de Y decididas nesta pasta"** mostra quanto falta na
+pasta, e embaixo **"Caixa: …"** mostra a caixa inteira. Quando a pasta acaba, clique em
+**Próxima pasta →** (ou no botão que aparece no lugar da página). Quando a caixa toda
+acaba, a tela diz **Fila vazia**.
 
 ### 4. Conferir a sequência (quando houver dúvida de numeração)
 
@@ -82,8 +86,9 @@ Em **Relatório**:
 
 1. Clique em **Salvar na pasta de saída**. A tela mostra **Gravado em …** com a pasta do
    lote corrigido.
-2. O cartão **Relatórios por caixa** mostra a caixa com quantas folhas faltam e quantas
-   páginas estão ilegíveis. Abra o **PDF** para imprimir ou arquivar: ele substitui a
+2. O cartão **Relatórios por caixa** mostra a caixa com quantas folhas faltam, quantas
+   páginas estão ilegíveis (arquivo que não abre) e quantos defeitos de imagem foram
+   confirmados (desfocada, exposição ruim, resolução baixa). Abra o **PDF** para imprimir ou arquivar: ele substitui a
    folha de papel das pendências.
 
 Pronto: a caixa está conferida. Se uma pendência for resolvida depois, salve de novo: sai
@@ -103,7 +108,8 @@ programa. Abra essa pasta no passo 1 e siga os passos. O que você deve encontra
 | Escura, clara ou sem contraste | Uma das páginas | Olhe a página: dá para ler? **A** (aprovar) |
 
 Ao salvar, o relatório da caixa **CX001** deve mostrar **1 folha faltando** (fls. 3, em
-`DOC0001`) e **1 página ilegível** (em `DOC0002`). Se o seu resultado for esse, você já
+`DOC0001`), nenhuma página ilegível e **1 defeito de imagem** (a página desfocada de
+`DOC0002`, em "Páginas desfocadas" no PDF). Se o seu resultado for esse, você já
 sabe conferir uma caixa.
 
 ## Situações comuns
@@ -111,8 +117,9 @@ sabe conferir uma caixa.
 - **"Reavaliar" num processo que você já conferiu:** a análise final da caixa achou algo
   novo nele (uma página duplicada de outro processo, por exemplo). Decida só o achado
   novo; o resto continua decidido.
-- **Página ilegível × número ilegível:** página ilegível é a que precisa ser
-  digitalizada de novo. Se só o número da folha não dá para ler mas a página está boa,
+- **Página ilegível × defeito de imagem × número ilegível:** página ilegível é a de
+  arquivo que não abre. Página desfocada, clara ou escura demais ou com resolução baixa
+  sai no relatório com o seu tipo, como defeito de imagem. Se só o número da folha não dá para ler mas a página está boa,
   digite o número na Sequência; isso não é pendência da caixa.
 - **Faixa "A trava da caixa vale só neste computador"** no painel: a pasta compartilhada
   da rede não está configurada ou está fora do ar. Avise a TI; você pode continuar.

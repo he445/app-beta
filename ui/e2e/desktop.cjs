@@ -67,6 +67,8 @@ const { conferirCaixaDeExemplo } = require("./manual-flow.cjs");
   await page.getByRole("link", { name: "Revisão" }).click();
   const rotateHeading = page.getByRole("heading", { name: "Girar a página" });
   await page.getByText("decididas").first().waitFor({ timeout: 30_000 });
+  // A revisão abre na primeira pasta com pendência; aqui vale a fila da caixa inteira.
+  await page.getByLabel("Pasta", { exact: true }).selectOption("todas");
   for (let i = 0; i < 10 && !(await rotateHeading.isVisible()); i++) await page.keyboard.press("ArrowRight");
   await rotateHeading.waitFor({ timeout: 10_000 });
   await page.keyboard.press("e");

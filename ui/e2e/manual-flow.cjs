@@ -26,22 +26,29 @@ async function conferirCaixaDeExemplo(page, folder, shots) {
   await page.keyboard.press("Escape");
   await page.getByRole("dialog", { name: "Atalhos de teclado" }).waitFor({ state: "detached", timeout: 10_000 });
 
-  // Passo 3: decidir cada sinalização na Revisão.
+  // Passo 3: decidir cada sinalização na Revisão, pasta por pasta.
   await review.click();
-  const progress = page.locator(".queue-progress strong");
-  await progress.waitFor({ timeout: 30_000 });
+  const progress = page.locator(".queue-progress");
+  await progress.locator("strong").waitFor({ timeout: 30_000 });
   const seen = [];
-  for (let i = 0; i < 30; i++) {
-    const text = (await page.locator(".queue-progress").textContent()) ?? "";
-    const [, done, total] = /(\d+)\s*de\s*(\d+)\s*decididas/.exec(text) ?? [];
-    if (done === total) break;
-    const rule = ((await page.locator(".panel h2.inline").first().textContent()) ?? "").trim();
-    const key = DECISION_BY_RULE[rule] ?? "a"; // o resto: olhar a página e aprovar se estiver boa
-    seen.push(rule);
-    await page.keyboard.press(key);
+  for (let i = 0; i < 40; i++) {
+    const text = (await progress.textContent()) ?? "";
+    // "F de T decididas nesta pasta" e, embaixo, "Caixa: D de N".
+    const [, folderDone, folderTotal] = /(\d+)\s*de\s*(\d+)\s*decididas/.exec(text) ?? [];
+    const [, boxDone, boxTotal] = /Caixa:\s*(\d+)\s*de\s*(\d+)/.exec(text) ?? [, folderDone, folderTotal];
+    if (boxDone === boxTotal) break;
+    if (folderDone === folderTotal) {
+      // Pasta concluída: o manual manda ir para a próxima pasta com pendência.
+      await page.getByRole("button", { name: "Próxima pasta →" }).click();
+    } else {
+      const rule = ((await page.locator(".panel h2.inline").first().textContent()) ?? "").trim();
+      const key = DECISION_BY_RULE[rule] ?? "a"; // o resto: olhar a página e aprovar se estiver boa
+      seen.push(rule);
+      await page.keyboard.press(key);
+    }
     await page.waitForFunction(
-      (before) => document.querySelector(".queue-progress strong")?.textContent !== before,
-      done,
+      (before) => document.querySelector(".queue-progress")?.textContent !== before,
+      text,
       { timeout: 60_000 },
     );
   }
@@ -63,12 +70,13 @@ async function conferirCaixaDeExemplo(page, folder, shots) {
   const row = page.locator("tr", { hasText: "CX001" }).first();
   await row.waitFor({ timeout: 30_000 });
   const cells = (await row.locator("td").allTextContents()).map((t) => t.trim());
-  // Caixa, Versão, Estado, Processos, Faltando, Ilegíveis
-  if (cells[4] !== "1" || cells[5] !== "1") {
-    throw new Error(`relatório da caixa CX001 deveria ter 1 faltando e 1 ilegível: ${cells.join(" | ")}`);
+  // Caixa, Versão, Estado, Processos, Faltando, Ilegíveis, Defeitos de imagem. O desfoque
+  // mandado para retrabalho é defeito de imagem, não página ilegível (ADR-0030).
+  if (cells[4] !== "1" || cells[5] !== "0" || cells[6] !== "1") {
+    throw new Error(`relatório da caixa CX001 deveria ter 1 faltando, 0 ilegível e 1 defeito de imagem: ${cells.join(" | ")}`);
   }
   if (shots) await page.screenshot({ path: `${shots}/manual-relatorio.png`, fullPage: true });
-  console.log(`manual ok: ${seen.length} decisões (${seen.join(", ")}); caixa CX001 com 1 faltando e 1 ilegível`);
+  console.log(`manual ok: ${seen.length} decisões (${seen.join(", ")}); caixa CX001 com 1 faltando e 1 página desfocada`);
 }
 
 module.exports = { conferirCaixaDeExemplo };
