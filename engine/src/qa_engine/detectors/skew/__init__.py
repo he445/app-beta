@@ -79,25 +79,39 @@ class Skew:
         return Observation({"angle": angle}, extra={"confidence": confidence})
 
     def evaluate(self, obs: Observation, baseline: Baseline, params: Params) -> Flag | None:
-        """Sinaliza acima de ``flag_threshold``; acima de ``reject_threshold`` sobe para alto."""
+        """Sinaliza acima de ``flag_threshold``; acima de ``reject_threshold`` sobe para alto.
+
+        A confiança decide o que acontece (ADR-0028): abaixo de ``min_flag_confidence`` o
+        ângulo achado pontua igual a 0° e nada é sinalizado; até ``min_auto_confidence`` a
+        página vai para revisão, sem correção automática.
+        """
         if not obs.eligible:
             return None
         angle = obs.values["angle"]
         flag_at = float(params["flag_threshold"])
         if abs(angle) <= flag_at:
             return None
+        confidence = float(obs.extra.get("confidence", 0.5))
+        if confidence < float(params["min_flag_confidence"]):
+            return None  # sem evidência: o ângulo achado pontua igual a 0°
+        automatic = confidence >= float(params["min_auto_confidence"])
         reject = abs(angle) > float(params["reject_threshold"])
         direction = "horário" if angle > 0 else "anti-horário"
+        correction_params: dict[str, object] = {"skew_deg": round(angle, 2)}
+        description = f"Endireitar a página girando {abs(angle):.2f}° no sentido oposto."
+        if not automatic:
+            correction_params["review"] = True
+            description += " Evidência fraca: confira antes de aplicar (C)."
         return Flag(
             severity=Severity.HIGH if reject else Severity.MEDIUM,
             measure=abs(angle),
             threshold=flag_at,
-            confidence=float(obs.extra.get("confidence", 0.5)),
+            confidence=confidence,
             correction=Correction(
                 CorrectionClass.AUTOMATIC,
                 CorrectionAction.DESKEW,
-                f"Endireitar a página girando {abs(angle):.2f}° no sentido oposto.",
-                {"skew_deg": round(angle, 2)},
+                description,
+                correction_params,
             ),
             message=f"Inclinação de {abs(angle):.2f}° no sentido {direction}"
             + (" (acima do limite de reprovação)." if reject else "."),

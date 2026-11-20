@@ -44,6 +44,9 @@ Formato [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
   pelo menos 0,3, o classificador de orientação também lê uma cópia endireitada e vale a
   leitura mais confiante; de pé, a inclinação medida antes não é medida de novo.
   `orientation` 1.4.0, parâmetros `deskew_before_orient` e `deskew_min_confidence`.
+- **Inclinação sem evidência** (ADR-0028): abaixo de confiança 0,1 a inclinação não é
+  sinalizada; até 0,3 vai para revisão, sem correção automática. `skew` 1.2.0, parâmetros
+  `min_flag_confidence` e `min_auto_confidence`.
 - **Plano B do detector de escritos** não devolve mais o fundo: caixa que cobre mais da
   metade do recorte ou encosta em 3 bordas dele é gradiente de luz, não escrito. A leitura
   da região da numeração também descarta caixa encostada na borda da página, como a busca

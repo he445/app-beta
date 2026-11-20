@@ -1,6 +1,6 @@
 # skew: Inclinação
 
-Versão: 1.1.0 · Severidade padrão: médio (alto acima do limite de reprovação)
+Versão: 1.2.0 · Severidade padrão: médio (alto acima do limite de reprovação)
 
 ## Objetivo
 
@@ -28,9 +28,16 @@ inclinação ← a₂   (girar a₂ anti-horário endireita conteúdo inclinado 
 confiança ← limitar(2 × (p(a₂) − p(0)) / p(a₂), 0, 1)
 
 avaliação:
-sinaliza se |inclinação| > flag_threshold
-severidade ← alto se |inclinação| > reject_threshold, senão médio
+se |inclinação| ≤ flag_threshold: nada
+se confiança < min_flag_confidence: nada   (o ângulo achado pontua igual a 0°)
+sinaliza; severidade ← alto se |inclinação| > reject_threshold, senão médio
+correção deskew automática se confiança ≥ min_auto_confidence; senão para revisão
+(params.review = verdadeiro, fora do "Corrigir tudo")
 ```
+
+A medida é feita na vista de conteúdo, sem as faixas pretas do digitalizador, já de pé
+(ADR-0027). Quando a página não é girada, vale a inclinação estimada antes de classificar a
+orientação, sem medir de novo.
 
 ## Parâmetros
 
@@ -40,6 +47,8 @@ severidade ← alto se |inclinação| > reject_threshold, senão médio
 | `reject_threshold` | número (graus) | 3,0 | ≥ 0 |
 | `max_angle` | número (graus) | 10 | 1 a 45 |
 | `min_ink_coverage` | número | 0,01 | 0 a 1 |
+| `min_flag_confidence` | número | 0,1 | 0 a 1 |
+| `min_auto_confidence` | número | 0,3 | 0 a 1 |
 
 ## Saída
 
@@ -64,6 +73,8 @@ severidade ← alto se |inclinação| > reject_threshold, senão médio
 
 ## Histórico de versões
 
+- 1.2.0: confiança mínima para sinalizar (`min_flag_confidence`) e para corrigir sozinho
+  (`min_auto_confidence`), ADR-0028; mede a vista de conteúdo, de pé (ADR-0027).
 - 1.1.0: `min_ink_coverage` sobe para 0,01, o limite de página quase branca: verso só
   com carimbo ou rubrica não é avaliado por esta regra (a página já vai ao revisor como
   quase branca).

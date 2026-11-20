@@ -72,6 +72,24 @@ def test_skew_severity_and_sign() -> None:
     assert SKEW.evaluate(observe(SKEW, degraded(synth.d_skew, angle=0.3)), {}, params) is None
 
 
+def test_skew_needs_evidence_to_flag_and_to_correct_alone() -> None:
+    """ADR-0028: confiança 0 não sinaliza; confiança baixa vai para revisão."""
+    from qa_engine.detectors.base import Observation
+
+    params = params_for("skew", None)
+
+    def flag(confidence: float):  # type: ignore[no-untyped-def]
+        return SKEW.evaluate(
+            Observation({"angle": 1.9}, extra={"confidence": confidence}), {}, params
+        )
+
+    assert flag(0.0) is None
+    weak = flag(0.2)
+    assert weak is not None and weak.correction.params.get("review") is True
+    strong = flag(0.6)
+    assert strong is not None and "review" not in strong.correction.params
+
+
 def test_blank_and_near_blank() -> None:
     blank = evaluate(BLANK, blank_150(), CLEAN)
     assert blank is not None and blank.correction.action is CorrectionAction.REMOVE_PAGE

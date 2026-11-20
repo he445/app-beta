@@ -130,7 +130,7 @@ Especificação: [blur.md](../especificacoes/detectors/blur.md).
 
 ### `skew`
 
-Inclinação. Versão 1.1.0, severidade `medium`.
+Inclinação. Versão 1.2.0, severidade `medium`.
 Especificação: [skew.md](../especificacoes/detectors/skew.md).
 
 | Parâmetro | Tipo | Padrão | Faixa | Descrição |
@@ -139,6 +139,8 @@ Especificação: [skew.md](../especificacoes/detectors/skew.md).
 | `reject_threshold` | número | `3.0` | mín. 0 | Ângulo absoluto acima do qual a severidade sobe para alto |
 | `max_angle` | número | `10.0` | mín. 1, máx. 45 | Faixa de busca, em graus, para cada lado |
 | `min_ink_coverage` | número | `0.01` | mín. 0, máx. 1 | Cobertura mínima para estimar o ângulo |
+| `min_flag_confidence` | número | `0.1` | mín. 0, máx. 1 | Confiança abaixo da qual a inclinação não é sinalizada: o ângulo achado pontua igual a 0° |
+| `min_auto_confidence` | número | `0.3` | mín. 0, máx. 1 | Confiança a partir da qual a correção de inclinação é automática; abaixo, vai para revisão |
 
 ### `exposure`
 

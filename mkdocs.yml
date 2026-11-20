@@ -90,6 +90,7 @@ nav:
           - "0025 Escrito precisa ter tinta": adr/0025-escrito-precisa-ter-tinta.md
           - "0026 Duplicata com alinhamento": adr/0026-duplicata-com-alinhamento.md
           - "0027 Medir o conteúdo sem a moldura": adr/0027-medir-o-conteudo-sem-a-moldura.md
+          - "0028 Evidência mínima na inclinação": adr/0028-evidencia-minima-na-inclinacao.md
           - Modelo: adr/0000-template.md
   - Especificações:
       - especificacoes/index.md
